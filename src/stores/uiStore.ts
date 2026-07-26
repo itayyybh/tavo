@@ -1,23 +1,58 @@
 import { create } from 'zustand'
+import type { Vec2 } from '@/types'
 
 export type Theme = 'light' | 'dark'
 
-/** UI Store — transient interface state (selection, panels, active zone, theme). */
+export interface Viewport {
+  pan: Vec2
+  zoom: number
+}
+
+/** UI Store — transient interface state (selection, viewport, theme). */
 interface UIState {
-  selectedTableIds: string[]
-  activeZoneId: string | null
   theme: Theme
-  setSelection: (ids: string[]) => void
-  setActiveZone: (id: string | null) => void
+  selectedTableIds: string[]
+  selectedObstacleId: string | null
+  activeZoneId: string | null
+  viewport: Viewport
+  stageSize: { width: number; height: number }
   toggleTheme: () => void
+  setSelection: (ids: string[]) => void
+  toggleSelection: (id: string, additive: boolean) => void
+  selectObstacle: (id: string | null) => void
+  clearSelection: () => void
+  setActiveZone: (id: string | null) => void
+  setViewport: (viewport: Viewport) => void
+  setStageSize: (size: { width: number; height: number }) => void
 }
 
 export const useUIStore = create<UIState>((set) => ({
-  selectedTableIds: [],
-  activeZoneId: null,
   theme: 'light',
-  setSelection: (ids) => set({ selectedTableIds: ids }),
-  setActiveZone: (id) => set({ activeZoneId: id }),
+  selectedTableIds: [],
+  selectedObstacleId: null,
+  activeZoneId: null,
+  viewport: { pan: { x: 0, y: 0 }, zoom: 1 },
+  stageSize: { width: 0, height: 0 },
+
   toggleTheme: () =>
     set((state) => ({ theme: state.theme === 'light' ? 'dark' : 'light' })),
+
+  setSelection: (ids) => set({ selectedTableIds: ids, selectedObstacleId: null }),
+  toggleSelection: (id, additive) =>
+    set((state) => {
+      if (!additive) return { selectedTableIds: [id], selectedObstacleId: null }
+      const has = state.selectedTableIds.includes(id)
+      return {
+        selectedObstacleId: null,
+        selectedTableIds: has
+          ? state.selectedTableIds.filter((x) => x !== id)
+          : [...state.selectedTableIds, id],
+      }
+    }),
+  selectObstacle: (id) => set({ selectedObstacleId: id, selectedTableIds: [] }),
+  clearSelection: () => set({ selectedTableIds: [], selectedObstacleId: null }),
+
+  setActiveZone: (id) => set({ activeZoneId: id }),
+  setViewport: (viewport) => set({ viewport }),
+  setStageSize: (stageSize) => set({ stageSize }),
 }))

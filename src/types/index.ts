@@ -13,10 +13,20 @@ export interface Vec2 {
   y: number
 }
 
-/** A configurable table type — capacities are defined per restaurant, never hardcoded. */
+export type TableShape = 'square' | 'round' | 'rectangle'
+
+/** A configurable table type — capacities and geometry are defined per restaurant, never hardcoded. */
 export interface TableType {
   id: ID
   name: string
+  shape: TableShape
+  /** Default footprint (world units) when a table of this type is created. */
+  defaultSize: Vec2
+  /**
+   * Service clearance (world units) reserved around the table for chairs + the
+   * waiter aisle. Tables may abut to connect, but can't sit in the cramped gap.
+   */
+  clearance: number
   /** Capacity when the table stands alone. */
   soloCapacity: number
   /** Capacity contribution when merged with other tables. */
@@ -28,8 +38,10 @@ export interface Table {
   zoneId: ID
   typeId: ID
   label: string
+  /** World-space position of the table's CENTER (simplifies rotation & merge math). */
   position: Vec2
   size: Vec2
+  /** Rotation in degrees, clockwise, about the center. */
   rotation: number
   status: TableStatus
   /** When part of a merged group, the id of that group. */
@@ -39,6 +51,19 @@ export interface Table {
 export interface Zone {
   id: ID
   name: string
+}
+
+/** A physical no-go area on the floor (wall, pillar, tree) — tables can't sit here. */
+export type ObstacleKind = 'wall' | 'object'
+
+export interface Obstacle {
+  id: ID
+  kind: ObstacleKind
+  label?: string
+  /** World-space center. */
+  position: Vec2
+  size: Vec2
+  rotation: number
 }
 
 export interface MergedGroup {
@@ -67,4 +92,12 @@ export interface Restaurant {
   name: string
   zones: Zone[]
   tableTypes: TableType[]
+}
+
+/** Serializable snapshot of the editable layout document (used for undo/redo & persistence). */
+export interface LayoutSnapshot {
+  tables: Table[]
+  zones: Zone[]
+  mergedGroups: MergedGroup[]
+  obstacles: Obstacle[]
 }
