@@ -1,11 +1,12 @@
+import { useEffect } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
+import { useUIStore } from '@/stores'
+import { ThemeToggle } from '@/components/ThemeToggle'
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   [
     'rounded-lg px-3 py-1.5 text-sm transition-colors duration-200',
-    isActive
-      ? 'bg-[var(--color-ink)] text-white'
-      : 'text-[var(--color-muted)] hover:text-[var(--color-ink)]',
+    isActive ? 'bg-ink text-surface' : 'text-muted hover:text-ink',
   ].join(' ')
 
 /**
@@ -13,10 +14,17 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
  * Individual surfaces render into <Outlet /> via the router.
  */
 export default function App() {
+  const theme = useUIStore((s) => s.theme)
+
+  // Apply the active theme to the document root so tokens flip globally.
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', theme === 'dark')
+  }, [theme])
+
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center justify-between border-b border-[var(--color-line)] px-6 py-3">
-        <span className="text-sm font-semibold tracking-tight">
+      <header className="flex items-center justify-between border-b border-line px-6 py-3">
+        <span className="text-sm font-semibold tracking-tight text-ink">
           Restaurant Floor Manager
         </span>
         <nav className="flex items-center gap-1">
@@ -26,9 +34,14 @@ export default function App() {
           <NavLink to="/editor" className={navLinkClass}>
             Editor
           </NavLink>
+          <NavLink to="/design" className={navLinkClass}>
+            Design
+          </NavLink>
+          <span className="mx-1 h-4 w-px bg-line" />
+          <ThemeToggle />
         </nav>
       </header>
-      <main className="min-h-0 flex-1 overflow-auto">
+      <main className="min-h-0 flex-1 overflow-auto bg-surface-2">
         <Outlet />
       </main>
     </div>

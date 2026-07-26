@@ -1,8 +1,12 @@
 @import 'tailwindcss';
 
+/* Dark mode is class-based so it can be toggled (see UI store `theme`). */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /*
  * Design foundations — premium minimal SaaS (see the `ui-design` skill).
  * Black & white first. Tokens live here so nothing is hardcoded per-component.
+ * Each --color-* token also becomes a utility (bg-ink, text-muted, border-line…).
  */
 @theme {
   --font-sans:
@@ -30,6 +34,20 @@
 
 :root {
   color-scheme: light;
+}
+
+/* Dark foundations — override the same tokens; every utility flips automatically. */
+.dark {
+  color-scheme: dark;
+
+  --color-ink: #fafafa;
+  --color-ink-soft: #d4d4d4;
+  --color-muted: #a3a3a3;
+  --color-line: #262626;
+  --color-surface: #0a0a0a;
+  --color-surface-2: #171717;
+
+  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.5);
 }
 
 html,
