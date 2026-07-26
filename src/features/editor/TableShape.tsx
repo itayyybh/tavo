@@ -63,7 +63,10 @@ export function TableShape({
         e.cancelBubble = true
         onStartRename(table.id)
       }}
-      onDragStart={() => onSelect(table.id, false)}
+      onDragStart={() => {
+        // Keep an existing multi-selection intact; otherwise select just this one.
+        if (!selected) onSelect(table.id, false)
+      }}
       onDragEnd={(e: KonvaEventObject<DragEvent>) => {
         onDragEnd(table.id, { x: e.target.x(), y: e.target.y() })
       }}

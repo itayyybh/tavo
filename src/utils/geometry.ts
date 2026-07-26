@@ -55,19 +55,9 @@ export function aabb(center: Vec2, size: Vec2) {
 
 type Rect = { x: number; y: number; width: number; height: number }
 
-/** True when two axis-aligned rects overlap (rotation ignored — MVP approximation). */
-export function boxesOverlap(a: Rect, b: Rect): boolean {
-  return (
-    a.x < b.x + b.width &&
-    a.x + a.width > b.x &&
-    a.y < b.y + b.height &&
-    a.y + a.height > b.y
-  )
-}
-
-/** Minimal distance between two axis-aligned rects (0 if they touch or overlap). */
-export function boxGap(a: Rect, b: Rect): number {
-  const dx = Math.max(0, a.x - (b.x + b.width), b.x - (a.x + a.width))
-  const dy = Math.max(0, a.y - (b.y + b.height), b.y - (a.y + a.height))
-  return Math.hypot(dx, dy)
+/** Overlapping area of two axis-aligned rects (0 if they only touch or are apart). */
+export function overlapArea(a: Rect, b: Rect): number {
+  const ox = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x)
+  const oy = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y)
+  return ox > 0 && oy > 0 ? ox * oy : 0
 }

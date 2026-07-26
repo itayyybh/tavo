@@ -41,3 +41,26 @@ export function clearLayout(): void {
     // ignore
   }
 }
+
+/** Serialize a layout to a pretty JSON string (versioned envelope) for file export. */
+export function serializeLayout(snapshot: LayoutSnapshot): string {
+  const envelope: LayoutEnvelope = { version: VERSION, snapshot }
+  return JSON.stringify(envelope, null, 2)
+}
+
+/** Parse an imported layout file, tolerating missing arrays. Returns null if invalid. */
+export function parseLayoutFile(text: string): LayoutSnapshot | null {
+  try {
+    const envelope = JSON.parse(text) as Partial<LayoutEnvelope>
+    const s = envelope?.snapshot
+    if (!s || !Array.isArray(s.tables)) return null
+    return {
+      tables: s.tables,
+      zones: s.zones ?? [],
+      mergedGroups: s.mergedGroups ?? [],
+      obstacles: s.obstacles ?? [],
+    }
+  } catch {
+    return null
+  }
+}

@@ -6,9 +6,8 @@ import { useLayoutStore, useSettingsStore, useUIStore } from '@/stores'
 import { useContainerSize } from '@/hooks/useContainerSize'
 import {
   aabb,
-  boxGap,
-  boxesOverlap,
   clamp,
+  overlapArea,
   pointInRect,
   screenToWorld,
   snap,
@@ -27,6 +26,8 @@ const MIN_ZOOM = 0.25
 const MAX_ZOOM = 4
 const ZOOM_STEP = 1.03
 const MIN_TABLE_SIZE = 30
+// Overlap up to this fraction of a table's area is tolerated (edges/slight touch ok).
+const OVERLAP_TOLERANCE = 0.1
 
 interface Marquee {
   start: Vec2
@@ -113,33 +114,25 @@ export function EditorCanvas() {
     [snapToGrid, gridSize],
   )
 
-  const clearanceOf = useCallback(
-    (typeId: string) => tableTypes.find((t) => t.id === typeId)?.clearance ?? 0,
-    [tableTypes],
-  )
-
-  /** Would a table centered here overlap any obstacle? (AABB approximation.) */
-  const collidesWithObstacle = useCallback(
-    (center: Vec2, tableSize: Vec2) =>
-      obstacles.some((o) =>
-        boxesOverlap(aabb(center, tableSize), aabb(o.position, o.size)),
-      ),
-    [obstacles],
-  )
-
   /**
-   * A table here is blocked if it sits in the cramped gap of another table:
-   * gap must be either 0 (abutting — allowed, so tables can connect/merge) or at
-   * least the combined clearance. `ignore` skips tables that move together.
+   * A placement is rejected only when a table overlaps another table or a wall by
+   * more than a fraction of its own area. Edges touching and slight overlaps are
+   * fine; chair clearance is now just the visual halo, not a hard rule.
+   * `ignore` skips tables that move together.
    */
-  const violatesClearance = useCallback(
-    (center: Vec2, tableSize: Vec2, clearance: number, ignore: Set<string>) =>
-      tables.some((o) => {
-        if (ignore.has(o.id)) return false
-        const gap = boxGap(aabb(center, tableSize), aabb(o.position, o.size))
-        return gap > 0 && gap < clearance + clearanceOf(o.typeId)
-      }),
-    [tables, clearanceOf],
+  const overlapsTooMuch = useCallback(
+    (center: Vec2, size: Vec2, ignore: Set<string>) => {
+      const box = aabb(center, size)
+      const limit = size.x * size.y * OVERLAP_TOLERANCE
+      const hitsWall = obstacles.some(
+        (o) => overlapArea(box, aabb(o.position, o.size)) > limit,
+      )
+      const hitsTable = tables.some(
+        (o) => !ignore.has(o.id) && overlapArea(box, aabb(o.position, o.size)) > limit,
+      )
+      return hitsWall || hitsTable
+    },
+    [obstacles, tables],
   )
 
   const handleWheel = (e: KonvaEventObject<WheelEvent>) => {
@@ -204,21 +197,19 @@ export function EditorCanvas() {
   const handleTableDragEnd = (id: string, center: Vec2) => {
     const table = tables.find((t) => t.id === id)
     if (!table) return
-    const snapped = maybeSnap(center)
     const movingIds =
       selectedIds.includes(id) && selectedIds.length > 1 ? selectedIds : [id]
+    const movingSet = new Set(movingIds)
+    const snapped = maybeSnap(center)
     const delta = { x: snapped.x - table.position.x, y: snapped.y - table.position.y }
 
-    const movingSet = new Set(movingIds)
+    // Revert only if a table would overlap another table/wall beyond the tolerance.
     const blocked = movingIds.some((mid) => {
       const t = tables.find((x) => x.id === mid)
       if (!t) return false
       const newCenter =
         mid === id ? snapped : { x: t.position.x + delta.x, y: t.position.y + delta.y }
-      return (
-        collidesWithObstacle(newCenter, t.size) ||
-        violatesClearance(newCenter, t.size, clearanceOf(t.typeId), movingSet)
-      )
+      return overlapsTooMuch(newCenter, t.size, movingSet)
     })
 
     if (blocked) {
@@ -253,9 +244,7 @@ export function EditorCanvas() {
     const newCenter = maybeSnap(center)
     const only = new Set([id])
 
-    const blocked =
-      collidesWithObstacle(newCenter, newSize) ||
-      violatesClearance(newCenter, newSize, clearanceOf(table.typeId), only)
+    const blocked = overlapsTooMuch(newCenter, newSize, only)
 
     if (blocked) {
       // Revert the node to its stored transform.

@@ -8,6 +8,5 @@ export {
   worldToScreen,
   pointInRect,
   aabb,
-  boxesOverlap,
-  boxGap,
+  overlapArea,
 } from './geometry'

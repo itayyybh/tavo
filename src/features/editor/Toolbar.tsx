@@ -1,6 +1,8 @@
+import { useRef } from 'react'
 import { Button } from '@/components/ui'
 import { useHistoryStore, useLayoutStore, useSettingsStore, useUIStore } from '@/stores'
 import { clamp, screenToWorld, snapPoint } from '@/utils'
+import { parseLayoutFile, serializeLayout } from '@/services/layoutStorage'
 
 const MIN_ZOOM = 0.25
 const MAX_ZOOM = 4
@@ -14,6 +16,9 @@ export function Toolbar() {
   const removeObstacle = useLayoutStore((s) => s.removeObstacle)
   const undo = useLayoutStore((s) => s.undo)
   const redo = useLayoutStore((s) => s.redo)
+  const loadSnapshot = useLayoutStore((s) => s.loadSnapshot)
+
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const canUndo = useHistoryStore((s) => s.past.length > 0)
   const canRedo = useHistoryStore((s) => s.future.length > 0)
@@ -42,6 +47,26 @@ export function Toolbar() {
     if (selectedObstacleId) removeObstacle(selectedObstacleId)
     else removeTables(selectedIds)
     clearSelection()
+  }
+
+  const handleSave = () => {
+    const snapshot = useLayoutStore.getState().snapshot()
+    const blob = new Blob([serializeLayout(snapshot)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'restaurant-layout.json'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleLoadFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = '' // allow re-importing the same file
+    if (!file) return
+    const snapshot = parseLayoutFile(await file.text())
+    if (snapshot) loadSnapshot(snapshot)
+    else alert('Could not read that layout file.')
   }
 
   const zoomBy = (factor: number) => {
@@ -124,6 +149,22 @@ export function Toolbar() {
         />
         Snap
       </label>
+
+      <span className="mx-1 h-5 w-px bg-line" />
+
+      <Button size="sm" variant="ghost" onClick={handleSave}>
+        Save
+      </Button>
+      <Button size="sm" variant="ghost" onClick={() => fileInputRef.current?.click()}>
+        Load
+      </Button>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="application/json,.json"
+        className="hidden"
+        onChange={handleLoadFile}
+      />
     </div>
   )
 }
