@@ -89,10 +89,12 @@ export function EditorCanvas() {
     }
   }, [])
 
-  // Focus + select text whenever a rename starts.
+  // Focus + select text only when a rename STARTS (keyed by target id), not on
+  // every keystroke — otherwise each typed char re-selects and gets overwritten.
+  const renameId = rename?.id
   useEffect(() => {
-    if (rename) renameInputRef.current?.select()
-  }, [rename])
+    if (renameId) renameInputRef.current?.select()
+  }, [renameId])
 
   const registerNode = useCallback((id: string, node: Konva.Group | null) => {
     if (node) nodeRefs.current.set(id, node)
