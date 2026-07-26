@@ -12,6 +12,7 @@ export function Toolbar() {
   const tableTypes = useLayoutStore((s) => s.tableTypes)
   const addTable = useLayoutStore((s) => s.addTable)
   const addObstacle = useLayoutStore((s) => s.addObstacle)
+  const addZone = useLayoutStore((s) => s.addZone)
   const removeTables = useLayoutStore((s) => s.removeTables)
   const removeObstacle = useLayoutStore((s) => s.removeObstacle)
   const undo = useLayoutStore((s) => s.undo)
@@ -109,6 +110,9 @@ export function Toolbar() {
         onClick={() => addObstacle('object', viewCenterWorld())}
       >
         Object
+      </Button>
+      <Button size="sm" variant="secondary" onClick={() => addZone(viewCenterWorld())}>
+        Zone
       </Button>
 
       <span className="mx-1 h-5 w-px bg-line" />

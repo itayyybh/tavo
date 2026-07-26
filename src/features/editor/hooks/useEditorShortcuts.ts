@@ -14,9 +14,9 @@ export function useEditorShortcuts() {
     const onKeyDown = (e: KeyboardEvent) => {
       if (isTypingTarget(e.target)) return
 
-      const { selectedTableIds, selectedObstacleId, clearSelection } =
+      const { selectedTableIds, selectedObstacleId, selectedZoneId, clearSelection } =
         useUIStore.getState()
-      const { removeTables, removeObstacle, undo, redo, moveTablesBy } =
+      const { removeTables, removeObstacle, removeZone, undo, redo, moveTablesBy } =
         useLayoutStore.getState()
       const mod = e.metaKey || e.ctrlKey
 
@@ -33,11 +33,17 @@ export function useEditorShortcuts() {
         return
       }
 
-      // Delete selection (obstacle takes priority when one is selected)
+      // Delete selection (obstacle / zone take priority when one is selected)
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (selectedObstacleId) {
           e.preventDefault()
           removeObstacle(selectedObstacleId)
+          clearSelection()
+          return
+        }
+        if (selectedZoneId) {
+          e.preventDefault()
+          removeZone(selectedZoneId)
           clearSelection()
           return
         }

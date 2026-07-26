@@ -35,7 +35,10 @@ export interface TableType {
 
 export interface Table {
   id: ID
+  /** Effective zone. Derived from containment unless `zonePinned` is set. '' = unassigned. */
   zoneId: ID
+  /** When true, `zoneId` is a manual override and ignores containment. */
+  zonePinned?: boolean
   typeId: ID
   label: string
   /** World-space position of the table's CENTER (simplifies rotation & merge math). */
@@ -48,9 +51,13 @@ export interface Table {
   mergedGroupId?: ID
 }
 
+/** A logical area of the floor (Inside, Outside, VIP…) with a visual boundary. */
 export interface Zone {
   id: ID
   name: string
+  /** World-space center of the zone region. */
+  position: Vec2
+  size: Vec2
 }
 
 /** A physical no-go area on the floor (wall, pillar, tree) — tables can't sit here. */

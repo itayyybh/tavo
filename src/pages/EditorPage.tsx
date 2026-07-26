@@ -1,5 +1,11 @@
 import { useEffect } from 'react'
-import { EditorCanvas, Toolbar, useAutosave, useEditorShortcuts } from '@/features/editor'
+import {
+  EditorCanvas,
+  Toolbar,
+  ZonesPanel,
+  useAutosave,
+  useEditorShortcuts,
+} from '@/features/editor'
 import { useLayoutStore } from '@/stores'
 import { loadLayout } from '@/services/layoutStorage'
 import { createId } from '@/utils'
@@ -57,8 +63,11 @@ export default function EditorPage() {
   return (
     <div className="flex h-full flex-col bg-surface">
       <Toolbar />
-      <div className="min-h-0 flex-1">
-        <EditorCanvas />
+      <div className="flex min-h-0 flex-1">
+        <div className="min-h-0 flex-1">
+          <EditorCanvas />
+        </div>
+        <ZonesPanel />
       </div>
       <footer className="border-t border-line px-4 py-1.5 text-xs text-muted">
         Space + drag to pan · ctrl/pinch to zoom · drag to marquee-select · double-click a

@@ -16,10 +16,12 @@ import {
 } from '@/utils'
 import type { Vec2 } from '@/types'
 import { GridBackground } from './GridBackground'
+import { ZoneShape } from './ZoneShape'
 import { TableShape } from './TableShape'
 import { ObstacleShape } from './ObstacleShape'
 import { SelectionTransformer } from './SelectionTransformer'
 import { ObstacleTransformer } from './ObstacleTransformer'
+import { ZoneTransformer } from './ZoneTransformer'
 import { useCanvasColors } from './hooks/useCanvasColors'
 
 const MIN_ZOOM = 0.25
@@ -35,6 +37,7 @@ interface Marquee {
 }
 
 interface RenameState {
+  kind: 'table' | 'zone'
   id: string
   value: string
 }
@@ -45,6 +48,7 @@ export function EditorCanvas() {
   const stageRef = useRef<Konva.Stage>(null)
   const nodeRefs = useRef<Map<string, Konva.Group>>(new Map())
   const obstacleRefs = useRef<Map<string, Konva.Node>>(new Map())
+  const zoneRefs = useRef<Map<string, Konva.Group>>(new Map())
   const renameInputRef = useRef<HTMLInputElement>(null)
   const [marquee, setMarquee] = useState<Marquee | null>(null)
   const [spaceDown, setSpaceDown] = useState(false)
@@ -53,19 +57,23 @@ export function EditorCanvas() {
   const viewport = useUIStore((s) => s.viewport)
   const selectedIds = useUIStore((s) => s.selectedTableIds)
   const selectedObstacleId = useUIStore((s) => s.selectedObstacleId)
+  const selectedZoneId = useUIStore((s) => s.selectedZoneId)
   const setViewport = useUIStore((s) => s.setViewport)
   const setStageSize = useUIStore((s) => s.setStageSize)
   const setSelection = useUIStore((s) => s.setSelection)
   const toggleSelection = useUIStore((s) => s.toggleSelection)
   const selectObstacle = useUIStore((s) => s.selectObstacle)
+  const selectZone = useUIStore((s) => s.selectZone)
   const clearSelection = useUIStore((s) => s.clearSelection)
 
   const tables = useLayoutStore((s) => s.tables)
   const tableTypes = useLayoutStore((s) => s.tableTypes)
   const obstacles = useLayoutStore((s) => s.obstacles)
+  const zones = useLayoutStore((s) => s.zones)
   const updateTable = useLayoutStore((s) => s.updateTable)
   const moveTablesBy = useLayoutStore((s) => s.moveTablesBy)
   const updateObstacle = useLayoutStore((s) => s.updateObstacle)
+  const updateZone = useLayoutStore((s) => s.updateZone)
 
   const gridSize = useSettingsStore((s) => s.gridSize)
   const snapToGrid = useSettingsStore((s) => s.snapToGrid)
@@ -108,6 +116,12 @@ export function EditorCanvas() {
     else obstacleRefs.current.delete(id)
   }, [])
   const getObstacleNode = useCallback((id: string) => obstacleRefs.current.get(id), [])
+
+  const registerZoneNode = useCallback((id: string, node: Konva.Group | null) => {
+    if (node) zoneRefs.current.set(id, node)
+    else zoneRefs.current.delete(id)
+  }, [])
+  const getZoneNode = useCallback((id: string) => zoneRefs.current.get(id), [])
 
   const maybeSnap = useCallback(
     (p: Vec2) => (snapToGrid ? snapPoint(p, gridSize) : p),
@@ -275,25 +289,61 @@ export function EditorCanvas() {
     updateObstacle(id, { size: obstacleSize, position: center, rotation })
   }
 
-  const startRename = (id: string) => {
+  const handleZoneDragEnd = (id: string, center: Vec2) => {
+    updateZone(id, { position: maybeSnap(center) })
+  }
+
+  const handleZoneTransformEnd = (id: string, scale: Vec2, center: Vec2) => {
+    const zone = zones.find((z) => z.id === id)
+    if (!zone) return
+    updateZone(id, {
+      size: { x: zone.size.x * scale.x, y: zone.size.y * scale.y },
+      position: maybeSnap(center),
+    })
+  }
+
+  const startRenameTable = (id: string) => {
     const table = tables.find((t) => t.id === id)
     if (!table) return
     setSelection([id])
-    setRename({ id, value: table.label })
+    setRename({ kind: 'table', id, value: table.label })
+  }
+
+  const startRenameZone = (id: string) => {
+    const zone = zones.find((z) => z.id === id)
+    if (!zone) return
+    selectZone(id)
+    setRename({ kind: 'zone', id, value: zone.name })
   }
 
   const commitRename = () => {
     if (!rename) return
     const value = rename.value.trim()
-    if (value) updateTable(rename.id, { label: value })
+    if (value && rename.kind === 'table') updateTable(rename.id, { label: value })
+    if (value && rename.kind === 'zone') updateZone(rename.id, { name: value })
     setRename(null)
   }
 
-  // Screen position for the inline rename input (centered over the table).
-  const renameTable = rename ? tables.find((t) => t.id === rename.id) : undefined
-  const renamePos = renameTable
-    ? worldToScreen(renameTable.position, viewport)
-    : { x: 0, y: 0 }
+  // Screen position for the inline rename input: table center, or zone label corner.
+  let renamePos = { x: 0, y: 0 }
+  let renameActive = false
+  if (rename?.kind === 'table') {
+    const t = tables.find((x) => x.id === rename.id)
+    if (t) {
+      renamePos = worldToScreen(t.position, viewport)
+      renameActive = true
+    }
+  } else if (rename?.kind === 'zone') {
+    const z = zones.find((x) => x.id === rename.id)
+    if (z) {
+      const corner = {
+        x: z.position.x - z.size.x / 2 + 56,
+        y: z.position.y - z.size.y / 2 + 11,
+      }
+      renamePos = worldToScreen(corner, viewport)
+      renameActive = true
+    }
+  }
 
   return (
     <div
@@ -325,6 +375,18 @@ export function EditorCanvas() {
           />
         </Layer>
         <Layer>
+          {zones.map((zone) => (
+            <ZoneShape
+              key={zone.id}
+              zone={zone}
+              colors={colors}
+              selected={selectedZoneId === zone.id}
+              onSelect={selectZone}
+              onDragEnd={handleZoneDragEnd}
+              onStartRename={startRenameZone}
+              registerNode={registerZoneNode}
+            />
+          ))}
           {obstacles.map((obstacle) => (
             <ObstacleShape
               key={obstacle.id}
@@ -345,7 +407,7 @@ export function EditorCanvas() {
               selected={selectedIds.includes(table.id)}
               onSelect={toggleSelection}
               onDragEnd={handleTableDragEnd}
-              onStartRename={startRename}
+              onStartRename={startRenameTable}
               registerNode={registerNode}
             />
           ))}
@@ -375,14 +437,20 @@ export function EditorCanvas() {
             getNode={getObstacleNode}
             onTransformEnd={handleObstacleTransformEnd}
           />
+          <ZoneTransformer
+            selectedId={selectedZoneId}
+            zonesVersion={zones.length}
+            getNode={getZoneNode}
+            onTransformEnd={handleZoneTransformEnd}
+          />
         </Layer>
       </Stage>
 
-      {rename && renameTable && (
+      {rename && renameActive && (
         <input
           ref={renameInputRef}
           value={rename.value}
-          onChange={(e) => setRename({ id: rename.id, value: e.target.value })}
+          onChange={(e) => setRename({ ...rename, value: e.target.value })}
           onBlur={commitRename}
           onKeyDown={(e) => {
             if (e.key === 'Enter') commitRename()

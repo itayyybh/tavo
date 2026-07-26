@@ -9,7 +9,7 @@ import type {
   Vec2,
   Zone,
 } from '@/types'
-import { createId } from '@/utils'
+import { aabb, createId, pointInRect } from '@/utils'
 import { useHistoryStore } from './historyStore'
 
 /** Default footprint for new obstacles (world units). */
@@ -18,11 +18,21 @@ const OBSTACLE_DEFAULT_SIZE: Record<ObstacleKind, Vec2> = {
   object: { x: 50, y: 50 },
 }
 
+/** Default footprint for a newly created zone. */
+const ZONE_DEFAULT_SIZE: Vec2 = { x: 320, y: 260 }
+
 /**
  * Default configuration — seeded, not hardcoded logic (see the `data-model` skill).
  * A restaurant can later add/edit its own zones and table types (Phase 4/5).
  */
-const DEFAULT_ZONES: Zone[] = [{ id: 'zone-inside', name: 'Inside' }]
+const DEFAULT_ZONES: Zone[] = [
+  {
+    id: 'zone-inside',
+    name: 'Inside',
+    position: { x: 300, y: 240 },
+    size: { x: 480, y: 360 },
+  },
+]
 
 const DEFAULT_TABLE_TYPES: TableType[] = [
   {
@@ -64,7 +74,7 @@ interface LayoutState {
   mergedGroups: MergedGroup[]
   obstacles: Obstacle[]
   // Table mutations (each records history)
-  addTable: (typeId: string, center: Vec2, zoneId?: string) => void
+  addTable: (typeId: string, center: Vec2) => void
   updateTable: (id: string, patch: Partial<Table>) => void
   moveTablesBy: (ids: string[], delta: Vec2) => void
   removeTables: (ids: string[]) => void
@@ -72,6 +82,12 @@ interface LayoutState {
   addObstacle: (kind: ObstacleKind, center: Vec2) => void
   updateObstacle: (id: string, patch: Partial<Obstacle>) => void
   removeObstacle: (id: string) => void
+  // Zone mutations
+  addZone: (center: Vec2) => void
+  updateZone: (id: string, patch: Partial<Zone>) => void
+  removeZone: (id: string) => void
+  /** Manual assignment: pin selected tables to a zone, or null to return them to auto. */
+  setTablesZone: (ids: string[], zoneId: string | null) => void
   // History
   undo: () => void
   redo: () => void
@@ -87,6 +103,21 @@ function nextLabel(tables: Table[]): string {
   const numbers = tables.map((t) => parseInt(t.label, 10)).filter((n) => !Number.isNaN(n))
   const max = numbers.length ? Math.max(...numbers) : 0
   return String(max + 1)
+}
+
+/**
+ * Recompute each non-pinned table's zone from containment (topmost zone wins;
+ * '' if inside none). Pinned tables keep their manual zone.
+ */
+function assignZones(tables: Table[], zones: Zone[]): Table[] {
+  return tables.map((t) => {
+    if (t.zonePinned) return t
+    let zoneId = ''
+    for (const z of zones) {
+      if (pointInRect(t.position, aabb(z.position, z.size))) zoneId = z.id
+    }
+    return t.zoneId === zoneId ? t : { ...t, zoneId }
+  })
 }
 
 export const useLayoutStore = create<LayoutState>((set, get) => {
@@ -108,13 +139,13 @@ export const useLayoutStore = create<LayoutState>((set, get) => {
       return { tables, zones, mergedGroups, obstacles }
     },
 
-    addTable: (typeId, center, zoneId) => {
+    addTable: (typeId, center) => {
       const type = get().tableTypes.find((t) => t.id === typeId)
       if (!type) return
       commit((s) => {
         const table: Table = {
           id: createId(),
-          zoneId: zoneId ?? s.zones[0]?.id ?? 'zone-inside',
+          zoneId: '',
           typeId: type.id,
           label: nextLabel(s.tables),
           position: center,
@@ -122,22 +153,31 @@ export const useLayoutStore = create<LayoutState>((set, get) => {
           rotation: 0,
           status: 'available',
         }
-        return { tables: [...s.tables, table] }
+        return { tables: assignZones([...s.tables, table], s.zones) }
       })
     },
 
     updateTable: (id, patch) =>
       commit((s) => ({
-        tables: s.tables.map((t) => (t.id === id ? { ...t, ...patch } : t)),
+        tables: assignZones(
+          s.tables.map((t) => (t.id === id ? { ...t, ...patch } : t)),
+          s.zones,
+        ),
       })),
 
     moveTablesBy: (ids, delta) => {
       const idSet = new Set(ids)
       commit((s) => ({
-        tables: s.tables.map((t) =>
-          idSet.has(t.id)
-            ? { ...t, position: { x: t.position.x + delta.x, y: t.position.y + delta.y } }
-            : t,
+        tables: assignZones(
+          s.tables.map((t) =>
+            idSet.has(t.id)
+              ? {
+                  ...t,
+                  position: { x: t.position.x + delta.x, y: t.position.y + delta.y },
+                }
+              : t,
+          ),
+          s.zones,
         ),
       }))
     },
@@ -172,6 +212,49 @@ export const useLayoutStore = create<LayoutState>((set, get) => {
     removeObstacle: (id) =>
       commit((s) => ({ obstacles: s.obstacles.filter((o) => o.id !== id) })),
 
+    addZone: (center) =>
+      commit((s) => {
+        const zone: Zone = {
+          id: createId(),
+          name: `Zone ${s.zones.length + 1}`,
+          position: center,
+          size: { ...ZONE_DEFAULT_SIZE },
+        }
+        const zones = [...s.zones, zone]
+        return { zones, tables: assignZones(s.tables, zones) }
+      }),
+
+    updateZone: (id, patch) =>
+      commit((s) => {
+        const zones = s.zones.map((z) => (z.id === id ? { ...z, ...patch } : z))
+        return { zones, tables: assignZones(s.tables, zones) }
+      }),
+
+    removeZone: (id) =>
+      commit((s) => {
+        const zones = s.zones.filter((z) => z.id !== id)
+        // Tables pinned to / sitting in the removed zone fall back to auto.
+        const tables = s.tables.map((t) =>
+          t.zoneId === id ? { ...t, zoneId: '', zonePinned: false } : t,
+        )
+        return { zones, tables: assignZones(tables, zones) }
+      }),
+
+    setTablesZone: (ids, zoneId) => {
+      const idSet = new Set(ids)
+      commit((s) => ({
+        tables:
+          zoneId === null
+            ? assignZones(
+                s.tables.map((t) => (idSet.has(t.id) ? { ...t, zonePinned: false } : t)),
+                s.zones,
+              )
+            : s.tables.map((t) =>
+                idSet.has(t.id) ? { ...t, zonePinned: true, zoneId } : t,
+              ),
+      }))
+    },
+
     undo: () => {
       const restored = history().undo(get().snapshot())
       if (restored) set(restored)
@@ -184,10 +267,16 @@ export const useLayoutStore = create<LayoutState>((set, get) => {
 
     loadSnapshot: (snapshot) => {
       history().reset()
+      // Migrate pre-Phase-4 zones that lack geometry, then recompute assignments.
+      const zones = (snapshot.zones ?? []).map((z) => ({
+        ...z,
+        position: z.position ?? { x: 300, y: 240 },
+        size: z.size ?? { ...ZONE_DEFAULT_SIZE },
+      }))
       set({
-        tables: snapshot.tables,
-        zones: snapshot.zones,
-        mergedGroups: snapshot.mergedGroups,
+        tables: assignZones(snapshot.tables, zones),
+        zones,
+        mergedGroups: snapshot.mergedGroups ?? [],
         obstacles: snapshot.obstacles ?? [],
       })
     },
