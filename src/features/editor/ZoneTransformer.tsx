@@ -2,10 +2,13 @@ import { useEffect, useRef } from 'react'
 import { Transformer } from 'react-konva'
 import type Konva from 'konva'
 import type { Vec2 } from '@/types'
+import type { CanvasColors } from './hooks/useCanvasColors'
+import { transformerStyle } from './transformerStyle'
 
 interface ZoneTransformerProps {
   selectedId: string | null
   zonesVersion: number
+  colors: CanvasColors
   getNode: (id: string) => Konva.Group | undefined
   onTransformEnd: (id: string, scale: Vec2, center: Vec2) => void
 }
@@ -16,6 +19,7 @@ const MIN_SIZE = 80
 export function ZoneTransformer({
   selectedId,
   zonesVersion,
+  colors,
   getNode,
   onTransformEnd,
 }: ZoneTransformerProps) {
@@ -33,8 +37,7 @@ export function ZoneTransformer({
     <Transformer
       ref={trRef}
       rotateEnabled={false}
-      anchorStroke="#737373"
-      borderStroke="#737373"
+      {...transformerStyle(colors)}
       boundBoxFunc={(oldBox, newBox) =>
         newBox.width < MIN_SIZE || newBox.height < MIN_SIZE ? oldBox : newBox
       }

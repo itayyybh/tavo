@@ -1,4 +1,4 @@
-import { Circle, Group, Rect, Text } from 'react-konva'
+import { Circle, Ellipse, Group, Rect, Text } from 'react-konva'
 import type Konva from 'konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { Table, TableType, Vec2 } from '@/types'
@@ -8,6 +8,8 @@ interface TableShapeProps {
   table: Table
   type: TableType | undefined
   colors: CanvasColors
+  /** The assigned zone's color, if any — shown as a small corner dot. */
+  zoneColor?: string
   selected: boolean
   onSelect: (id: string, additive: boolean) => void
   onDragEnd: (id: string, center: Vec2) => void
@@ -23,6 +25,7 @@ export function TableShape({
   table,
   type,
   colors,
+  zoneColor,
   selected,
   onSelect,
   onDragEnd,
@@ -71,36 +74,21 @@ export function TableShape({
         onDragEnd(table.id, { x: e.target.x(), y: e.target.y() })
       }}
     >
-      {selected &&
-        clearance > 0 &&
-        // Reserved clearance zone (chairs + waiter aisle) — shown only when active.
-        (shape === 'round' ? (
-          <Circle
-            x={w / 2}
-            y={h / 2}
-            radius={Math.min(w, h) / 2 + clearance}
-            stroke={colors.muted}
-            strokeWidth={1}
-            dash={[4, 4]}
-            fillEnabled={false}
-            listening={false}
-            perfectDrawEnabled={false}
-          />
-        ) : (
-          <Rect
-            x={-clearance}
-            y={-clearance}
-            width={w + clearance * 2}
-            height={h + clearance * 2}
-            cornerRadius={8}
-            stroke={colors.muted}
-            strokeWidth={1}
-            dash={[4, 4]}
-            fillEnabled={false}
-            listening={false}
-            perfectDrawEnabled={false}
-          />
-        ))}
+      {selected && clearance > 0 && (
+        // Circular clearance ("chair") line; the transformer's 4 anchors sit on it.
+        <Ellipse
+          x={w / 2}
+          y={h / 2}
+          radiusX={w / 2 + clearance}
+          radiusY={h / 2 + clearance}
+          stroke={colors.muted}
+          strokeWidth={1}
+          dash={[4, 4]}
+          fillEnabled={false}
+          listening={false}
+          perfectDrawEnabled={false}
+        />
+      )}
       {shape === 'round' ? (
         <Circle
           x={w / 2}
@@ -131,6 +119,18 @@ export function TableShape({
         fill={colors.ink}
         listening={false}
       />
+      {zoneColor && (
+        <Circle
+          x={shape === 'round' ? w / 2 + (Math.min(w, h) / 2 - 8) * 0.707 : w - 10}
+          y={shape === 'round' ? h / 2 - (Math.min(w, h) / 2 - 8) * 0.707 : 10}
+          radius={4}
+          fill={zoneColor}
+          stroke={colors.surface}
+          strokeWidth={1}
+          listening={false}
+          perfectDrawEnabled={false}
+        />
+      )}
     </Group>
   )
 }

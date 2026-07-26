@@ -2,11 +2,16 @@ import { useEffect, useRef } from 'react'
 import { Transformer } from 'react-konva'
 import type Konva from 'konva'
 import type { Vec2 } from '@/types'
+import type { CanvasColors } from './hooks/useCanvasColors'
+import { transformerStyle } from './transformerStyle'
 
 interface SelectionTransformerProps {
   selectedIds: string[]
   /** Re-run attachment when the table set changes (e.g. after add/undo). */
   tablesVersion: number
+  colors: CanvasColors
+  /** Outward gap so the handles wrap around the clearance halo, not over it. */
+  padding: number
   getNode: (id: string) => Konva.Group | undefined
   onTransformEnd: (id: string, scale: Vec2, rotation: number, center: Vec2) => void
 }
@@ -21,6 +26,8 @@ const MIN_SIZE = 20
 export function SelectionTransformer({
   selectedIds,
   tablesVersion,
+  colors,
+  padding,
   getNode,
   onTransformEnd,
 }: SelectionTransformerProps) {
@@ -39,8 +46,10 @@ export function SelectionTransformer({
       ref={trRef}
       rotateEnabled
       rotationSnaps={[0, 45, 90, 135, 180, 225, 270, 315]}
-      anchorStroke="#737373"
-      borderStroke="#737373"
+      padding={padding}
+      {...transformerStyle(colors)}
+      borderEnabled={false}
+      enabledAnchors={['top-center', 'bottom-center', 'middle-left', 'middle-right']}
       boundBoxFunc={(oldBox, newBox) =>
         newBox.width < MIN_SIZE || newBox.height < MIN_SIZE ? oldBox : newBox
       }

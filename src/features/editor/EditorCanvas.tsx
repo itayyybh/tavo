@@ -208,6 +208,19 @@ export function EditorCanvas() {
     setViewport({ zoom: viewport.zoom, pan: { x: stage.x(), y: stage.y() } })
   }
 
+  // Double-click on empty floor inside a zone selects that zone (topmost wins).
+  const handleStageDblClick = (e: KonvaEventObject<MouseEvent>) => {
+    if (e.target !== e.target.getStage()) return
+    const pointer = stageRef.current?.getPointerPosition()
+    if (!pointer) return
+    const world = screenToWorld(pointer, viewport)
+    let hit: string | null = null
+    for (const z of zones) {
+      if (pointInRect(world, aabb(z.position, z.size))) hit = z.id
+    }
+    if (hit) selectZone(hit)
+  }
+
   const handleTableDragEnd = (id: string, center: Vec2) => {
     const table = tables.find((t) => t.id === id)
     if (!table) return
@@ -309,13 +322,6 @@ export function EditorCanvas() {
     setRename({ kind: 'table', id, value: table.label })
   }
 
-  const startRenameZone = (id: string) => {
-    const zone = zones.find((z) => z.id === id)
-    if (!zone) return
-    selectZone(id)
-    setRename({ kind: 'zone', id, value: zone.name })
-  }
-
   const commitRename = () => {
     if (!rename) return
     const value = rename.value.trim()
@@ -345,6 +351,13 @@ export function EditorCanvas() {
     }
   }
 
+  // Put the resize/rotate anchors right on the clearance ("chair") line — no border box.
+  const selectedTable =
+    selectedIds.length === 1 ? tables.find((t) => t.id === selectedIds[0]) : undefined
+  const tableHandlePadding = selectedTable
+    ? (tableTypes.find((t) => t.id === selectedTable.typeId)?.clearance ?? 0)
+    : 0
+
   return (
     <div
       ref={containerRef}
@@ -364,6 +377,7 @@ export function EditorCanvas() {
         onMouseDown={handleStageMouseDown}
         onMouseMove={handleStageMouseMove}
         onMouseUp={handleStageMouseUp}
+        onDblClick={handleStageDblClick}
         onDragEnd={handleStageDragEnd}
       >
         <Layer>
@@ -383,7 +397,6 @@ export function EditorCanvas() {
               selected={selectedZoneId === zone.id}
               onSelect={selectZone}
               onDragEnd={handleZoneDragEnd}
-              onStartRename={startRenameZone}
               registerNode={registerZoneNode}
             />
           ))}
@@ -404,6 +417,7 @@ export function EditorCanvas() {
               table={table}
               type={tableTypes.find((t) => t.id === table.typeId)}
               colors={colors}
+              zoneColor={zones.find((z) => z.id === table.zoneId)?.color}
               selected={selectedIds.includes(table.id)}
               onSelect={toggleSelection}
               onDragEnd={handleTableDragEnd}
@@ -428,18 +442,22 @@ export function EditorCanvas() {
           <SelectionTransformer
             selectedIds={selectedIds}
             tablesVersion={tables.length}
+            colors={colors}
+            padding={tableHandlePadding}
             getNode={getNode}
             onTransformEnd={handleTableTransformEnd}
           />
           <ObstacleTransformer
             selectedId={selectedObstacleId}
             obstaclesVersion={obstacles.length}
+            colors={colors}
             getNode={getObstacleNode}
             onTransformEnd={handleObstacleTransformEnd}
           />
           <ZoneTransformer
             selectedId={selectedZoneId}
             zonesVersion={zones.length}
+            colors={colors}
             getNode={getZoneNode}
             onTransformEnd={handleZoneTransformEnd}
           />

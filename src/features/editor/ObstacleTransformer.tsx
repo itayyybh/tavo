@@ -2,10 +2,13 @@ import { useEffect, useRef } from 'react'
 import { Transformer } from 'react-konva'
 import type Konva from 'konva'
 import type { Vec2 } from '@/types'
+import type { CanvasColors } from './hooks/useCanvasColors'
+import { transformerStyle } from './transformerStyle'
 
 interface ObstacleTransformerProps {
   selectedId: string | null
   obstaclesVersion: number
+  colors: CanvasColors
   getNode: (id: string) => Konva.Node | undefined
   onTransformEnd: (id: string, size: Vec2, center: Vec2, rotation: number) => void
 }
@@ -16,6 +19,7 @@ const MIN_SIZE = 10
 export function ObstacleTransformer({
   selectedId,
   obstaclesVersion,
+  colors,
   getNode,
   onTransformEnd,
 }: ObstacleTransformerProps) {
@@ -34,8 +38,8 @@ export function ObstacleTransformer({
       ref={trRef}
       rotateEnabled
       rotationSnaps={[0, 45, 90, 135, 180, 225, 270, 315]}
-      anchorStroke="#737373"
-      borderStroke="#737373"
+      padding={4}
+      {...transformerStyle(colors)}
       boundBoxFunc={(oldBox, newBox) =>
         newBox.width < MIN_SIZE || newBox.height < MIN_SIZE ? oldBox : newBox
       }

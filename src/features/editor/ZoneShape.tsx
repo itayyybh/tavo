@@ -10,16 +10,13 @@ interface ZoneShapeProps {
   selected: boolean
   onSelect: (id: string) => void
   onDragEnd: (id: string, center: Vec2) => void
-  onStartRename: (id: string) => void
   registerNode: (id: string, node: Konva.Group | null) => void
 }
 
-const LABEL_HEIGHT = 22
-
 /**
- * A zone region drawn behind tables. The faint fill is non-interactive so it
- * never steals marquee/empty clicks; the name chip (top-left) selects, renames,
- * and drags the whole zone.
+ * A zone region drawn behind tables. Its soft pastel fill is click-through while
+ * unselected (so marquee/empty clicks pass through and double-click selects it via
+ * the stage); once selected it becomes listening + draggable so it can be moved.
  */
 export function ZoneShape({
   zone,
@@ -27,11 +24,9 @@ export function ZoneShape({
   selected,
   onSelect,
   onDragEnd,
-  onStartRename,
   registerNode,
 }: ZoneShapeProps) {
   const { x: w, y: h } = zone.size
-  const chipWidth = Math.max(48, zone.name.length * 7 + 16)
 
   return (
     <Group
@@ -41,7 +36,7 @@ export function ZoneShape({
       y={zone.position.y}
       offsetX={w / 2}
       offsetY={h / 2}
-      draggable
+      draggable={selected}
       onDragStart={() => onSelect(zone.id)}
       onDragEnd={(e: KonvaEventObject<DragEvent>) =>
         onDragEnd(zone.id, { x: e.target.x(), y: e.target.y() })
@@ -51,57 +46,24 @@ export function ZoneShape({
         width={w}
         height={h}
         cornerRadius={10}
-        fill={colors.ink}
-        opacity={selected ? 0.06 : 0.03}
+        fill={zone.color}
+        opacity={selected ? 0.28 : 0.16}
         stroke={colors.muted}
         strokeWidth={1}
         dash={[6, 6]}
-        listening={false}
+        listening={selected}
         perfectDrawEnabled={false}
       />
-      <Group
-        onMouseDown={(e: KonvaEventObject<MouseEvent>) => {
-          e.cancelBubble = true
-        }}
-        onClick={(e: KonvaEventObject<MouseEvent>) => {
-          e.cancelBubble = true
-          onSelect(zone.id)
-        }}
-        onTap={(e: KonvaEventObject<Event>) => {
-          e.cancelBubble = true
-          onSelect(zone.id)
-        }}
-        onDblClick={(e: KonvaEventObject<MouseEvent>) => {
-          e.cancelBubble = true
-          onStartRename(zone.id)
-        }}
-        onDblTap={(e: KonvaEventObject<Event>) => {
-          e.cancelBubble = true
-          onStartRename(zone.id)
-        }}
-      >
-        <Rect
-          width={chipWidth}
-          height={LABEL_HEIGHT}
-          cornerRadius={6}
-          fill={colors.surface}
-          stroke={selected ? colors.ink : colors.line}
-          strokeWidth={1}
-          perfectDrawEnabled={false}
-        />
-        <Text
-          x={8}
-          height={LABEL_HEIGHT}
-          width={chipWidth - 12}
-          verticalAlign="middle"
-          text={zone.name}
-          fontSize={12}
-          fontStyle="500"
-          fill={colors.inkSoft}
-          wrap="none"
-          listening={false}
-        />
-      </Group>
+      <Text
+        x={10}
+        y={8}
+        text={zone.name}
+        fontSize={12}
+        fontStyle="500"
+        fill={colors.inkSoft}
+        wrap="none"
+        listening={false}
+      />
     </Group>
   )
 }

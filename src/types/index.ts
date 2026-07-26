@@ -55,6 +55,8 @@ export interface Table {
 export interface Zone {
   id: ID
   name: string
+  /** Soft pastel background color (hex). */
+  color: string
   /** World-space center of the zone region. */
   position: Vec2
   size: Vec2
@@ -99,6 +101,13 @@ export interface Restaurant {
   name: string
   zones: Zone[]
   tableTypes: TableType[]
+}
+
+/** Items held on the editor clipboard for copy/paste/duplicate. */
+export interface LayoutClipboard {
+  tables: Table[]
+  obstacles: Obstacle[]
+  zones: Zone[]
 }
 
 /** Serializable snapshot of the editable layout document (used for undo/redo & persistence). */
