@@ -1,0 +1,26 @@
+import { lazy, Suspense } from 'react'
+import { createBrowserRouter } from 'react-router-dom'
+import App from '@/App'
+
+// Pages are lazy-loaded per the `performance` skill.
+const FloorPage = lazy(() => import('@/pages/FloorPage'))
+const EditorPage = lazy(() => import('@/pages/EditorPage'))
+
+const withSuspense = (node: React.ReactNode) => (
+  <Suspense
+    fallback={<div className="p-6 text-sm text-[var(--color-muted)]">Loading…</div>}
+  >
+    {node}
+  </Suspense>
+)
+
+export const router = createBrowserRouter([
+  {
+    path: '/',
+    element: <App />,
+    children: [
+      { index: true, element: withSuspense(<FloorPage />) },
+      { path: 'editor', element: withSuspense(<EditorPage />) },
+    ],
+  },
+])
