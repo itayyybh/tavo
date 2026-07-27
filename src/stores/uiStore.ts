@@ -3,6 +3,9 @@ import type { Vec2 } from '@/types'
 
 export type Theme = 'light' | 'dark'
 
+/** Active canvas tool. `select` is the normal editor; `path` draws keep-clear lanes. */
+export type EditorTool = 'select' | 'path'
+
 export interface Viewport {
   pan: Vec2
   zoom: number
@@ -11,6 +14,7 @@ export interface Viewport {
 /** UI Store — transient interface state (selection, viewport, theme). */
 interface UIState {
   theme: Theme
+  tool: EditorTool
   selectedTableIds: string[]
   selectedObstacleId: string | null
   selectedZoneId: string | null
@@ -19,6 +23,7 @@ interface UIState {
   viewport: Viewport
   stageSize: { width: number; height: number }
   toggleTheme: () => void
+  setTool: (tool: EditorTool) => void
   setSelection: (ids: string[]) => void
   toggleSelection: (id: string, additive: boolean) => void
   selectObstacle: (id: string | null) => void
@@ -31,6 +36,7 @@ interface UIState {
 
 export const useUIStore = create<UIState>((set) => ({
   theme: 'light',
+  tool: 'select',
   selectedTableIds: [],
   selectedObstacleId: null,
   selectedZoneId: null,
@@ -40,6 +46,7 @@ export const useUIStore = create<UIState>((set) => ({
 
   toggleTheme: () =>
     set((state) => ({ theme: state.theme === 'light' ? 'dark' : 'light' })),
+  setTool: (tool) => set({ tool }),
 
   setSelection: (ids) =>
     set({ selectedTableIds: ids, selectedObstacleId: null, selectedZoneId: null }),

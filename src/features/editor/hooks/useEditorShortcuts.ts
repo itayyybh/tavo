@@ -50,8 +50,10 @@ export function useEditorShortcuts() {
         selectedObstacleId,
         selectedZoneId,
         focusedZoneId,
+        tool,
         clearSelection,
         setFocusedZone,
+        setTool,
       } = useUIStore.getState()
       const { removeTables, removeObstacle, removeZone, undo, redo, moveTablesBy } =
         useLayoutStore.getState()
@@ -117,9 +119,10 @@ export function useEditorShortcuts() {
         }
       }
 
-      // Escape: leave zone-focus first, otherwise just deselect.
+      // Escape: leave the path tool, then zone-focus, then just deselect.
       if (e.key === 'Escape') {
-        if (focusedZoneId) setFocusedZone(null)
+        if (tool !== 'select') setTool('select')
+        else if (focusedZoneId) setFocusedZone(null)
         else clearSelection()
         return
       }

@@ -96,6 +96,8 @@ interface LayoutState {
   removeTables: (ids: string[]) => void
   // Obstacle mutations
   addObstacle: (kind: ObstacleKind, center: Vec2) => void
+  /** Create a freehand keep-clear path from absolute stroke points. */
+  addPath: (points: Vec2[], width: number) => void
   updateObstacle: (id: string, patch: Partial<Obstacle>) => void
   removeObstacle: (id: string) => void
   // Zone mutations
@@ -224,6 +226,30 @@ export const useLayoutStore = create<LayoutState>((set, get) => {
         }
         return { obstacles: [...s.obstacles, obstacle] }
       }),
+
+    addPath: (points, width) => {
+      if (points.length < 2) return
+      const xs = points.map((p) => p.x)
+      const ys = points.map((p) => p.y)
+      const minX = Math.min(...xs)
+      const maxX = Math.max(...xs)
+      const minY = Math.min(...ys)
+      const maxY = Math.max(...ys)
+      const center = { x: (minX + maxX) / 2, y: (minY + maxY) / 2 }
+      commit((s) => {
+        const path: Obstacle = {
+          id: createId(),
+          kind: 'path',
+          position: center,
+          size: { x: Math.max(maxX - minX, 1), y: Math.max(maxY - minY, 1) },
+          rotation: 0,
+          // Store points relative to the bbox center.
+          points: points.map((p) => ({ x: p.x - center.x, y: p.y - center.y })),
+          brushWidth: width,
+        }
+        return { obstacles: [...s.obstacles, path] }
+      })
+    },
 
     updateObstacle: (id, patch) =>
       commit((s) => ({

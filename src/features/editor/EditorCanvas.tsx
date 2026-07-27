@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Layer, Rect, Stage } from 'react-konva'
+import { Layer, Line, Rect, Stage } from 'react-konva'
 import type Konva from 'konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import { useLayoutStore, useSettingsStore, useUIStore } from '@/stores'
@@ -14,7 +14,7 @@ import {
   snapPoint,
   worldToScreen,
 } from '@/utils'
-import type { Vec2 } from '@/types'
+import type { Obstacle, Vec2 } from '@/types'
 import { GridBackground } from './GridBackground'
 import { ZoneShape } from './ZoneShape'
 import { TableShape } from './TableShape'
@@ -31,9 +31,42 @@ const MIN_TABLE_SIZE = 30
 // Overlap up to this fraction of a table's area is tolerated (edges/slight touch ok).
 const OVERLAP_TOLERANCE = 0.1
 
+// Minimum world-space distance between sampled brush points while drawing a path.
+const BRUSH_SAMPLE_DIST = 4
+
 interface Marquee {
   start: Vec2
   end: Vec2
+}
+
+/**
+ * Does a table rect overlap a freehand path's lane? Samples the stroke centerline
+ * and tests each sample against the table box expanded by the lane's half-width.
+ */
+function pathBlocksRect(
+  o: Obstacle,
+  box: { x: number; y: number; width: number; height: number },
+): boolean {
+  if (!o.points?.length) return false
+  const r = (o.brushWidth ?? 0) / 2
+  const ex = { x: box.x - r, y: box.y - r, width: box.width + 2 * r, height: box.height + 2 * r }
+  const pts = o.points.map((p) => ({ x: p.x + o.position.x, y: p.y + o.position.y }))
+  const step = Math.max(4, r)
+  for (let i = 0; i < pts.length; i++) {
+    if (pointInRect(pts[i], ex)) return true
+    if (i > 0) {
+      const a = pts[i - 1]
+      const b = pts[i]
+      const segLen = Math.hypot(b.x - a.x, b.y - a.y)
+      const n = Math.ceil(segLen / step)
+      for (let k = 1; k < n; k++) {
+        const t = k / n
+        if (pointInRect({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }, ex))
+          return true
+      }
+    }
+  }
+  return false
 }
 
 interface RenameState {
@@ -56,6 +89,8 @@ export function EditorCanvas() {
   const [marquee, setMarquee] = useState<Marquee | null>(null)
   const [spaceDown, setSpaceDown] = useState(false)
   const [rename, setRename] = useState<RenameState | null>(null)
+  // In-progress freehand brush stroke (world points), while the path tool draws.
+  const [draftPath, setDraftPath] = useState<Vec2[] | null>(null)
 
   const viewport = useUIStore((s) => s.viewport)
   const selectedIds = useUIStore((s) => s.selectedTableIds)
@@ -70,6 +105,7 @@ export function EditorCanvas() {
   const clearSelection = useUIStore((s) => s.clearSelection)
   const focusedZoneId = useUIStore((s) => s.focusedZoneId)
   const setFocusedZone = useUIStore((s) => s.setFocusedZone)
+  const tool = useUIStore((s) => s.tool)
 
   const tables = useLayoutStore((s) => s.tables)
   const tableTypes = useLayoutStore((s) => s.tableTypes)
@@ -79,9 +115,11 @@ export function EditorCanvas() {
   const moveTablesBy = useLayoutStore((s) => s.moveTablesBy)
   const updateObstacle = useLayoutStore((s) => s.updateObstacle)
   const updateZone = useLayoutStore((s) => s.updateZone)
+  const addPath = useLayoutStore((s) => s.addPath)
 
   const gridSize = useSettingsStore((s) => s.gridSize)
   const snapToGrid = useSettingsStore((s) => s.snapToGrid)
+  const pathWidth = useSettingsStore((s) => s.pathWidth)
   const colors = useCanvasColors()
 
   useEffect(() => setStageSize(size), [size, setStageSize])
@@ -143,8 +181,10 @@ export function EditorCanvas() {
     (center: Vec2, size: Vec2, ignore: Set<string>) => {
       const box = aabb(center, size)
       const limit = size.x * size.y * OVERLAP_TOLERANCE
-      const hitsWall = obstacles.some(
-        (o) => overlapArea(box, aabb(o.position, o.size)) > limit,
+      const hitsWall = obstacles.some((o) =>
+        o.kind === 'path' && o.points?.length
+          ? pathBlocksRect(o, box)
+          : overlapArea(box, aabb(o.position, o.size)) > limit,
       )
       const hitsTable = tables.some(
         (o) => !ignore.has(o.id) && overlapArea(box, aabb(o.position, o.size)) > limit,
@@ -173,17 +213,52 @@ export function EditorCanvas() {
     }
   }
 
+  // --- Freehand path brush ---
+  const pointerWorld = () => {
+    const p = stageRef.current?.getPointerPosition()
+    return p ? screenToWorld(p, viewport) : null
+  }
+  const beginDraw = () => {
+    const w = pointerWorld()
+    if (w) setDraftPath([w])
+  }
+  const extendDraw = () => {
+    const w = pointerWorld()
+    if (!w) return
+    setDraftPath((prev) => {
+      if (!prev) return prev
+      const last = prev[prev.length - 1]
+      if (Math.hypot(w.x - last.x, w.y - last.y) < BRUSH_SAMPLE_DIST) return prev
+      return [...prev, w]
+    })
+  }
+  const endDraw = () => {
+    if (draftPath && draftPath.length >= 2) addPath(draftPath, pathWidth)
+    setDraftPath(null)
+  }
+
   // One finger on empty floor pans (via native stage drag); two fingers pinch-zoom.
   const handleTouchStart = (e: KonvaEventObject<TouchEvent>) => {
     const stage = stageRef.current
     if (!stage) return
+    if (tool === 'path') {
+      stage.draggable(false)
+      beginDraw()
+      return
+    }
     if (e.evt.touches.length === 1 && e.target === stage) stage.draggable(true)
   }
 
   const handleTouchMove = (e: KonvaEventObject<TouchEvent>) => {
     const stage = stageRef.current
     const touches = e.evt.touches
-    if (!stage || touches.length < 2) return
+    if (!stage) return
+    if (tool === 'path') {
+      e.evt.preventDefault()
+      extendDraw()
+      return
+    }
+    if (touches.length < 2) return
     e.evt.preventDefault()
     stage.draggable(false)
 
@@ -216,6 +291,10 @@ export function EditorCanvas() {
   }
 
   const handleTouchEnd = () => {
+    if (tool === 'path') {
+      endDraw()
+      return
+    }
     lastPinchDist.current = 0
     lastPinchCenter.current = null
     stageRef.current?.draggable(spaceDown)
@@ -223,6 +302,10 @@ export function EditorCanvas() {
 
   const handleStageMouseDown = (e: KonvaEventObject<MouseEvent>) => {
     if (spaceDown) return
+    if (tool === 'path') {
+      beginDraw()
+      return
+    }
     if (e.target !== e.target.getStage()) return
     const pointer = stageRef.current?.getPointerPosition()
     if (!pointer) return
@@ -231,6 +314,10 @@ export function EditorCanvas() {
   }
 
   const handleStageMouseMove = () => {
+    if (tool === 'path') {
+      if (draftPath) extendDraw()
+      return
+    }
     if (!marquee) return
     const pointer = stageRef.current?.getPointerPosition()
     if (!pointer) return
@@ -238,6 +325,10 @@ export function EditorCanvas() {
   }
 
   const handleStageMouseUp = (e: KonvaEventObject<MouseEvent>) => {
+    if (tool === 'path') {
+      endDraw()
+      return
+    }
     if (!marquee) return
     const rect = {
       x: Math.min(marquee.start.x, marquee.end.x),
@@ -411,6 +502,11 @@ export function EditorCanvas() {
     ? (tableTypes.find((t) => t.id === selectedTable.typeId)?.clearance ?? 0)
     : 0
 
+  // Freehand paths have no meaningful resize/rotate box — allow move + delete only.
+  const selectedObstacle = obstacles.find((o) => o.id === selectedObstacleId)
+  const transformableObstacleId =
+    selectedObstacle && !selectedObstacle.points?.length ? selectedObstacleId : null
+
   // Zone focus: isolate a single zone (+ its tables and overlapping obstacles).
   const focusedZone = focusedZoneId ? zones.find((z) => z.id === focusedZoneId) : undefined
   const focusBox = focusedZone ? aabb(focusedZone.position, focusedZone.size) : null
@@ -427,7 +523,10 @@ export function EditorCanvas() {
     <div
       ref={containerRef}
       className="relative h-full w-full"
-      style={{ cursor: spaceDown ? 'grab' : 'default', touchAction: 'none' }}
+      style={{
+        cursor: tool === 'path' ? 'crosshair' : spaceDown ? 'grab' : 'default',
+        touchAction: 'none',
+      }}
     >
       <Stage
         ref={stageRef}
@@ -456,7 +555,8 @@ export function EditorCanvas() {
             color={colors.line}
           />
         </Layer>
-        <Layer>
+        {/* Path tool: disable shape hit-testing so the brush draws over anything. */}
+        <Layer listening={tool !== 'path'}>
           {visibleZones.map((zone) => (
             <ZoneShape
               key={zone.id}
@@ -493,6 +593,18 @@ export function EditorCanvas() {
               registerNode={registerNode}
             />
           ))}
+          {draftPath && draftPath.length > 0 && (
+            <Line
+              points={draftPath.flatMap((p) => [p.x, p.y])}
+              stroke={colors.muted}
+              strokeWidth={pathWidth}
+              lineCap="round"
+              lineJoin="round"
+              opacity={0.3}
+              listening={false}
+              perfectDrawEnabled={false}
+            />
+          )}
           {marquee && (
             <Rect
               x={Math.min(marquee.start.x, marquee.end.x)}
@@ -516,7 +628,7 @@ export function EditorCanvas() {
             onTransformEnd={handleTableTransformEnd}
           />
           <ObstacleTransformer
-            selectedId={selectedObstacleId}
+            selectedId={transformableObstacleId}
             obstaclesVersion={obstacles.length}
             colors={colors}
             getNode={getObstacleNode}

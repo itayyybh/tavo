@@ -34,10 +34,20 @@ export function Toolbar({ onToggleZones }: ToolbarProps) {
   const selectedIds = useUIStore((s) => s.selectedTableIds)
   const selectedObstacleId = useUIStore((s) => s.selectedObstacleId)
   const clearSelection = useUIStore((s) => s.clearSelection)
+  const tool = useUIStore((s) => s.tool)
+  const setTool = useUIStore((s) => s.setTool)
 
   const gridSize = useSettingsStore((s) => s.gridSize)
   const snapToGrid = useSettingsStore((s) => s.snapToGrid)
   const setSnapToGrid = useSettingsStore((s) => s.setSnapToGrid)
+  const pathWidth = useSettingsStore((s) => s.pathWidth)
+  const setPathWidth = useSettingsStore((s) => s.setPathWidth)
+
+  const togglePathTool = () => {
+    const next = tool === 'path' ? 'select' : 'path'
+    setTool(next)
+    if (next === 'path') clearSelection()
+  }
 
   const viewCenterWorld = () => {
     const center = { x: stageSize.width / 2, y: stageSize.height / 2 }
@@ -131,12 +141,27 @@ export function Toolbar({ onToggleZones }: ToolbarProps) {
       </Button>
       <Button
         size="sm"
-        variant="secondary"
-        onClick={() => addObstacle('path', viewCenterWorld())}
-        title="Keep-clear lane — tables can't be placed here (e.g. kitchen path, exit)"
+        variant={tool === 'path' ? 'primary' : 'secondary'}
+        onClick={togglePathTool}
+        title="Draw a keep-clear lane freely — tables can't be placed on it (kitchen path, exit)"
       >
         Path
       </Button>
+      {tool === 'path' && (
+        <label className="flex items-center gap-1.5 text-xs text-muted">
+          Width
+          <input
+            type="range"
+            min={12}
+            max={120}
+            step={2}
+            value={pathWidth}
+            onChange={(e) => setPathWidth(Number(e.target.value))}
+            className="w-20 accent-ink"
+          />
+          <span className="w-6 tabular-nums">{pathWidth}</span>
+        </label>
+      )}
 
       <span className="mx-1 h-5 w-px bg-line" />
 

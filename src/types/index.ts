@@ -74,10 +74,17 @@ export interface Obstacle {
   id: ID
   kind: ObstacleKind
   label?: string
-  /** World-space center. */
+  /** World-space center (also the bbox center of a freehand `path`). */
   position: Vec2
   size: Vec2
   rotation: number
+  /**
+   * Freehand brush stroke for `path` obstacles, as points RELATIVE to `position`
+   * (so moving/copying only touches `position`). Absent for wall/object.
+   */
+  points?: Vec2[]
+  /** Lane width (world units) for a freehand `path`. */
+  brushWidth?: number
 }
 
 export interface MergedGroup {

@@ -64,9 +64,29 @@ export function ObstacleShape({
     )
   }
 
+  if (obstacle.kind === 'path' && obstacle.points?.length) {
+    // Freehand brush lane: a thick translucent rounded stroke. `common` sets x/y to
+    // the bbox center, and the stored points are relative to it, so drag/copy just
+    // move the center — the stroke follows.
+    const width = obstacle.brushWidth ?? 40
+    return (
+      <Line
+        ref={(node) => registerNode(obstacle.id, node)}
+        {...common}
+        points={obstacle.points.flatMap((p) => [p.x, p.y])}
+        fillEnabled={false}
+        stroke={colors.muted}
+        strokeWidth={width}
+        lineCap="round"
+        lineJoin="round"
+        opacity={selected ? 0.32 : 0.2}
+        hitStrokeWidth={Math.max(width, 16)}
+      />
+    )
+  }
+
   if (obstacle.kind === 'path') {
-    // Group node keeps the lane fill + center guide moving/scaling as one; explicit
-    // width/height let the shared obstacle transformer normalize its scale.
+    // Legacy fixed-rect path (pre-brush layouts) — dashed lane fallback.
     const horizontal = w >= h
     return (
       <Group
