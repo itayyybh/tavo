@@ -2,6 +2,7 @@ import { Circle, Ellipse, Group, Rect, Text } from 'react-konva'
 import type Konva from 'konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { Table, TableType, Vec2 } from '@/types'
+import { seatsForTable } from '@/utils'
 import type { CanvasColors } from './hooks/useCanvasColors'
 
 interface TableShapeProps {
@@ -36,6 +37,10 @@ export function TableShape({
   const statusColor = colors.status[table.status]
   const shape = type?.shape ?? 'rectangle'
   const clearance = type?.clearance ?? 0
+  const seats = seatsForTable(table, type)
+  // Inset for corner glyphs: hug the top-left edge (round tables pull inward).
+  const cornerX = shape === 'round' ? w / 2 - (Math.min(w, h) / 2 - 8) * 0.707 : 8
+  const cornerY = shape === 'round' ? h / 2 - (Math.min(w, h) / 2 - 8) * 0.707 : 6
 
   return (
     <Group
@@ -119,6 +124,17 @@ export function TableShape({
         fill={colors.ink}
         listening={false}
       />
+      {seats > 0 && (
+        <Text
+          x={cornerX}
+          y={cornerY}
+          text={String(seats)}
+          fontSize={10}
+          fill={colors.muted}
+          listening={false}
+          perfectDrawEnabled={false}
+        />
+      )}
       {zoneColor && (
         <Circle
           x={shape === 'round' ? w / 2 + (Math.min(w, h) / 2 - 8) * 0.707 : w - 10}

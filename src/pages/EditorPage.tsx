@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   EditorCanvas,
+  FloorSummary,
   Toolbar,
   ZonesPanel,
   useAutosave,
@@ -84,9 +85,12 @@ export default function EditorPage() {
           <ZonesPanel onClosePanel={() => setPanelOpen(false)} />
         </div>
       </div>
-      <footer className="border-t border-line px-4 py-1.5 text-xs text-muted">
-        Space + drag to pan · ctrl/pinch to zoom · drag to marquee-select · double-click a
-        table to rename · ⌫ delete · ⌘Z undo
+      <footer className="flex items-center justify-between gap-4 border-t border-line px-4 py-1.5 text-xs text-muted">
+        <span className="min-w-0 truncate">
+          Space + drag to pan · ctrl/pinch to zoom · drag to marquee-select · double-click
+          a table to rename · ⌫ delete · ⌘Z undo
+        </span>
+        <FloorSummary />
       </footer>
     </div>
   )
