@@ -55,8 +55,19 @@ export function useEditorShortcuts() {
         setFocusedZone,
         setTool,
       } = useUIStore.getState()
-      const { removeTables, removeObstacle, removeZone, undo, redo, moveTablesBy } =
-        useLayoutStore.getState()
+      const {
+        removeTables,
+        removeObstacle,
+        removeZone,
+        undo,
+        redo,
+        moveTablesBy,
+        rotateSelection90,
+        mergeTables,
+        splitGroup,
+        tables,
+        mergedGroups,
+      } = useLayoutStore.getState()
       const mod = e.metaKey || e.ctrlKey
 
       // Undo / redo
@@ -94,6 +105,31 @@ export function useEditorShortcuts() {
           e.preventDefault()
           pasteClipboard(clip)
         }
+        return
+      }
+
+      // M: merge the selection, or split it if it's already one merged group.
+      if (!mod && e.key.toLowerCase() === 'm' && selectedTableIds.length) {
+        const sel = tables.filter((t) => selectedTableIds.includes(t.id))
+        const gid = sel.find((t) => t.mergedGroupId)?.mergedGroupId
+        const isOneGroup =
+          !!gid &&
+          sel.every((t) => t.mergedGroupId === gid) &&
+          (mergedGroups.find((g) => g.id === gid)?.tableIds.length ?? 0) === sel.length
+        if (isOneGroup && gid) {
+          e.preventDefault()
+          splitGroup(gid)
+        } else if (selectedTableIds.length >= 2) {
+          e.preventDefault()
+          mergeTables(selectedTableIds)
+        }
+        return
+      }
+
+      // R: rotate the selection 90° clockwise (a merged group rotates as one).
+      if (!mod && e.key.toLowerCase() === 'r' && selectedTableIds.length) {
+        e.preventDefault()
+        rotateSelection90(selectedTableIds)
         return
       }
 

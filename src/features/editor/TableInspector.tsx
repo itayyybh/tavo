@@ -1,6 +1,6 @@
 import { useLayoutStore, useUIStore } from '@/stores'
-import type { TableStatus } from '@/types'
-import { cn, seatsForTable } from '@/utils'
+import type { Table, TableStatus } from '@/types'
+import { cn, groupCapacity, seatsForTable } from '@/utils'
 import { TextField } from './fields'
 
 const STATUSES: { id: TableStatus; dot: string }[] = [
@@ -10,17 +10,102 @@ const STATUSES: { id: TableStatus; dot: string }[] = [
   { id: 'blocked', dot: 'bg-status-blocked' },
 ]
 
-/** Contextual editor for the single selected table (label, type, status). */
+/** Segmented status control; `current` is undefined when a group's members differ. */
+function StatusPicker({
+  current,
+  onPick,
+}: {
+  current: TableStatus | undefined
+  onPick: (s: TableStatus) => void
+}) {
+  return (
+    <div className="flex flex-col gap-1 text-[11px] text-muted">
+      Status
+      <div className="grid grid-cols-2 gap-1">
+        {STATUSES.map((s) => (
+          <button
+            key={s.id}
+            onClick={() => onPick(s.id)}
+            className={cn(
+              'flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs capitalize transition-colors',
+              current === s.id
+                ? 'border-ink text-ink'
+                : 'border-line text-muted hover:text-ink',
+            )}
+          >
+            <span className={cn('h-2 w-2 rounded-full', s.dot)} />
+            {s.id}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/** Contextual editor for the current selection: a single table, or a merged group. */
 export function TableInspector() {
   const selectedIds = useUIStore((s) => s.selectedTableIds)
   const tables = useLayoutStore((s) => s.tables)
   const tableTypes = useLayoutStore((s) => s.tableTypes)
+  const mergedGroups = useLayoutStore((s) => s.mergedGroups)
+  const updateTables = useLayoutStore((s) => s.updateTables)
+  const splitGroup = useLayoutStore((s) => s.splitGroup)
+
+  if (selectedIds.length === 0) return null
+
+  // Merged-group view: the whole membership of one group is selected.
+  const first = tables.find((t) => t.id === selectedIds[0])
+  const group = first?.mergedGroupId
+    ? mergedGroups.find((g) => g.id === first.mergedGroupId)
+    : undefined
+  const isFullGroup =
+    group &&
+    group.tableIds.length === selectedIds.length &&
+    group.tableIds.every((id) => selectedIds.includes(id))
+
+  if (isFullGroup && group) {
+    const members = tables.filter((t) => t.mergedGroupId === group.id)
+    const seats = groupCapacity(members, tableTypes)
+    const uniform = members.every((m) => m.status === members[0].status)
+    const status = uniform ? members[0].status : undefined
+    const memberIds = members.map((m) => m.id)
+
+    return (
+      <div className="space-y-3 border-b border-line bg-surface-2/40 p-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-ink">Merged · {members.length} tables</h3>
+          <span className="text-xs text-muted">{seats} seats</span>
+        </div>
+
+        <StatusPicker
+          current={status}
+          onPick={(s) => updateTables(memberIds, { status: s })}
+        />
+
+        <p className="text-[11px] text-muted">
+          Tables:{' '}
+          <span className="text-ink">{members.map((m) => m.label).join(', ')}</span>
+        </p>
+
+        <button
+          onClick={() => splitGroup(group.id)}
+          className="w-full rounded-lg border border-line px-2 py-1.5 text-sm text-ink transition-colors hover:bg-surface-2"
+        >
+          Split
+        </button>
+      </div>
+    )
+  }
+
+  if (selectedIds.length !== 1 || !first) return null
+  return <SingleTable table={first} />
+}
+
+/** Inspector body for a single (non-merged) table. */
+function SingleTable({ table }: { table: Table }) {
+  const tableTypes = useLayoutStore((s) => s.tableTypes)
   const zones = useLayoutStore((s) => s.zones)
   const updateTable = useLayoutStore((s) => s.updateTable)
-
-  if (selectedIds.length !== 1) return null
-  const table = tables.find((t) => t.id === selectedIds[0])
-  if (!table) return null
 
   const type = tableTypes.find((t) => t.id === table.typeId)
   const seats = seatsForTable(table, type)
@@ -66,26 +151,10 @@ export function TableInspector() {
         </select>
       </label>
 
-      <div className="flex flex-col gap-1 text-[11px] text-muted">
-        Status
-        <div className="grid grid-cols-2 gap-1">
-          {STATUSES.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => updateTable(table.id, { status: s.id })}
-              className={cn(
-                'flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs capitalize transition-colors',
-                table.status === s.id
-                  ? 'border-ink text-ink'
-                  : 'border-line text-muted hover:text-ink',
-              )}
-            >
-              <span className={cn('h-2 w-2 rounded-full', s.dot)} />
-              {s.id}
-            </button>
-          ))}
-        </div>
-      </div>
+      <StatusPicker
+        current={table.status}
+        onPick={(s) => updateTable(table.id, { status: s })}
+      />
 
       <p className="text-[11px] text-muted">
         Zone: <span className="text-ink">{zoneName}</span>

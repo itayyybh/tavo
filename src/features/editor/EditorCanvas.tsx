@@ -6,6 +6,7 @@ import { useLayoutStore, useSettingsStore, useUIStore } from '@/stores'
 import { useContainerSize } from '@/hooks/useContainerSize'
 import {
   aabb,
+  boxBlocked,
   clamp,
   overlapArea,
   pointInRect,
@@ -14,11 +15,12 @@ import {
   snapPoint,
   worldToScreen,
 } from '@/utils'
-import type { Obstacle, Vec2 } from '@/types'
+import type { Vec2 } from '@/types'
 import { GridBackground } from './GridBackground'
 import { ZoneShape } from './ZoneShape'
 import { TableShape } from './TableShape'
 import { ObstacleShape } from './ObstacleShape'
+import { MergedHulls } from './MergedHulls'
 import { SelectionTransformer } from './SelectionTransformer'
 import { ObstacleTransformer } from './ObstacleTransformer'
 import { ZoneTransformer } from './ZoneTransformer'
@@ -28,8 +30,6 @@ const MIN_ZOOM = 0.25
 const MAX_ZOOM = 4
 const ZOOM_STEP = 1.03
 const MIN_TABLE_SIZE = 30
-// Overlap up to this fraction of a table's area is tolerated (edges/slight touch ok).
-const OVERLAP_TOLERANCE = 0.1
 
 // Minimum world-space distance between sampled brush points while drawing a path.
 const BRUSH_SAMPLE_DIST = 4
@@ -37,36 +37,6 @@ const BRUSH_SAMPLE_DIST = 4
 interface Marquee {
   start: Vec2
   end: Vec2
-}
-
-/**
- * Does a table rect overlap a freehand path's lane? Samples the stroke centerline
- * and tests each sample against the table box expanded by the lane's half-width.
- */
-function pathBlocksRect(
-  o: Obstacle,
-  box: { x: number; y: number; width: number; height: number },
-): boolean {
-  if (!o.points?.length) return false
-  const r = (o.brushWidth ?? 0) / 2
-  const ex = { x: box.x - r, y: box.y - r, width: box.width + 2 * r, height: box.height + 2 * r }
-  const pts = o.points.map((p) => ({ x: p.x + o.position.x, y: p.y + o.position.y }))
-  const step = Math.max(4, r)
-  for (let i = 0; i < pts.length; i++) {
-    if (pointInRect(pts[i], ex)) return true
-    if (i > 0) {
-      const a = pts[i - 1]
-      const b = pts[i]
-      const segLen = Math.hypot(b.x - a.x, b.y - a.y)
-      const n = Math.ceil(segLen / step)
-      for (let k = 1; k < n; k++) {
-        const t = k / n
-        if (pointInRect({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }, ex))
-          return true
-      }
-    }
-  }
-  return false
 }
 
 interface RenameState {
@@ -80,6 +50,7 @@ export function EditorCanvas() {
   const { ref: containerRef, size } = useContainerSize<HTMLDivElement>()
   const stageRef = useRef<Konva.Stage>(null)
   const nodeRefs = useRef<Map<string, Konva.Group>>(new Map())
+  const overlayRefs = useRef<Map<string, Konva.Group>>(new Map())
   const obstacleRefs = useRef<Map<string, Konva.Node>>(new Map())
   const zoneRefs = useRef<Map<string, Konva.Group>>(new Map())
   const renameInputRef = useRef<HTMLInputElement>(null)
@@ -99,7 +70,6 @@ export function EditorCanvas() {
   const setViewport = useUIStore((s) => s.setViewport)
   const setStageSize = useUIStore((s) => s.setStageSize)
   const setSelection = useUIStore((s) => s.setSelection)
-  const toggleSelection = useUIStore((s) => s.toggleSelection)
   const selectObstacle = useUIStore((s) => s.selectObstacle)
   const selectZone = useUIStore((s) => s.selectZone)
   const clearSelection = useUIStore((s) => s.clearSelection)
@@ -111,6 +81,7 @@ export function EditorCanvas() {
   const tableTypes = useLayoutStore((s) => s.tableTypes)
   const obstacles = useLayoutStore((s) => s.obstacles)
   const zones = useLayoutStore((s) => s.zones)
+  const mergedGroups = useLayoutStore((s) => s.mergedGroups)
   const updateTable = useLayoutStore((s) => s.updateTable)
   const moveTablesBy = useLayoutStore((s) => s.moveTablesBy)
   const updateObstacle = useLayoutStore((s) => s.updateObstacle)
@@ -154,6 +125,11 @@ export function EditorCanvas() {
   }, [])
   const getNode = useCallback((id: string) => nodeRefs.current.get(id), [])
 
+  const registerOverlayNode = useCallback((id: string, node: Konva.Group | null) => {
+    if (node) overlayRefs.current.set(id, node)
+    else overlayRefs.current.delete(id)
+  }, [])
+
   const registerObstacleNode = useCallback((id: string, node: Konva.Node | null) => {
     if (node) obstacleRefs.current.set(id, node)
     else obstacleRefs.current.delete(id)
@@ -171,6 +147,41 @@ export function EditorCanvas() {
     [snapToGrid, gridSize],
   )
 
+  // A merged table behaves as one unit: expand any id to all its group members.
+  const expandGroups = useCallback(
+    (ids: string[]) => {
+      const out = new Set<string>()
+      for (const id of ids) {
+        const t = tables.find((x) => x.id === id)
+        const group = t?.mergedGroupId
+          ? mergedGroups.find((g) => g.id === t.mergedGroupId)
+          : undefined
+        if (group) group.tableIds.forEach((m) => out.add(m))
+        else out.add(id)
+      }
+      return [...out]
+    },
+    [tables, mergedGroups],
+  )
+
+  // Selecting a table selects its whole merged group; shift toggles that group.
+  const handleSelectTable = useCallback(
+    (id: string, additive: boolean) => {
+      const groupIds = expandGroups([id])
+      if (!additive) {
+        setSelection(groupIds)
+        return
+      }
+      const allIn = groupIds.every((g) => selectedIds.includes(g))
+      setSelection(
+        allIn
+          ? selectedIds.filter((s) => !groupIds.includes(s))
+          : [...new Set([...selectedIds, ...groupIds])],
+      )
+    },
+    [expandGroups, selectedIds, setSelection],
+  )
+
   /**
    * A placement is rejected only when a table overlaps another table or a wall by
    * more than a fraction of its own area. Edges touching and slight overlaps are
@@ -178,19 +189,8 @@ export function EditorCanvas() {
    * `ignore` skips tables that move together.
    */
   const overlapsTooMuch = useCallback(
-    (center: Vec2, size: Vec2, ignore: Set<string>) => {
-      const box = aabb(center, size)
-      const limit = size.x * size.y * OVERLAP_TOLERANCE
-      const hitsWall = obstacles.some((o) =>
-        o.kind === 'path' && o.points?.length
-          ? pathBlocksRect(o, box)
-          : overlapArea(box, aabb(o.position, o.size)) > limit,
-      )
-      const hitsTable = tables.some(
-        (o) => !ignore.has(o.id) && overlapArea(box, aabb(o.position, o.size)) > limit,
-      )
-      return hitsWall || hitsTable
-    },
+    (center: Vec2, size: Vec2, ignore: Set<string>) =>
+      boxBlocked(aabb(center, size), tables, obstacles, ignore),
     [obstacles, tables],
   )
 
@@ -341,7 +341,9 @@ export function EditorCanvas() {
       clearSelection()
       return
     }
-    const hits = tables.filter((t) => pointInRect(t.position, rect)).map((t) => t.id)
+    const hits = expandGroups(
+      tables.filter((t) => pointInRect(t.position, rect)).map((t) => t.id),
+    )
     setSelection(e.evt.shiftKey ? [...new Set([...selectedIds, ...hits])] : hits)
   }
 
@@ -365,12 +367,51 @@ export function EditorCanvas() {
     if (hit) selectZone(hit)
   }
 
+  // Which merged groups move entirely with the given set (so their body tracks).
+  const overlayGroupsFor = (movingSet: Set<string>) =>
+    mergedGroups.filter(
+      (g) => g.tableIds.length > 0 && g.tableIds.every((tid) => movingSet.has(tid)),
+    )
+
+  // While a member is dragged, move its siblings and the merged body live so the
+  // whole group travels as one — not just the grabbed table with a lagging body.
+  const handleTableDragMove = (id: string) => {
+    const table = tables.find((t) => t.id === id)
+    const node = getNode(id)
+    if (!table || !node) return
+    const movingIds = expandGroups(
+      selectedIds.includes(id) && selectedIds.length > 1 ? selectedIds : [id],
+    )
+    if (movingIds.length < 2) return
+    const delta = { x: node.x() - table.position.x, y: node.y() - table.position.y }
+    const movingSet = new Set(movingIds)
+    for (const mid of movingIds) {
+      if (mid === id) continue
+      const t = tables.find((x) => x.id === mid)
+      const n = getNode(mid)
+      if (t && n) n.position({ x: t.position.x + delta.x, y: t.position.y + delta.y })
+    }
+    for (const g of overlayGroupsFor(movingSet)) {
+      overlayRefs.current.get(g.id)?.position(delta)
+    }
+    node.getLayer()?.batchDraw()
+  }
+
   const handleTableDragEnd = (id: string, center: Vec2) => {
     const table = tables.find((t) => t.id === id)
     if (!table) return
-    const movingIds =
-      selectedIds.includes(id) && selectedIds.length > 1 ? selectedIds : [id]
+    // Expand through merged groups so a group always moves as one, even on the
+    // first drag before selection state has caught up.
+    const movingIds = expandGroups(
+      selectedIds.includes(id) && selectedIds.length > 1 ? selectedIds : [id],
+    )
     const movingSet = new Set(movingIds)
+    // The overlay body was translated live during the drag; the store update below
+    // re-renders it at absolute coordinates, so return its node to the origin.
+    const resetOverlays = () =>
+      overlayGroupsFor(movingSet).forEach((g) =>
+        overlayRefs.current.get(g.id)?.position({ x: 0, y: 0 }),
+      )
     const snapped = maybeSnap(center)
     const delta = { x: snapped.x - table.position.x, y: snapped.y - table.position.y }
 
@@ -390,12 +431,14 @@ export function EditorCanvas() {
         const node = getNode(mid)
         if (t && node) node.position({ x: t.position.x, y: t.position.y })
       })
+      resetOverlays()
       getNode(id)?.getLayer()?.batchDraw()
       return
     }
 
     if (movingIds.length > 1) moveTablesBy(movingIds, delta)
     else updateTable(id, { position: snapped })
+    resetOverlays()
   }
 
   const handleTableTransformEnd = (
@@ -586,13 +629,25 @@ export function EditorCanvas() {
               type={tableTypes.find((t) => t.id === table.typeId)}
               colors={colors}
               zoneColor={zones.find((z) => z.id === table.zoneId)?.color}
+              merged={!!table.mergedGroupId}
               selected={selectedIds.includes(table.id)}
-              onSelect={toggleSelection}
+              onSelect={handleSelectTable}
+              onDragMove={handleTableDragMove}
               onDragEnd={handleTableDragEnd}
               onStartRename={startRenameTable}
               registerNode={registerNode}
             />
           ))}
+          {/* Merged bodies draw on top of members (listening off) so a group reads
+              as one seamless table; interaction still hits the members underneath. */}
+          <MergedHulls
+            groups={mergedGroups}
+            tables={visibleTables}
+            tableTypes={tableTypes}
+            selectedIds={selectedIds}
+            colors={colors}
+            registerNode={registerOverlayNode}
+          />
           {draftPath && draftPath.length > 0 && (
             <Line
               points={draftPath.flatMap((p) => [p.x, p.y])}

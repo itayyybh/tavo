@@ -19,6 +19,9 @@ export function Toolbar({ onToggleZones }: ToolbarProps) {
   const addObstacle = useLayoutStore((s) => s.addObstacle)
   const removeTables = useLayoutStore((s) => s.removeTables)
   const removeObstacle = useLayoutStore((s) => s.removeObstacle)
+  const tables = useLayoutStore((s) => s.tables)
+  const mergeTables = useLayoutStore((s) => s.mergeTables)
+  const splitGroup = useLayoutStore((s) => s.splitGroup)
   const undo = useLayoutStore((s) => s.undo)
   const redo = useLayoutStore((s) => s.redo)
   const loadSnapshot = useLayoutStore((s) => s.loadSnapshot)
@@ -63,6 +66,14 @@ export function Toolbar({ onToggleZones }: ToolbarProps) {
     else removeTables(selectedIds)
     clearSelection()
   }
+
+  // Merge needs 2+ tables that aren't already one single group; split needs a group.
+  const selectedTables = tables.filter((t) => selectedIds.includes(t.id))
+  const groupId = selectedTables.find((t) => t.mergedGroupId)?.mergedGroupId
+  const allOneGroup =
+    !!groupId && selectedTables.every((t) => t.mergedGroupId === groupId)
+  const canMerge = selectedIds.length >= 2 && !allOneGroup
+  const canSplit = !!groupId
 
   const handleSave = () => {
     const snapshot = useLayoutStore.getState().snapshot()
@@ -167,6 +178,24 @@ export function Toolbar({ onToggleZones }: ToolbarProps) {
 
       <Button size="sm" variant="ghost" onClick={handleDelete} disabled={!hasSelection}>
         Delete
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={() => mergeTables(selectedIds)}
+        disabled={!canMerge}
+        title="Merge selected tables into one (M)"
+      >
+        Merge
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={() => groupId && splitGroup(groupId)}
+        disabled={!canSplit}
+        title="Split the merged group (M)"
+      >
+        Split
       </Button>
       <Button size="sm" variant="ghost" onClick={undo} disabled={!canUndo}>
         Undo

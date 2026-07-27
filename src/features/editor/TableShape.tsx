@@ -11,8 +11,11 @@ interface TableShapeProps {
   colors: CanvasColors
   /** The assigned zone's color, if any — shown as a small corner dot. */
   zoneColor?: string
+  /** Part of a merged group — the group hull shows the combined seat count instead. */
+  merged?: boolean
   selected: boolean
   onSelect: (id: string, additive: boolean) => void
+  onDragMove: (id: string) => void
   onDragEnd: (id: string, center: Vec2) => void
   onStartRename: (id: string) => void
   registerNode: (id: string, node: Konva.Group | null) => void
@@ -27,8 +30,10 @@ export function TableShape({
   type,
   colors,
   zoneColor,
+  merged,
   selected,
   onSelect,
+  onDragMove,
   onDragEnd,
   onStartRename,
   registerNode,
@@ -57,7 +62,7 @@ export function TableShape({
       }}
       onClick={(e: KonvaEventObject<MouseEvent>) => {
         e.cancelBubble = true
-        onSelect(table.id, e.evt.shiftKey)
+        onSelect(table.id, e.evt.shiftKey || e.evt.metaKey || e.evt.ctrlKey)
       }}
       onTap={(e: KonvaEventObject<Event>) => {
         e.cancelBubble = true
@@ -75,11 +80,12 @@ export function TableShape({
         // Keep an existing multi-selection intact; otherwise select just this one.
         if (!selected) onSelect(table.id, false)
       }}
+      onDragMove={() => onDragMove(table.id)}
       onDragEnd={(e: KonvaEventObject<DragEvent>) => {
         onDragEnd(table.id, { x: e.target.x(), y: e.target.y() })
       }}
     >
-      {selected && clearance > 0 && (
+      {selected && clearance > 0 && !merged && (
         // Circular clearance ("chair") line; the transformer's 4 anchors sit on it.
         <Ellipse
           x={w / 2}
@@ -113,18 +119,27 @@ export function TableShape({
           strokeWidth={selected ? 3 : 2}
         />
       )}
-      <Text
-        text={table.label}
-        width={w}
-        height={h}
-        align="center"
-        verticalAlign="middle"
-        wrap="none"
-        fontSize={14}
-        fill={colors.ink}
-        listening={false}
-      />
-      {seats > 0 && (
+      {!merged && (
+        // Counter-rotate against the parent Group's rotation, pivoting on the
+        // same center point, so the label stays upright as the table rotates.
+        <Text
+          text={table.label}
+          x={w / 2}
+          y={h / 2}
+          offsetX={w / 2}
+          offsetY={h / 2}
+          rotation={-table.rotation}
+          width={w}
+          height={h}
+          align="center"
+          verticalAlign="middle"
+          wrap="none"
+          fontSize={14}
+          fill={colors.ink}
+          listening={false}
+        />
+      )}
+      {seats > 0 && !merged && (
         <Text
           x={cornerX}
           y={cornerY}
@@ -135,7 +150,7 @@ export function TableShape({
           perfectDrawEnabled={false}
         />
       )}
-      {zoneColor && (
+      {zoneColor && !merged && (
         <Circle
           x={shape === 'round' ? w / 2 + (Math.min(w, h) / 2 - 8) * 0.707 : w - 10}
           y={shape === 'round' ? h / 2 - (Math.min(w, h) / 2 - 8) * 0.707 : 10}
