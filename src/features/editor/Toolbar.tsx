@@ -129,6 +129,14 @@ export function Toolbar({ onToggleZones }: ToolbarProps) {
       >
         Object
       </Button>
+      <Button
+        size="sm"
+        variant="secondary"
+        onClick={() => addObstacle('path', viewCenterWorld())}
+        title="Keep-clear lane — tables can't be placed here (e.g. kitchen path, exit)"
+      >
+        Path
+      </Button>
 
       <span className="mx-1 h-5 w-px bg-line" />
 

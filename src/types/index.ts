@@ -62,8 +62,13 @@ export interface Zone {
   size: Vec2
 }
 
-/** A physical no-go area on the floor (wall, pillar, tree) — tables can't sit here. */
-export type ObstacleKind = 'wall' | 'object'
+/**
+ * An area where tables can't sit. `wall`/`object` are physical barriers; `path`
+ * is a walkable keep-clear lane (kitchen route, exit, aisle) — walkable but never
+ * placeable, so the future auto-mapper treats it as a placement constraint, not a
+ * solid barrier.
+ */
+export type ObstacleKind = 'wall' | 'object' | 'path'
 
 export interface Obstacle {
   id: ID

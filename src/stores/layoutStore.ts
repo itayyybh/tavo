@@ -17,6 +17,7 @@ import { useHistoryStore } from './historyStore'
 const OBSTACLE_DEFAULT_SIZE: Record<ObstacleKind, Vec2> = {
   wall: { x: 140, y: 20 },
   object: { x: 50, y: 50 },
+  path: { x: 60, y: 200 },
 }
 
 /** Default footprint for a newly created zone. */
