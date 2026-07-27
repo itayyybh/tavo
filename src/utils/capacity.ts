@@ -15,9 +15,15 @@ function typeOf(table: Table, types: TableType[]): TableType | undefined {
   return types.find((t) => t.id === table.typeId)
 }
 
-/** Combined seats across a set of tables (e.g. the members of a merged group). */
+/**
+ * Combined seats across a set of tables (e.g. the members of a merged group).
+ * From 3 tables up, each internal join sits where a chair would go, so every
+ * join past the first costs one seat: sum of connected capacities minus
+ * (member count - 1). A 2-table merge has just one join and keeps the plain sum.
+ */
 export function groupCapacity(members: Table[], types: TableType[]): number {
-  return members.reduce((sum, t) => sum + seatsForTable(t, typeOf(t, types)), 0)
+  const sum = members.reduce((total, t) => total + seatsForTable(t, typeOf(t, types)), 0)
+  return members.length >= 3 ? Math.max(0, sum - (members.length - 1)) : sum
 }
 
 export interface FloorTotals {
@@ -25,10 +31,19 @@ export interface FloorTotals {
   seats: number
 }
 
-/** Total tables + seats for a set of tables. */
+/** Total tables + seats for a set of tables, applying the merge-join penalty per group. */
 export function floorTotals(tables: Table[], types: TableType[]): FloorTotals {
-  return {
-    tables: tables.length,
-    seats: tables.reduce((sum, t) => sum + seatsForTable(t, typeOf(t, types)), 0),
+  const groups = new Map<string, Table[]>()
+  let seats = 0
+  for (const t of tables) {
+    if (!t.mergedGroupId) {
+      seats += seatsForTable(t, typeOf(t, types))
+      continue
+    }
+    const members = groups.get(t.mergedGroupId) ?? []
+    members.push(t)
+    groups.set(t.mergedGroupId, members)
   }
+  for (const members of groups.values()) seats += groupCapacity(members, types)
+  return { tables: tables.length, seats }
 }
