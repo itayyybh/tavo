@@ -1,10 +1,21 @@
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui'
 import { useLayoutStore, useSettingsStore, useUIStore } from '@/stores'
-import { cn, screenToWorld, snapPoint } from '@/utils'
+import type { Zone } from '@/types'
+import { clamp, cn, screenToWorld, snapPoint } from '@/utils'
+
+const MIN_ZOOM = 0.25
+const MAX_ZOOM = 4
+// Padding around a focused zone, in grid squares, on each side.
+const FOCUS_PADDING_SQUARES = 5
+
+interface ZonesPanelProps {
+  /** Called after an action that should dismiss the mobile drawer (e.g. focus). */
+  onClosePanel?: () => void
+}
 
 /** Sidebar for managing zones and assigning selected tables to them. */
-export function ZonesPanel() {
+export function ZonesPanel({ onClosePanel }: ZonesPanelProps) {
   const zones = useLayoutStore((s) => s.zones)
   const tables = useLayoutStore((s) => s.tables)
   const addZone = useLayoutStore((s) => s.addZone)
@@ -17,6 +28,9 @@ export function ZonesPanel() {
   const selectedTableIds = useUIStore((s) => s.selectedTableIds)
   const viewport = useUIStore((s) => s.viewport)
   const stageSize = useUIStore((s) => s.stageSize)
+  const focusedZoneId = useUIStore((s) => s.focusedZoneId)
+  const setFocusedZone = useUIStore((s) => s.setFocusedZone)
+  const setViewport = useUIStore((s) => s.setViewport)
 
   const gridSize = useSettingsStore((s) => s.gridSize)
   const snapToGrid = useSettingsStore((s) => s.snapToGrid)
@@ -55,18 +69,44 @@ export function ZonesPanel() {
     startRename(id, `Zone ${zones.length + 1}`)
   }
 
+  // Fit the canvas to a zone (+ padding) and isolate it for easier editing.
+  const focusZone = (zone: Zone) => {
+    if (!stageSize.width || !stageSize.height) return
+    const pad = gridSize * FOCUS_PADDING_SQUARES
+    const worldW = zone.size.x + pad * 2
+    const worldH = zone.size.y + pad * 2
+    const zoom = clamp(
+      Math.min(stageSize.width / worldW, stageSize.height / worldH),
+      MIN_ZOOM,
+      MAX_ZOOM,
+    )
+    setViewport({
+      zoom,
+      pan: {
+        x: stageSize.width / 2 - zone.position.x * zoom,
+        y: stageSize.height / 2 - zone.position.y * zoom,
+      },
+    })
+    setFocusedZone(zone.id)
+    selectZone(zone.id)
+    onClosePanel?.()
+  }
+
+  const handleDelete = (id: string) => {
+    if (focusedZoneId === id) setFocusedZone(null)
+    removeZone(id)
+  }
+
   return (
-    <aside className="flex w-64 flex-col border-l border-line bg-surface">
-      <header className="flex items-center justify-between border-b border-line px-4 py-3">
-        <h2 className="text-sm font-semibold text-ink">Zones</h2>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="border-b border-line p-2">
         <button
-          aria-label="Add zone"
           onClick={handleAdd}
-          className="flex h-6 w-6 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-ink"
+          className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-muted transition-colors hover:bg-surface-2 hover:text-ink"
         >
-          +
+          <span className="text-base leading-none">+</span> New zone
         </button>
-      </header>
+      </div>
 
       <div className="min-h-0 flex-1 space-y-0.5 overflow-auto p-2">
         {zones.length === 0 && (
@@ -117,10 +157,26 @@ export function ZonesPanel() {
             <span className="flex items-center gap-2">
               <span className="tabular-nums text-xs text-muted">{countFor(zone.id)}</span>
               <button
+                aria-label={`Focus ${zone.name}`}
+                title="Focus zone"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  focusZone(zone)
+                }}
+                className={cn(
+                  'transition-opacity hover:text-ink',
+                  focusedZoneId === zone.id
+                    ? 'text-ink opacity-100'
+                    : 'text-muted opacity-0 group-hover:opacity-100',
+                )}
+              >
+                ⤢
+              </button>
+              <button
                 aria-label={`Delete ${zone.name}`}
                 onClick={(e) => {
                   e.stopPropagation()
-                  removeZone(zone.id)
+                  handleDelete(zone.id)
                 }}
                 className="text-muted opacity-0 transition-opacity hover:text-ink group-hover:opacity-100"
               >
@@ -158,6 +214,6 @@ export function ZonesPanel() {
           </div>
         </div>
       )}
-    </aside>
+    </div>
   )
 }

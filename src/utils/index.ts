@@ -9,4 +9,9 @@ export {
   pointInRect,
   aabb,
   overlapArea,
+  OVERLAP_TOLERANCE,
+  pathBlocksRect,
+  boxBlocked,
 } from './geometry'
+export { seatsForTable, groupCapacity, floorTotals } from './capacity'
+export type { FloorTotals } from './capacity'
