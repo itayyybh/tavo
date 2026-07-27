@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import {
   EditorCanvas,
+  EditorSidebar,
   FloorSummary,
   Toolbar,
-  ZonesPanel,
   useAutosave,
   useEditorShortcuts,
 } from '@/features/editor'
@@ -82,7 +82,7 @@ export default function EditorPage() {
             panelOpen ? 'translate-x-0' : 'translate-x-full md:translate-x-0',
           )}
         >
-          <ZonesPanel onClosePanel={() => setPanelOpen(false)} />
+          <EditorSidebar onClosePanel={() => setPanelOpen(false)} />
         </div>
       </div>
       <footer className="flex items-center justify-between gap-4 border-t border-line px-4 py-1.5 text-xs text-muted">

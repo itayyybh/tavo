@@ -89,6 +89,10 @@ interface LayoutState {
   tables: Table[]
   mergedGroups: MergedGroup[]
   obstacles: Obstacle[]
+  // Table type (configuration) mutations
+  addTableType: () => string
+  updateTableType: (id: string, patch: Partial<TableType>) => void
+  removeTableType: (id: string) => void
   // Table mutations (each records history)
   addTable: (typeId: string, center: Vec2) => void
   updateTable: (id: string, patch: Partial<Table>) => void
@@ -158,8 +162,36 @@ export const useLayoutStore = create<LayoutState>((set, get) => {
     obstacles: [],
 
     snapshot: () => {
-      const { tables, zones, mergedGroups, obstacles } = get()
-      return { tables, zones, mergedGroups, obstacles }
+      const { tables, zones, mergedGroups, obstacles, tableTypes } = get()
+      return { tables, zones, mergedGroups, obstacles, tableTypes }
+    },
+
+    addTableType: () => {
+      const id = createId()
+      commit((s) => {
+        const type: TableType = {
+          id,
+          name: 'New Type',
+          shape: 'square',
+          defaultSize: { x: 60, y: 60 },
+          clearance: 16,
+          soloCapacity: 2,
+          connectedCapacity: 2,
+        }
+        return { tableTypes: [...s.tableTypes, type] }
+      })
+      return id
+    },
+
+    updateTableType: (id, patch) =>
+      commit((s) => ({
+        tableTypes: s.tableTypes.map((t) => (t.id === id ? { ...t, ...patch } : t)),
+      })),
+
+    removeTableType: (id) => {
+      // Guard: never orphan tables. The UI disables delete while a type is in use.
+      if (get().tables.some((t) => t.typeId === id)) return
+      commit((s) => ({ tableTypes: s.tableTypes.filter((t) => t.id !== id) }))
     },
 
     addTable: (typeId, center) => {
@@ -366,6 +398,8 @@ export const useLayoutStore = create<LayoutState>((set, get) => {
         zones,
         mergedGroups: snapshot.mergedGroups ?? [],
         obstacles: snapshot.obstacles ?? [],
+        // Pre-Phase-5 documents have no types — fall back to seeded defaults.
+        tableTypes: snapshot.tableTypes?.length ? snapshot.tableTypes : DEFAULT_TABLE_TYPES,
       })
     },
   }

@@ -98,17 +98,15 @@ export function ZonesPanel({ onClosePanel }: ZonesPanelProps) {
   }
 
   return (
-    <aside className="flex w-64 flex-col border-l border-line bg-surface">
-      <header className="flex items-center justify-between border-b border-line px-4 py-3">
-        <h2 className="text-sm font-semibold text-ink">Zones</h2>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="border-b border-line p-2">
         <button
-          aria-label="Add zone"
           onClick={handleAdd}
-          className="flex h-6 w-6 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-ink"
+          className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-muted transition-colors hover:bg-surface-2 hover:text-ink"
         >
-          +
+          <span className="text-base leading-none">+</span> New zone
         </button>
-      </header>
+      </div>
 
       <div className="min-h-0 flex-1 space-y-0.5 overflow-auto p-2">
         {zones.length === 0 && (
@@ -216,6 +214,6 @@ export function ZonesPanel({ onClosePanel }: ZonesPanelProps) {
           </div>
         </div>
       )}
-    </aside>
+    </div>
   )
 }

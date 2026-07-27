@@ -17,6 +17,7 @@ export function useAutosave() {
           zones: state.zones,
           mergedGroups: state.mergedGroups,
           obstacles: state.obstacles,
+          tableTypes: state.tableTypes,
         })
       }, DEBOUNCE_MS)
     })

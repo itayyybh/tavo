@@ -59,6 +59,7 @@ export function parseLayoutFile(text: string): LayoutSnapshot | null {
       zones: s.zones ?? [],
       mergedGroups: s.mergedGroups ?? [],
       obstacles: s.obstacles ?? [],
+      tableTypes: s.tableTypes,
     }
   } catch {
     return null

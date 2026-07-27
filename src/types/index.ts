@@ -128,4 +128,6 @@ export interface LayoutSnapshot {
   zones: Zone[]
   mergedGroups: MergedGroup[]
   obstacles: Obstacle[]
+  /** Optional for back-compat: pre-Phase-5 documents fall back to seeded defaults. */
+  tableTypes?: TableType[]
 }
