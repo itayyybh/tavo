@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { cn } from '@/utils'
 import { ZonesPanel } from './ZonesPanel'
 import { TableTypesPanel } from './TableTypesPanel'
+import { TableInspector } from './TableInspector'
 
 type Tab = 'zones' | 'types'
 const TABS: { id: Tab; label: string }[] = [
@@ -20,6 +21,7 @@ export function EditorSidebar({ onClosePanel }: EditorSidebarProps) {
 
   return (
     <aside className="flex h-full w-64 flex-col border-l border-line bg-surface">
+      <TableInspector />
       <div className="flex border-b border-line">
         {TABS.map((t) => (
           <button
