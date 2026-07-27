@@ -50,6 +50,9 @@ export function EditorCanvas() {
   const obstacleRefs = useRef<Map<string, Konva.Node>>(new Map())
   const zoneRefs = useRef<Map<string, Konva.Group>>(new Map())
   const renameInputRef = useRef<HTMLInputElement>(null)
+  // Touch pinch-zoom state (distance + midpoint between the two fingers).
+  const lastPinchDist = useRef(0)
+  const lastPinchCenter = useRef<Vec2 | null>(null)
   const [marquee, setMarquee] = useState<Marquee | null>(null)
   const [spaceDown, setSpaceDown] = useState(false)
   const [rename, setRename] = useState<RenameState | null>(null)
@@ -65,6 +68,8 @@ export function EditorCanvas() {
   const selectObstacle = useUIStore((s) => s.selectObstacle)
   const selectZone = useUIStore((s) => s.selectZone)
   const clearSelection = useUIStore((s) => s.clearSelection)
+  const focusedZoneId = useUIStore((s) => s.focusedZoneId)
+  const setFocusedZone = useUIStore((s) => s.setFocusedZone)
 
   const tables = useLayoutStore((s) => s.tables)
   const tableTypes = useLayoutStore((s) => s.tableTypes)
@@ -166,6 +171,54 @@ export function EditorCanvas() {
     } else {
       setViewport({ zoom, pan: { x: pan.x - e.evt.deltaX, y: pan.y - e.evt.deltaY } })
     }
+  }
+
+  // One finger on empty floor pans (via native stage drag); two fingers pinch-zoom.
+  const handleTouchStart = (e: KonvaEventObject<TouchEvent>) => {
+    const stage = stageRef.current
+    if (!stage) return
+    if (e.evt.touches.length === 1 && e.target === stage) stage.draggable(true)
+  }
+
+  const handleTouchMove = (e: KonvaEventObject<TouchEvent>) => {
+    const stage = stageRef.current
+    const touches = e.evt.touches
+    if (!stage || touches.length < 2) return
+    e.evt.preventDefault()
+    stage.draggable(false)
+
+    const box = stage.container().getBoundingClientRect()
+    const p1 = { x: touches[0].clientX - box.left, y: touches[0].clientY - box.top }
+    const p2 = { x: touches[1].clientX - box.left, y: touches[1].clientY - box.top }
+    const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y)
+    const center = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }
+
+    if (!lastPinchDist.current || !lastPinchCenter.current) {
+      lastPinchDist.current = dist
+      lastPinchCenter.current = center
+      return
+    }
+
+    const newZoom = clamp(
+      viewport.zoom * (dist / lastPinchDist.current),
+      MIN_ZOOM,
+      MAX_ZOOM,
+    )
+    const world = screenToWorld(center, viewport)
+    // Keep the pinch midpoint anchored, and pan by how far it moved this frame.
+    const pan = {
+      x: center.x - world.x * newZoom + (center.x - lastPinchCenter.current.x),
+      y: center.y - world.y * newZoom + (center.y - lastPinchCenter.current.y),
+    }
+    setViewport({ zoom: newZoom, pan })
+    lastPinchDist.current = dist
+    lastPinchCenter.current = center
+  }
+
+  const handleTouchEnd = () => {
+    lastPinchDist.current = 0
+    lastPinchCenter.current = null
+    stageRef.current?.draggable(spaceDown)
   }
 
   const handleStageMouseDown = (e: KonvaEventObject<MouseEvent>) => {
@@ -358,11 +411,23 @@ export function EditorCanvas() {
     ? (tableTypes.find((t) => t.id === selectedTable.typeId)?.clearance ?? 0)
     : 0
 
+  // Zone focus: isolate a single zone (+ its tables and overlapping obstacles).
+  const focusedZone = focusedZoneId ? zones.find((z) => z.id === focusedZoneId) : undefined
+  const focusBox = focusedZone ? aabb(focusedZone.position, focusedZone.size) : null
+  const visibleZones = focusedZone ? [focusedZone] : zones
+  const visibleTables = focusedZone
+    ? tables.filter((t) => t.zoneId === focusedZone.id)
+    : tables
+  const visibleObstacles =
+    focusedZone && focusBox
+      ? obstacles.filter((o) => overlapArea(aabb(o.position, o.size), focusBox) > 0)
+      : obstacles
+
   return (
     <div
       ref={containerRef}
       className="relative h-full w-full"
-      style={{ cursor: spaceDown ? 'grab' : 'default' }}
+      style={{ cursor: spaceDown ? 'grab' : 'default', touchAction: 'none' }}
     >
       <Stage
         ref={stageRef}
@@ -378,6 +443,9 @@ export function EditorCanvas() {
         onMouseMove={handleStageMouseMove}
         onMouseUp={handleStageMouseUp}
         onDblClick={handleStageDblClick}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
         onDragEnd={handleStageDragEnd}
       >
         <Layer>
@@ -389,7 +457,7 @@ export function EditorCanvas() {
           />
         </Layer>
         <Layer>
-          {zones.map((zone) => (
+          {visibleZones.map((zone) => (
             <ZoneShape
               key={zone.id}
               zone={zone}
@@ -400,7 +468,7 @@ export function EditorCanvas() {
               registerNode={registerZoneNode}
             />
           ))}
-          {obstacles.map((obstacle) => (
+          {visibleObstacles.map((obstacle) => (
             <ObstacleShape
               key={obstacle.id}
               obstacle={obstacle}
@@ -411,7 +479,7 @@ export function EditorCanvas() {
               registerNode={registerObstacleNode}
             />
           ))}
-          {tables.map((table) => (
+          {visibleTables.map((table) => (
             <TableShape
               key={table.id}
               table={table}
@@ -463,6 +531,20 @@ export function EditorCanvas() {
           />
         </Layer>
       </Stage>
+
+      {focusedZone && (
+        <button
+          onClick={() => setFocusedZone(null)}
+          className="absolute left-3 top-3 z-10 flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink shadow-[var(--shadow-soft)] transition-colors hover:bg-surface-2"
+        >
+          <span aria-hidden>←</span>
+          <span
+            className="h-2 w-2 rounded-full"
+            style={{ backgroundColor: focusedZone.color }}
+          />
+          {focusedZone.name} · Show all
+        </button>
+      )}
 
       {rename && renameActive && (
         <input

@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import {
   EditorCanvas,
   Toolbar,
@@ -8,7 +8,7 @@ import {
 } from '@/features/editor'
 import { useLayoutStore } from '@/stores'
 import { loadLayout } from '@/services/layoutStorage'
-import { createId } from '@/utils'
+import { cn, createId } from '@/utils'
 import type { Obstacle, Table } from '@/types'
 
 /** Build a small demo floor so a first-time canvas isn't empty. */
@@ -52,6 +52,7 @@ function seedDemo() {
 export default function EditorPage() {
   useEditorShortcuts()
   useAutosave()
+  const [panelOpen, setPanelOpen] = useState(false)
 
   // Load a saved layout, or seed a demo the first time.
   useEffect(() => {
@@ -62,12 +63,26 @@ export default function EditorPage() {
 
   return (
     <div className="flex h-full flex-col bg-surface">
-      <Toolbar />
-      <div className="flex min-h-0 flex-1">
+      <Toolbar onToggleZones={() => setPanelOpen((o) => !o)} />
+      <div className="relative flex min-h-0 flex-1">
         <div className="min-h-0 flex-1">
           <EditorCanvas />
         </div>
-        <ZonesPanel />
+        {/* Zones: a static rail on desktop, a slide-over drawer on small screens. */}
+        {panelOpen && (
+          <div
+            className="absolute inset-0 z-20 bg-ink/10 md:hidden"
+            onClick={() => setPanelOpen(false)}
+          />
+        )}
+        <div
+          className={cn(
+            'absolute inset-y-0 right-0 z-30 flex shadow-[var(--shadow-soft)] transition-transform md:static md:z-auto md:translate-x-0 md:shadow-none',
+            panelOpen ? 'translate-x-0' : 'translate-x-full md:translate-x-0',
+          )}
+        >
+          <ZonesPanel onClosePanel={() => setPanelOpen(false)} />
+        </div>
       </div>
       <footer className="border-t border-line px-4 py-1.5 text-xs text-muted">
         Space + drag to pan · ctrl/pinch to zoom · drag to marquee-select · double-click a

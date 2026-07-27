@@ -7,8 +7,13 @@ import { parseLayoutFile, serializeLayout } from '@/services/layoutStorage'
 const MIN_ZOOM = 0.25
 const MAX_ZOOM = 4
 
+interface ToolbarProps {
+  /** Toggles the zones drawer on small screens. */
+  onToggleZones?: () => void
+}
+
 /** Editor toolbar — add tables, delete, undo/redo, zoom, snap. */
-export function Toolbar() {
+export function Toolbar({ onToggleZones }: ToolbarProps) {
   const tableTypes = useLayoutStore((s) => s.tableTypes)
   const addTable = useLayoutStore((s) => s.addTable)
   const addObstacle = useLayoutStore((s) => s.addObstacle)
@@ -80,7 +85,21 @@ export function Toolbar() {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b border-line bg-surface px-4 py-2">
+    <div className="flex flex-nowrap items-center gap-2 overflow-x-auto border-b border-line bg-surface px-4 py-2 [&>*]:shrink-0 md:flex-wrap md:overflow-visible">
+      {onToggleZones && (
+        <>
+          <Button
+            size="sm"
+            variant="secondary"
+            className="md:hidden"
+            onClick={onToggleZones}
+          >
+            Zones
+          </Button>
+          <span className="mx-1 h-5 w-px bg-line md:hidden" />
+        </>
+      )}
+
       <span className="mr-1 text-xs font-medium text-muted">Add</span>
       {tableTypes.map((type) => (
         <Button

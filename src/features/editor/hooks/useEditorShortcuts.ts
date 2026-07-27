@@ -45,8 +45,14 @@ export function useEditorShortcuts() {
     const onKeyDown = (e: KeyboardEvent) => {
       if (isTypingTarget(e.target)) return
 
-      const { selectedTableIds, selectedObstacleId, selectedZoneId, clearSelection } =
-        useUIStore.getState()
+      const {
+        selectedTableIds,
+        selectedObstacleId,
+        selectedZoneId,
+        focusedZoneId,
+        clearSelection,
+        setFocusedZone,
+      } = useUIStore.getState()
       const { removeTables, removeObstacle, removeZone, undo, redo, moveTablesBy } =
         useLayoutStore.getState()
       const mod = e.metaKey || e.ctrlKey
@@ -111,9 +117,10 @@ export function useEditorShortcuts() {
         }
       }
 
-      // Deselect
+      // Escape: leave zone-focus first, otherwise just deselect.
       if (e.key === 'Escape') {
-        clearSelection()
+        if (focusedZoneId) setFocusedZone(null)
+        else clearSelection()
         return
       }
 

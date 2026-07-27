@@ -14,6 +14,8 @@ interface UIState {
   selectedTableIds: string[]
   selectedObstacleId: string | null
   selectedZoneId: string | null
+  /** When set, the canvas isolates this single zone (fit + hide everything else). */
+  focusedZoneId: string | null
   viewport: Viewport
   stageSize: { width: number; height: number }
   toggleTheme: () => void
@@ -22,6 +24,7 @@ interface UIState {
   selectObstacle: (id: string | null) => void
   selectZone: (id: string | null) => void
   clearSelection: () => void
+  setFocusedZone: (id: string | null) => void
   setViewport: (viewport: Viewport) => void
   setStageSize: (size: { width: number; height: number }) => void
 }
@@ -31,6 +34,7 @@ export const useUIStore = create<UIState>((set) => ({
   selectedTableIds: [],
   selectedObstacleId: null,
   selectedZoneId: null,
+  focusedZoneId: null,
   viewport: { pan: { x: 0, y: 0 }, zoom: 1 },
   stageSize: { width: 0, height: 0 },
 
@@ -58,6 +62,7 @@ export const useUIStore = create<UIState>((set) => ({
     set({ selectedZoneId: id, selectedTableIds: [], selectedObstacleId: null }),
   clearSelection: () =>
     set({ selectedTableIds: [], selectedObstacleId: null, selectedZoneId: null }),
+  setFocusedZone: (focusedZoneId) => set({ focusedZoneId }),
 
   setViewport: (viewport) => set({ viewport }),
   setStageSize: (stageSize) => set({ stageSize }),
