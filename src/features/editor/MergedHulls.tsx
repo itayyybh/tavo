@@ -1,6 +1,6 @@
 import { Circle, Ellipse, Group, Label, Rect, Tag, Text } from 'react-konva'
 import type Konva from 'konva'
-import type { MergedGroup, Table, TableType } from '@/types'
+import type { MergedGroup, Table, TableStatus, TableType } from '@/types'
 import { aabb, groupCapacity } from '@/utils'
 import type { CanvasColors } from './hooks/useCanvasColors'
 
@@ -14,7 +14,15 @@ interface MergedHullsProps {
   registerNode: (groupId: string, node: Konva.Group | null) => void
 }
 
-const CORNER = 8
+const STATUS_ORDER: TableStatus[] = ['occupied', 'reserved', 'blocked', 'available']
+
+/** The status that should represent the whole group (most "active" wins). */
+function dominantStatus(members: Table[]): TableStatus {
+  for (const s of STATUS_ORDER) if (members.some((m) => m.status === s)) return s
+  return 'available'
+}
+
+const CORNER = 12
 // How far the seam-bridge patch (below) reaches into each neighbor — wide enough
 // to hide a round table's curvature near the touch point, not just the 1px overlap.
 const BRIDGE_REACH = 14
@@ -52,7 +60,13 @@ export function MergedHulls({
         if (members.length < 2) return null
 
         const isSelected = members.some((m) => selected.has(m.id))
-        const border = isSelected ? 3 : 2
+        // Neutral hairline border (status lives in the corner dot now); soft blue
+        // when selected. Grow-pass thickness = visible ring width.
+        const border = isSelected ? 2 : 1.5
+        const borderColor = isSelected ? colors.accent : colors.line
+        const growShadow = isSelected
+          ? { shadowColor: colors.accent, shadowBlur: 12, shadowOpacity: 0.3 }
+          : { shadowColor: '#000000', shadowBlur: 6, shadowOffsetY: 2, shadowOpacity: 0.08 }
         const seats = groupCapacity(members, tableTypes, group)
 
         // Union box, for the seat badge (top-left).
@@ -92,9 +106,11 @@ export function MergedHulls({
 
         const memberShape = (m: Table, pass: 'grow' | 'fill') => {
           const { x: w, y: h } = m.size
-          const status = colors.status[m.status]
-          const stroke = pass === 'grow' ? { stroke: status, strokeWidth: border * 2 } : {}
-          const fill = pass === 'grow' ? status : colors.surface
+          const stroke =
+            pass === 'grow'
+              ? { stroke: borderColor, strokeWidth: border * 2, ...growShadow, shadowForStrokeEnabled: false }
+              : {}
+          const fill = pass === 'grow' ? borderColor : colors.surface
           return shapeOf(m) === 'round' ? (
             <Circle
               key={pass + m.id}
@@ -194,6 +210,25 @@ export function MergedHulls({
               <Tag fill={isSelected ? colors.ink : colors.muted} cornerRadius={4} />
               <Text text={`${seats} seats`} fontSize={11} fill={colors.surface} padding={4} />
             </Label>
+            {(() => {
+              // One status dot for the whole body (available = green token), pinned
+              // to the top-right corner of the largest member table.
+              const dot = colors.status[dominantStatus(members)]
+              const largest = members.reduce((a, b) =>
+                b.size.x * b.size.y > a.size.x * a.size.y ? b : a,
+              )
+              return (
+                <Circle
+                  x={largest.position.x + largest.size.x / 2 - 9}
+                  y={largest.position.y - largest.size.y / 2 + 9}
+                  radius={4}
+                  fill={dot}
+                  stroke={colors.surface}
+                  strokeWidth={1.5}
+                  perfectDrawEnabled={false}
+                />
+              )
+            })()}
           </Group>
         )
       })}
