@@ -22,11 +22,14 @@
   --color-surface-2: #fafafa;
 
   /* Table status colors — kept restrained, defined once. */
-  --color-status-available: #16a34a;
+  --color-status-available: #22c55e;
   --color-status-reserved: #2563eb;
   --color-status-occupied: #dc2626;
   --color-status-cleaning: #d97706;
   --color-status-blocked: #737373;
+
+  /* Selection accent — Figma-like soft blue, used for canvas selection only. */
+  --color-accent: #3b82f6;
 
   --radius: 12px;
   --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px rgb(0 0 0 / 0.06);
@@ -46,6 +49,10 @@
   --color-line: #262626;
   --color-surface: #0a0a0a;
   --color-surface-2: #171717;
+
+  --color-status-available: #4ade80;
+
+  --color-accent: #60a5fa;
 
   --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.5);
 }

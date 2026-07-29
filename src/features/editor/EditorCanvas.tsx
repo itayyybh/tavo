@@ -697,7 +697,6 @@ export function EditorCanvas() {
               table={table}
               type={tableTypes.find((t) => t.id === table.typeId)}
               colors={colors}
-              zoneColor={zones.find((z) => z.id === table.zoneId)?.color}
               merged={!!table.mergedGroupId}
               selected={selectedIds.includes(table.id)}
               onSelect={handleSelectTable}
