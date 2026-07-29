@@ -60,6 +60,17 @@ export interface Zone {
   /** World-space center of the zone region. */
   position: Vec2
   size: Vec2
+  /**
+   * Parent zone id for nesting (folder hierarchy). Undefined/'' = root.
+   * A nested zone (e.g. Bar inside Inside) is a no-go region for tables that
+   * don't belong to it.
+   */
+  parentId?: ID
+  /**
+   * When locked, this zone's whole subtree of tables is hidden on the canvas
+   * while the zone shells stay visible (collapsed-folder behavior).
+   */
+  locked?: boolean
 }
 
 /** A physical no-go area on the floor (wall, pillar, tree) — tables can't sit here. */

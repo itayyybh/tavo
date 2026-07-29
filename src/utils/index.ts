@@ -10,3 +10,12 @@ export {
   aabb,
   overlapArea,
 } from './geometry'
+export {
+  zonesById,
+  zoneDepth,
+  zoneAncestorIds,
+  zoneDescendantIds,
+  innermostZoneAt,
+  deriveZoneParents,
+  hiddenZoneIds,
+} from './zones'

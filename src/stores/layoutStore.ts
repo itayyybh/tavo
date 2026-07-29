@@ -10,7 +10,13 @@ import type {
   Vec2,
   Zone,
 } from '@/types'
-import { aabb, createId, pointInRect } from '@/utils'
+import {
+  createId,
+  deriveZoneParents,
+  innermostZoneAt,
+  zoneDescendantIds,
+  zonesById,
+} from '@/utils'
 import { useHistoryStore } from './historyStore'
 
 /** Default footprint for new obstacles (world units). */
@@ -21,6 +27,11 @@ const OBSTACLE_DEFAULT_SIZE: Record<ObstacleKind, Vec2> = {
 
 /** Default footprint for a newly created zone. */
 const ZONE_DEFAULT_SIZE: Vec2 = { x: 320, y: 260 }
+
+/** Smallest a zone may shrink to (matches the editor's zone transformer). */
+const ZONE_MIN_SIZE = 80
+/** Inner gap kept when a zone is dropped inside another via the list. */
+const ZONE_NEST_MARGIN = 28
 
 /** Soft pastel palette cycled across zones so each area reads distinctly. */
 const ZONE_PALETTE = [
@@ -101,6 +112,13 @@ interface LayoutState {
   addZone: (center: Vec2) => string
   updateZone: (id: string, patch: Partial<Zone>) => void
   removeZone: (id: string) => void
+  /**
+   * Nest a zone inside another by repositioning it within the target (geometry
+   * then derives the parent). null moves it back out to a root position.
+   */
+  nestZoneInto: (id: string, parentId: string | null) => void
+  /** Toggle a zone's lock (hides its subtree tables, keeps the shells). */
+  toggleZoneLock: (id: string) => void
   /** Manual assignment: pin selected tables to a zone, or null to return them to auto. */
   setTablesZone: (ids: string[], zoneId: string | null) => void
   /** Clone clipboard items (new ids, offset) and return the created ids for selection. */
@@ -126,16 +144,14 @@ function nextLabel(tables: Table[]): string {
 }
 
 /**
- * Recompute each non-pinned table's zone from containment (topmost zone wins;
- * '' if inside none). Pinned tables keep their manual zone.
+ * Recompute each non-pinned table's zone from containment (innermost nested zone
+ * wins; '' if inside none). Pinned tables keep their manual zone.
  */
 function assignZones(tables: Table[], zones: Zone[]): Table[] {
+  const byId = zonesById(zones)
   return tables.map((t) => {
     if (t.zonePinned) return t
-    let zoneId = ''
-    for (const z of zones) {
-      if (pointInRect(t.position, aabb(z.position, z.size))) zoneId = z.id
-    }
+    const zoneId = innermostZoneAt(t.position, zones, byId)
     return t.zoneId === zoneId ? t : { ...t, zoneId }
   })
 }
@@ -242,7 +258,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => {
           position: center,
           size: { ...ZONE_DEFAULT_SIZE },
         }
-        const zones = [...s.zones, zone]
+        const zones = deriveZoneParents([...s.zones, zone])
         return { zones, tables: assignZones(s.tables, zones) }
       })
       return id
@@ -250,19 +266,64 @@ export const useLayoutStore = create<LayoutState>((set, get) => {
 
     updateZone: (id, patch) =>
       commit((s) => {
-        const zones = s.zones.map((z) => (z.id === id ? { ...z, ...patch } : z))
+        const zones = deriveZoneParents(
+          s.zones.map((z) => (z.id === id ? { ...z, ...patch } : z)),
+        )
         return { zones, tables: assignZones(s.tables, zones) }
       }),
 
     removeZone: (id) =>
       commit((s) => {
-        const zones = s.zones.filter((z) => z.id !== id)
+        // Geometry re-derives parents (children fall to the container above, or root).
+        const zones = deriveZoneParents(s.zones.filter((z) => z.id !== id))
         // Tables pinned to / sitting in the removed zone fall back to auto.
         const tables = s.tables.map((t) =>
           t.zoneId === id ? { ...t, zoneId: '', zonePinned: false } : t,
         )
         return { zones, tables: assignZones(tables, zones) }
       }),
+
+    nestZoneInto: (id, parentId) =>
+      commit((s) => {
+        const child = s.zones.find((z) => z.id === id)
+        if (!child || parentId === id) return {}
+
+        let moved: Zone
+        if (parentId) {
+          const parent = s.zones.find((z) => z.id === parentId)
+          if (!parent) return {}
+          // Can't nest a zone inside its own descendant.
+          if (zoneDescendantIds(id, s.zones).includes(parentId)) return {}
+          // Shrink to fit within the parent (keep a margin), then center it inside.
+          const size = {
+            x: Math.max(ZONE_MIN_SIZE, Math.min(child.size.x, parent.size.x - ZONE_NEST_MARGIN * 2)),
+            y: Math.max(ZONE_MIN_SIZE, Math.min(child.size.y, parent.size.y - ZONE_NEST_MARGIN * 2)),
+          }
+          moved = { ...child, size, position: { ...parent.position } }
+        } else {
+          // Unnest: park it just outside its current parent so geometry roots it.
+          const parent = child.parentId
+            ? s.zones.find((z) => z.id === child.parentId)
+            : undefined
+          const position = parent
+            ? {
+                x: parent.position.x + parent.size.x / 2 + child.size.x / 2 + 40,
+                y: parent.position.y,
+              }
+            : child.position
+          moved = { ...child, position }
+        }
+
+        const zones = deriveZoneParents(
+          s.zones.map((z) => (z.id === id ? moved : z)),
+        )
+        return { zones, tables: assignZones(s.tables, zones) }
+      }),
+
+    toggleZoneLock: (id) =>
+      commit((s) => ({
+        zones: s.zones.map((z) => (z.id === id ? { ...z, locked: !z.locked } : z)),
+      })),
 
     setTablesZone: (ids, zoneId) => {
       const idSet = new Set(ids)
@@ -308,9 +369,16 @@ export const useLayoutStore = create<LayoutState>((set, get) => {
         for (const z of clip.zones) {
           const id = createId()
           zoneIds.push(id)
-          zones.push({ ...z, id, name: `${z.name} copy`, position: shift(z.position) })
+          zones.push({
+            ...z,
+            id,
+            parentId: undefined,
+            name: `${z.name} copy`,
+            position: shift(z.position),
+          })
         }
-        return { tables: assignZones(tables, zones), obstacles, zones }
+        const derived = deriveZoneParents(zones)
+        return { tables: assignZones(tables, derived), obstacles, zones: derived }
       })
       return { tableIds, obstacleIds, zoneIds }
     },
@@ -328,12 +396,14 @@ export const useLayoutStore = create<LayoutState>((set, get) => {
     loadSnapshot: (snapshot) => {
       history().reset()
       // Migrate pre-Phase-4 zones that lack geometry, then recompute assignments.
-      const zones = (snapshot.zones ?? []).map((z, i) => ({
-        ...z,
-        color: z.color ?? zoneColor(i),
-        position: z.position ?? { x: 300, y: 240 },
-        size: z.size ?? { ...ZONE_DEFAULT_SIZE },
-      }))
+      const zones = deriveZoneParents(
+        (snapshot.zones ?? []).map((z, i) => ({
+          ...z,
+          color: z.color ?? zoneColor(i),
+          position: z.position ?? { x: 300, y: 240 },
+          size: z.size ?? { ...ZONE_DEFAULT_SIZE },
+        })),
+      )
       set({
         tables: assignZones(snapshot.tables, zones),
         zones,

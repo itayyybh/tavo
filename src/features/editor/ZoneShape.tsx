@@ -6,6 +6,8 @@ import type { CanvasColors } from './hooks/useCanvasColors'
 
 interface ZoneShapeProps {
   zone: Zone
+  /** Nesting depth (root = 0); deeper zones read slightly stronger. */
+  depth: number
   colors: CanvasColors
   selected: boolean
   onSelect: (id: string) => void
@@ -20,6 +22,7 @@ interface ZoneShapeProps {
  */
 export function ZoneShape({
   zone,
+  depth,
   colors,
   selected,
   onSelect,
@@ -27,6 +30,10 @@ export function ZoneShape({
   registerNode,
 }: ZoneShapeProps) {
   const { x: w, y: h } = zone.size
+  // Deeper nesting reads a touch stronger so a child region stands out on its parent.
+  const baseOpacity = Math.min(0.16 + depth * 0.08, 0.34)
+  const fillOpacity = selected ? Math.min(baseOpacity + 0.12, 0.44) : baseOpacity
+  const label = zone.locked ? `🔒 ${zone.name}` : zone.name
 
   return (
     <Group
@@ -47,17 +54,17 @@ export function ZoneShape({
         height={h}
         cornerRadius={10}
         fill={zone.color}
-        opacity={selected ? 0.28 : 0.16}
+        opacity={fillOpacity}
         stroke={colors.muted}
         strokeWidth={1}
-        dash={[6, 6]}
+        dash={zone.locked ? undefined : [6, 6]}
         listening={selected}
         perfectDrawEnabled={false}
       />
       <Text
         x={10}
         y={8}
-        text={zone.name}
+        text={label}
         fontSize={12}
         fontStyle="500"
         fill={colors.inkSoft}

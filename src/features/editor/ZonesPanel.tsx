@@ -1,15 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
+import type { Zone } from '@/types'
 import { Button } from '@/components/ui'
 import { useLayoutStore, useSettingsStore, useUIStore } from '@/stores'
 import { cn, screenToWorld, snapPoint } from '@/utils'
 
-/** Sidebar for managing zones and assigning selected tables to them. */
+/** Sidebar for managing zones (nested folder tree) and assigning selected tables. */
 export function ZonesPanel() {
   const zones = useLayoutStore((s) => s.zones)
   const tables = useLayoutStore((s) => s.tables)
   const addZone = useLayoutStore((s) => s.addZone)
   const updateZone = useLayoutStore((s) => s.updateZone)
   const removeZone = useLayoutStore((s) => s.removeZone)
+  const nestZoneInto = useLayoutStore((s) => s.nestZoneInto)
+  const toggleZoneLock = useLayoutStore((s) => s.toggleZoneLock)
   const setTablesZone = useLayoutStore((s) => s.setTablesZone)
 
   const selectedZoneId = useUIStore((s) => s.selectedZoneId)
@@ -23,6 +26,8 @@ export function ZonesPanel() {
 
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
+  const [dragId, setDragId] = useState<string | null>(null)
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -55,6 +60,121 @@ export function ZonesPanel() {
     startRename(id, `Zone ${zones.length + 1}`)
   }
 
+  // Root zones, then a recursive render so children sit indented under parents.
+  // A zone whose parent no longer exists is treated as a root (never orphaned).
+  const zoneIds = new Set(zones.map((z) => z.id))
+  const rootZones = zones.filter((z) => !z.parentId || !zoneIds.has(z.parentId))
+  const childrenOf = (parentId: string) => zones.filter((z) => z.parentId === parentId)
+
+  const renderZone = (zone: Zone, depth: number) => {
+    const kids = childrenOf(zone.id)
+    const isDropTarget = dropTargetId === zone.id && dragId !== null && dragId !== zone.id
+
+    return (
+      <div key={zone.id}>
+        <div
+          draggable={renamingId !== zone.id}
+          onDragStart={(e) => {
+            e.dataTransfer.effectAllowed = 'move'
+            setDragId(zone.id)
+          }}
+          onDragEnd={() => {
+            setDragId(null)
+            setDropTargetId(null)
+          }}
+          onDragOver={(e) => {
+            if (dragId && dragId !== zone.id) {
+              e.preventDefault()
+              e.stopPropagation()
+              setDropTargetId(zone.id)
+            }
+          }}
+          onDragLeave={() => setDropTargetId((cur) => (cur === zone.id ? null : cur))}
+          onDrop={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            if (dragId && dragId !== zone.id) nestZoneInto(dragId, zone.id)
+            setDragId(null)
+            setDropTargetId(null)
+          }}
+          onClick={() => selectZone(zone.id)}
+          style={{ paddingLeft: 12 + depth * 14 }}
+          className={cn(
+            'group flex cursor-pointer items-center justify-between rounded-lg py-2 pr-3 text-sm transition-colors',
+            isDropTarget
+              ? 'ring-1 ring-inset ring-ink bg-surface-2'
+              : selectedZoneId === zone.id
+                ? 'bg-surface-2'
+                : 'hover:bg-surface-2',
+          )}
+        >
+          <span className="flex min-w-0 items-center gap-2">
+            <span
+              className="h-2.5 w-2.5 shrink-0 rounded-full"
+              style={{ backgroundColor: zone.color }}
+            />
+            {renamingId === zone.id ? (
+              <input
+                ref={inputRef}
+                value={draft}
+                autoFocus
+                onChange={(e) => setDraft(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                onBlur={commitRename}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') commitRename()
+                  if (e.key === 'Escape') setRenamingId(null)
+                }}
+                className="w-full rounded border border-line bg-surface px-1 text-sm text-ink focus:outline-none"
+              />
+            ) : (
+              <span
+                className={cn('truncate', zone.locked ? 'text-muted' : 'text-ink')}
+                onDoubleClick={(e) => {
+                  e.stopPropagation()
+                  startRename(zone.id, zone.name)
+                }}
+              >
+                {zone.name}
+              </span>
+            )}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="tabular-nums text-xs text-muted">{countFor(zone.id)}</span>
+            <button
+              aria-label={zone.locked ? `Unlock ${zone.name}` : `Lock ${zone.name}`}
+              title={zone.locked ? 'Unlock (show tables)' : 'Lock (hide tables)'}
+              onClick={(e) => {
+                e.stopPropagation()
+                toggleZoneLock(zone.id)
+              }}
+              className={cn(
+                'transition-opacity hover:text-ink',
+                zone.locked
+                  ? 'text-ink opacity-100'
+                  : 'text-muted opacity-0 group-hover:opacity-100',
+              )}
+            >
+              {zone.locked ? '🔒' : '🔓'}
+            </button>
+            <button
+              aria-label={`Delete ${zone.name}`}
+              onClick={(e) => {
+                e.stopPropagation()
+                removeZone(zone.id)
+              }}
+              className="text-muted opacity-0 transition-opacity hover:text-ink group-hover:opacity-100"
+            >
+              ✕
+            </button>
+          </span>
+        </div>
+
+        {kids.map((child) => renderZone(child, depth + 1))}
+      </div>
+    )
+  }
+
   return (
     <aside className="flex w-64 flex-col border-l border-line bg-surface">
       <header className="flex items-center justify-between border-b border-line px-4 py-3">
@@ -68,68 +188,33 @@ export function ZonesPanel() {
         </button>
       </header>
 
-      <div className="min-h-0 flex-1 space-y-0.5 overflow-auto p-2">
+      <div
+        onDragOver={(e) => {
+          if (dragId) {
+            e.preventDefault()
+            setDropTargetId('__root__')
+          }
+        }}
+        onDrop={(e) => {
+          e.preventDefault()
+          if (dragId) nestZoneInto(dragId, null)
+          setDragId(null)
+          setDropTargetId(null)
+        }}
+        className={cn(
+          'min-h-0 flex-1 space-y-0.5 overflow-auto p-2',
+          dropTargetId === '__root__' && dragId && 'bg-surface-2/60',
+        )}
+      >
         {zones.length === 0 && (
           <p className="px-2 py-2 text-xs text-muted">
             No zones yet — add one with the + above.
           </p>
         )}
-        {zones.map((zone) => (
-          <div
-            key={zone.id}
-            onClick={() => selectZone(zone.id)}
-            className={cn(
-              'group flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors',
-              selectedZoneId === zone.id ? 'bg-surface-2' : 'hover:bg-surface-2',
-            )}
-          >
-            <span className="flex min-w-0 items-center gap-2">
-              <span
-                className="h-2.5 w-2.5 shrink-0 rounded-full"
-                style={{ backgroundColor: zone.color }}
-              />
-              {renamingId === zone.id ? (
-                <input
-                  ref={inputRef}
-                  value={draft}
-                  autoFocus
-                  onChange={(e) => setDraft(e.target.value)}
-                  onClick={(e) => e.stopPropagation()}
-                  onBlur={commitRename}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') commitRename()
-                    if (e.key === 'Escape') setRenamingId(null)
-                  }}
-                  className="w-full rounded border border-line bg-surface px-1 text-sm text-ink focus:outline-none"
-                />
-              ) : (
-                <span
-                  className="truncate text-ink"
-                  onDoubleClick={(e) => {
-                    e.stopPropagation()
-                    startRename(zone.id, zone.name)
-                  }}
-                >
-                  {zone.name}
-                </span>
-              )}
-            </span>
-            <span className="flex items-center gap-2">
-              <span className="tabular-nums text-xs text-muted">{countFor(zone.id)}</span>
-              <button
-                aria-label={`Delete ${zone.name}`}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  removeZone(zone.id)
-                }}
-                className="text-muted opacity-0 transition-opacity hover:text-ink group-hover:opacity-100"
-              >
-                ✕
-              </button>
-            </span>
-          </div>
-        ))}
-        <p className="px-3 pt-2 text-xs text-muted">Unassigned: {unassigned}</p>
+        {rootZones.map((zone) => renderZone(zone, 0))}
+        <p className="px-3 pt-2 text-xs text-muted">
+          {dragId ? 'Drop on a zone to nest · drop here to unnest' : `Unassigned: ${unassigned}`}
+        </p>
       </div>
 
       {selectedCount > 0 && (

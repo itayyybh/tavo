@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Layer, Rect, Stage } from 'react-konva'
 import type Konva from 'konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
@@ -7,12 +7,17 @@ import { useContainerSize } from '@/hooks/useContainerSize'
 import {
   aabb,
   clamp,
+  hiddenZoneIds,
+  innermostZoneAt,
   overlapArea,
   pointInRect,
   screenToWorld,
   snap,
   snapPoint,
   worldToScreen,
+  zoneAncestorIds,
+  zoneDepth,
+  zonesById,
 } from '@/utils'
 import type { Vec2 } from '@/types'
 import { GridBackground } from './GridBackground'
@@ -79,6 +84,19 @@ export function EditorCanvas() {
   const snapToGrid = useSettingsStore((s) => s.snapToGrid)
   const colors = useCanvasColors()
 
+  const zonesIndex = useMemo(() => zonesById(zones), [zones])
+  // Parents render before children so nested zones stack on top and stay clickable.
+  const zonesByDepth = useMemo(
+    () => [...zones].sort((a, b) => zoneDepth(a, zonesIndex) - zoneDepth(b, zonesIndex)),
+    [zones, zonesIndex],
+  )
+  // Tables inside a locked zone's subtree are hidden (zone shells stay visible).
+  const hiddenZones = useMemo(() => hiddenZoneIds(zones), [zones])
+  const visibleTables = useMemo(
+    () => tables.filter((t) => !hiddenZones.has(t.zoneId)),
+    [tables, hiddenZones],
+  )
+
   useEffect(() => setStageSize(size), [size, setStageSize])
 
   // Track Space for pan mode (ignored while typing in the rename field).
@@ -144,9 +162,19 @@ export function EditorCanvas() {
       const hitsTable = tables.some(
         (o) => !ignore.has(o.id) && overlapArea(box, aabb(o.position, o.size)) > limit,
       )
-      return hitsWall || hitsTable
+      // Nested zones are no-go regions: a table may only intrude into a child
+      // zone it belongs to (its innermost zone, by center) or an ancestor of it.
+      const ownZone = innermostZoneAt(center, zones, zonesIndex)
+      const allowed = new Set<string>([ownZone, ...zoneAncestorIds(ownZone, zonesIndex)])
+      const hitsChildZone = zones.some(
+        (z) =>
+          z.parentId &&
+          !allowed.has(z.id) &&
+          overlapArea(box, aabb(z.position, z.size)) > limit,
+      )
+      return hitsWall || hitsTable || hitsChildZone
     },
-    [obstacles, tables],
+    [obstacles, tables, zones, zonesIndex],
   )
 
   const handleWheel = (e: KonvaEventObject<WheelEvent>) => {
@@ -197,7 +225,9 @@ export function EditorCanvas() {
       clearSelection()
       return
     }
-    const hits = tables.filter((t) => pointInRect(t.position, rect)).map((t) => t.id)
+    const hits = visibleTables
+      .filter((t) => pointInRect(t.position, rect))
+      .map((t) => t.id)
     setSelection(e.evt.shiftKey ? [...new Set([...selectedIds, ...hits])] : hits)
   }
 
@@ -208,16 +238,13 @@ export function EditorCanvas() {
     setViewport({ zoom: viewport.zoom, pan: { x: stage.x(), y: stage.y() } })
   }
 
-  // Double-click on empty floor inside a zone selects that zone (topmost wins).
+  // Double-click on empty floor inside a zone selects that zone (innermost wins).
   const handleStageDblClick = (e: KonvaEventObject<MouseEvent>) => {
     if (e.target !== e.target.getStage()) return
     const pointer = stageRef.current?.getPointerPosition()
     if (!pointer) return
     const world = screenToWorld(pointer, viewport)
-    let hit: string | null = null
-    for (const z of zones) {
-      if (pointInRect(world, aabb(z.position, z.size))) hit = z.id
-    }
+    const hit = innermostZoneAt(world, zones, zonesIndex)
     if (hit) selectZone(hit)
   }
 
@@ -389,10 +416,11 @@ export function EditorCanvas() {
           />
         </Layer>
         <Layer>
-          {zones.map((zone) => (
+          {zonesByDepth.map((zone) => (
             <ZoneShape
               key={zone.id}
               zone={zone}
+              depth={zoneDepth(zone, zonesIndex)}
               colors={colors}
               selected={selectedZoneId === zone.id}
               onSelect={selectZone}
@@ -411,7 +439,7 @@ export function EditorCanvas() {
               registerNode={registerObstacleNode}
             />
           ))}
-          {tables.map((table) => (
+          {visibleTables.map((table) => (
             <TableShape
               key={table.id}
               table={table}
