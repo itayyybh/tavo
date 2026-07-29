@@ -66,9 +66,6 @@ export default function EditorPage() {
     <div className="flex h-full flex-col bg-surface">
       <Toolbar onToggleZones={() => setPanelOpen((o) => !o)} />
       <div className="relative flex min-h-0 flex-1">
-        <div className="min-h-0 flex-1">
-          <EditorCanvas />
-        </div>
         {/* Zones: a static rail on desktop, a slide-over drawer on small screens. */}
         {panelOpen && (
           <div
@@ -78,11 +75,14 @@ export default function EditorPage() {
         )}
         <div
           className={cn(
-            'absolute inset-y-0 right-0 z-30 flex shadow-[var(--shadow-soft)] transition-transform md:static md:z-auto md:translate-x-0 md:shadow-none',
-            panelOpen ? 'translate-x-0' : 'translate-x-full md:translate-x-0',
+            'absolute inset-y-0 left-0 z-30 flex shadow-[var(--shadow-soft)] transition-transform md:static md:z-auto md:translate-x-0 md:shadow-none',
+            panelOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
           )}
         >
           <EditorSidebar onClosePanel={() => setPanelOpen(false)} />
+        </div>
+        <div className="min-h-0 flex-1">
+          <EditorCanvas />
         </div>
       </div>
       <footer className="flex items-center justify-between gap-4 border-t border-line px-4 py-1.5 text-xs text-muted">

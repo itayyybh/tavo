@@ -1,4 +1,4 @@
-import type { Table, TableType } from '@/types'
+import type { MergedGroup, Table, TableType } from '@/types'
 
 /**
  * Seats a single table provides: its type's connected capacity when part of a
@@ -17,11 +17,17 @@ function typeOf(table: Table, types: TableType[]): TableType | undefined {
 
 /**
  * Combined seats across a set of tables (e.g. the members of a merged group).
- * From 3 tables up, each internal join sits where a chair would go, so every
- * join past the first costs one seat: sum of connected capacities minus
- * (member count - 1). A 2-table merge has just one join and keeps the plain sum.
+ * A group's manual `seats` override wins when set. Otherwise it's computed: from
+ * 3 tables up, each internal join sits where a chair would go, so every join past
+ * the first costs one seat (sum of connected capacities minus member count - 1).
+ * A 2-table merge has just one join and keeps the plain sum.
  */
-export function groupCapacity(members: Table[], types: TableType[]): number {
+export function groupCapacity(
+  members: Table[],
+  types: TableType[],
+  group?: MergedGroup,
+): number {
+  if (group?.seats != null) return group.seats
   const sum = members.reduce((total, t) => total + seatsForTable(t, typeOf(t, types)), 0)
   return members.length >= 3 ? Math.max(0, sum - (members.length - 1)) : sum
 }
@@ -32,7 +38,12 @@ export interface FloorTotals {
 }
 
 /** Total tables + seats for a set of tables, applying the merge-join penalty per group. */
-export function floorTotals(tables: Table[], types: TableType[]): FloorTotals {
+export function floorTotals(
+  tables: Table[],
+  types: TableType[],
+  mergedGroups: MergedGroup[] = [],
+): FloorTotals {
+  const groupsById = new Map(mergedGroups.map((g) => [g.id, g]))
   const groups = new Map<string, Table[]>()
   let seats = 0
   for (const t of tables) {
@@ -44,6 +55,6 @@ export function floorTotals(tables: Table[], types: TableType[]): FloorTotals {
     members.push(t)
     groups.set(t.mergedGroupId, members)
   }
-  for (const members of groups.values()) seats += groupCapacity(members, types)
+  for (const [id, members] of groups) seats += groupCapacity(members, types, groupsById.get(id))
   return { tables: tables.length, seats }
 }

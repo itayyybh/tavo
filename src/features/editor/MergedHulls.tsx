@@ -1,4 +1,4 @@
-import { Circle, Group, Label, Rect, Tag, Text } from 'react-konva'
+import { Circle, Ellipse, Group, Label, Rect, Tag, Text } from 'react-konva'
 import type Konva from 'konva'
 import type { MergedGroup, Table, TableType } from '@/types'
 import { aabb, groupCapacity } from '@/utils'
@@ -53,23 +53,26 @@ export function MergedHulls({
 
         const isSelected = members.some((m) => selected.has(m.id))
         const border = isSelected ? 3 : 2
-        const seats = groupCapacity(members, tableTypes)
+        const seats = groupCapacity(members, tableTypes, group)
 
-        // Union box, for the seat badge (top-left) and the clearance halo.
+        // Union box, for the seat badge (top-left).
         let minX = Infinity
         let minY = Infinity
         let maxX = -Infinity
         let maxY = -Infinity
-        let clearance = 0
         for (const m of members) {
           const box = aabb(m.position, m.size)
           minX = Math.min(minX, box.x)
           minY = Math.min(minY, box.y)
           maxX = Math.max(maxX, box.x + box.width)
           maxY = Math.max(maxY, box.y + box.height)
-          const c = tableTypes.find((ty) => ty.id === m.typeId)?.clearance ?? 0
-          clearance = Math.max(clearance, c)
         }
+        // Per-member chair-clearance outline: follows each shape at the clearance
+        // distance (a group override applies to all members, else each member's
+        // own type clearance). Round → circle, others → ellipse that rotates with
+        // the table — never a single axis-aligned box around the whole group.
+        const clearanceOf = (m: Table) =>
+          group.clearance ?? (tableTypes.find((ty) => ty.id === m.typeId)?.clearance ?? 0)
 
         // Members are arranged left-to-right (see arrangeCluster) — bridge each
         // adjacent pair's seam with a patch sized to their shared vertical span.
@@ -126,22 +129,41 @@ export function MergedHulls({
             ref={(node) => registerNode(group.id, node)}
             listening={false}
           >
-            {isSelected && clearance > 0 && (
-              // One continuous chair-clearance ring around the whole group — no
-              // dotted lines between members, only around the outer perimeter.
-              <Rect
-                x={minX - clearance}
-                y={minY - clearance}
-                width={maxX - minX + clearance * 2}
-                height={maxY - minY + clearance * 2}
-                cornerRadius={CORNER + clearance}
-                stroke={colors.muted}
-                strokeWidth={1}
-                dash={[4, 4]}
-                fillEnabled={false}
-                perfectDrawEnabled={false}
-              />
-            )}
+            {isSelected &&
+              members.map((m) => {
+                const c = clearanceOf(m)
+                if (c <= 0) return null
+                const { x: w, y: h } = m.size
+                return shapeOf(m) === 'round' ? (
+                  <Circle
+                    key={'clr' + m.id}
+                    x={m.position.x}
+                    y={m.position.y}
+                    radius={Math.min(w, h) / 2 + c}
+                    stroke={colors.muted}
+                    strokeWidth={1}
+                    dash={[4, 4]}
+                    fillEnabled={false}
+                    listening={false}
+                    perfectDrawEnabled={false}
+                  />
+                ) : (
+                  <Ellipse
+                    key={'clr' + m.id}
+                    x={m.position.x}
+                    y={m.position.y}
+                    radiusX={w / 2 + c}
+                    radiusY={h / 2 + c}
+                    rotation={m.rotation}
+                    stroke={colors.muted}
+                    strokeWidth={1}
+                    dash={[4, 4]}
+                    fillEnabled={false}
+                    listening={false}
+                    perfectDrawEnabled={false}
+                  />
+                )
+              })}
             {members.map((m) => memberShape(m, 'grow'))}
             {members.map((m) => memberShape(m, 'fill'))}
             {bridges.map((b, i) => (

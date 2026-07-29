@@ -111,14 +111,3 @@ export function deriveZoneParents(zones: Zone[]): Zone[] {
     return z.parentId === parentId ? z : { ...z, parentId }
   })
 }
-
-/** Ids of zones whose tables are hidden because they sit in a locked subtree. */
-export function hiddenZoneIds(zones: Zone[]): Set<ID> {
-  const hidden = new Set<ID>()
-  for (const z of zones) {
-    if (!z.locked) continue
-    hidden.add(z.id)
-    for (const id of zoneDescendantIds(z.id, zones)) hidden.add(id)
-  }
-  return hidden
-}

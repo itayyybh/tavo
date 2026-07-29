@@ -1,7 +1,7 @@
 import { useLayoutStore, useUIStore } from '@/stores'
 import type { Table, TableStatus } from '@/types'
 import { cn, groupCapacity, seatsForTable } from '@/utils'
-import { TextField } from './fields'
+import { Field, NumField, TextField } from './fields'
 
 const STATUSES: { id: TableStatus; dot: string }[] = [
   { id: 'available', dot: 'bg-status-available' },
@@ -50,6 +50,7 @@ export function TableInspector() {
   const mergedGroups = useLayoutStore((s) => s.mergedGroups)
   const updateTables = useLayoutStore((s) => s.updateTables)
   const splitGroup = useLayoutStore((s) => s.splitGroup)
+  const updateMergedGroup = useLayoutStore((s) => s.updateMergedGroup)
 
   if (selectedIds.length === 0) return null
 
@@ -65,7 +66,12 @@ export function TableInspector() {
 
   if (isFullGroup && group) {
     const members = tables.filter((t) => t.mergedGroupId === group.id)
-    const seats = groupCapacity(members, tableTypes)
+    const seats = groupCapacity(members, tableTypes, group)
+    const autoSeats = groupCapacity(members, tableTypes)
+    const autoClearance = members.reduce(
+      (max, m) => Math.max(max, tableTypes.find((ty) => ty.id === m.typeId)?.clearance ?? 0),
+      0,
+    )
     const uniform = members.every((m) => m.status === members[0].status)
     const status = uniform ? members[0].status : undefined
     const memberIds = members.map((m) => m.id)
@@ -76,6 +82,29 @@ export function TableInspector() {
           <h3 className="text-sm font-semibold text-ink">Merged · {members.length} tables</h3>
           <span className="text-xs text-muted">{seats} seats</span>
         </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <Field label={`Seats${group.seats == null ? ' (auto)' : ''}`}>
+            <NumField
+              value={group.seats ?? autoSeats}
+              onCommit={(n) => updateMergedGroup(group.id, { seats: n })}
+            />
+          </Field>
+          <Field label={`Clearance${group.clearance == null ? ' (auto)' : ''}`}>
+            <NumField
+              value={group.clearance ?? autoClearance}
+              onCommit={(n) => updateMergedGroup(group.id, { clearance: n })}
+            />
+          </Field>
+        </div>
+        {(group.seats != null || group.clearance != null) && (
+          <button
+            onClick={() => updateMergedGroup(group.id, { seats: undefined, clearance: undefined })}
+            className="text-[11px] text-muted transition-colors hover:text-ink"
+          >
+            Reset to auto
+          </button>
+        )}
 
         <StatusPicker
           current={status}

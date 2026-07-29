@@ -20,7 +20,7 @@ export function EditorSidebar({ onClosePanel }: EditorSidebarProps) {
   const [tab, setTab] = useState<Tab>('zones')
 
   return (
-    <aside className="flex h-full w-64 flex-col border-l border-line bg-surface">
+    <aside className="flex h-full w-64 flex-col border-r border-line bg-surface">
       <TableInspector />
       <div className="flex border-b border-line">
         {TABS.map((t) => (

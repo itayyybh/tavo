@@ -123,6 +123,8 @@ interface LayoutState {
   mergeTables: (ids: string[]) => void
   /** Dissolve a merged group back into individual tables. */
   splitGroup: (groupId: string) => void
+  /** Patch a merged group (e.g. seats/clearance overrides; undefined = back to auto). */
+  updateMergedGroup: (groupId: string, patch: Partial<MergedGroup>) => void
   // Obstacle mutations
   addObstacle: (kind: ObstacleKind, center: Vec2) => void
   /** Create a freehand keep-clear path from absolute stroke points. */
@@ -138,8 +140,6 @@ interface LayoutState {
    * then derives the parent). null moves it back out to a root position.
    */
   nestZoneInto: (id: string, parentId: string | null) => void
-  /** Toggle a zone's lock (hides its subtree tables, keeps the shells). */
-  toggleZoneLock: (id: string) => void
   /** Manual assignment: pin selected tables to a zone, or null to return them to auto. */
   setTablesZone: (ids: string[], zoneId: string | null) => void
   /** Clone clipboard items (new ids, offset) and return the created ids for selection. */
@@ -509,6 +509,13 @@ export const useLayoutStore = create<LayoutState>((set, get) => {
         ),
       })),
 
+    updateMergedGroup: (groupId, patch) =>
+      commit((s) => ({
+        mergedGroups: s.mergedGroups.map((g) =>
+          g.id === groupId ? { ...g, ...patch } : g,
+        ),
+      })),
+
     addObstacle: (kind, center) =>
       commit((s) => {
         const obstacle: Obstacle = {
@@ -624,11 +631,6 @@ export const useLayoutStore = create<LayoutState>((set, get) => {
         )
         return { zones, tables: assignZones(s.tables, zones) }
       }),
-
-    toggleZoneLock: (id) =>
-      commit((s) => ({
-        zones: s.zones.map((z) => (z.id === id ? { ...z, locked: !z.locked } : z)),
-      })),
 
     setTablesZone: (ids, zoneId) => {
       const idSet = new Set(ids)

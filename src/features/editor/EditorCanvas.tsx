@@ -9,7 +9,6 @@ import {
   aabb,
   boxBlocked,
   clamp,
-  hiddenZoneIds,
   innermostZoneAt,
   OVERLAP_TOLERANCE,
   overlapArea,
@@ -105,8 +104,6 @@ export function EditorCanvas() {
   const colors = useCanvasColors()
 
   const zonesIndex = useMemo(() => zonesById(zones), [zones])
-  // Tables inside a locked zone's subtree are hidden (zone shells stay visible).
-  const hiddenZones = useMemo(() => hiddenZoneIds(zones), [zones])
 
   useEffect(() => setStageSize(size), [size, setStageSize])
 
@@ -219,10 +216,17 @@ export function EditorCanvas() {
   )
 
   // A table's chair-clearance halo counts as solid space between tables only, so
-  // their dotted rings never overlap. Walls/paths/objects use the raw body.
+  // their dotted rings never overlap. Walls/paths/objects use the raw body. A
+  // merged group's manual clearance override wins for all its members.
   const clearanceOf = useCallback(
-    (t: Table) => tableTypes.find((ty) => ty.id === t.typeId)?.clearance ?? 0,
-    [tableTypes],
+    (t: Table) => {
+      if (t.mergedGroupId) {
+        const g = mergedGroups.find((mg) => mg.id === t.mergedGroupId)
+        if (g?.clearance != null) return g.clearance
+      }
+      return tableTypes.find((ty) => ty.id === t.typeId)?.clearance ?? 0
+    },
+    [tableTypes, mergedGroups],
   )
 
   /**
@@ -617,11 +621,10 @@ export function EditorCanvas() {
   const visibleZones = (focusSubtree ? zones.filter((z) => focusSubtree.has(z.id)) : zones)
     .slice()
     .sort((a, b) => zoneDepth(a, zonesIndex) - zoneDepth(b, zonesIndex))
-  const visibleTables = tables.filter((t) => {
-    if (hiddenZones.has(t.zoneId)) return false // locked subtree hidden
-    if (focusedZone) return t.zoneId === focusedZone.id // only the focused zone's own tables
-    return true
-  })
+  // When focused, show only the focused zone's own tables (nested zones' tables hidden).
+  const visibleTables = focusedZone
+    ? tables.filter((t) => t.zoneId === focusedZone.id)
+    : tables
   const visibleObstacles =
     focusedZone && focusBox
       ? obstacles.filter((o) => overlapArea(aabb(o.position, o.size), focusBox) > 0)

@@ -33,7 +33,6 @@ export function ZoneShape({
   // Deeper nesting reads a touch stronger so a child region stands out on its parent.
   const baseOpacity = Math.min(0.16 + depth * 0.08, 0.34)
   const fillOpacity = selected ? Math.min(baseOpacity + 0.12, 0.44) : baseOpacity
-  const label = zone.locked ? `🔒 ${zone.name}` : zone.name
 
   return (
     <Group
@@ -57,14 +56,14 @@ export function ZoneShape({
         opacity={fillOpacity}
         stroke={colors.muted}
         strokeWidth={1}
-        dash={zone.locked ? undefined : [6, 6]}
+        dash={[6, 6]}
         listening={selected}
         perfectDrawEnabled={false}
       />
       <Text
         x={10}
         y={8}
-        text={label}
+        text={zone.name}
         fontSize={12}
         fontStyle="500"
         fill={colors.inkSoft}

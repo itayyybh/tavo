@@ -66,11 +66,6 @@ export interface Zone {
    * don't belong to it.
    */
   parentId?: ID
-  /**
-   * When locked, this zone's whole subtree of tables is hidden on the canvas
-   * while the zone shells stay visible (collapsed-folder behavior).
-   */
-  locked?: boolean
 }
 
 /**
@@ -101,6 +96,10 @@ export interface Obstacle {
 export interface MergedGroup {
   id: ID
   tableIds: ID[]
+  /** Manual seat override for the group. Undefined = auto (computed from members). */
+  seats?: number
+  /** Manual clearance override (world units). Undefined = auto (max member clearance). */
+  clearance?: number
 }
 
 export interface Reservation {

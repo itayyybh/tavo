@@ -20,7 +20,6 @@ export {
   zoneDescendantIds,
   innermostZoneAt,
   deriveZoneParents,
-  hiddenZoneIds,
 } from './zones'
 export { seatsForTable, groupCapacity, floorTotals } from './capacity'
 export type { FloorTotals } from './capacity'

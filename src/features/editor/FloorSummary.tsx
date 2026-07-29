@@ -6,7 +6,8 @@ import { floorTotals } from '@/utils'
 export function FloorSummary() {
   const tables = useLayoutStore((s) => s.tables)
   const tableTypes = useLayoutStore((s) => s.tableTypes)
-  const { tables: count, seats } = floorTotals(tables, tableTypes)
+  const mergedGroups = useLayoutStore((s) => s.mergedGroups)
+  const { tables: count, seats } = floorTotals(tables, tableTypes, mergedGroups)
 
   return (
     <span className="tabular-nums text-ink">

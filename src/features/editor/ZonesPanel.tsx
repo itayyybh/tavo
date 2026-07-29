@@ -22,7 +22,6 @@ export function ZonesPanel({ onClosePanel }: ZonesPanelProps) {
   const updateZone = useLayoutStore((s) => s.updateZone)
   const removeZone = useLayoutStore((s) => s.removeZone)
   const nestZoneInto = useLayoutStore((s) => s.nestZoneInto)
-  const toggleZoneLock = useLayoutStore((s) => s.toggleZoneLock)
   const setTablesZone = useLayoutStore((s) => s.setTablesZone)
 
   const selectedZoneId = useUIStore((s) => s.selectedZoneId)
@@ -150,6 +149,11 @@ export function ZonesPanel({ onClosePanel }: ZonesPanelProps) {
           )}
         >
           <span className="flex min-w-0 items-center gap-2">
+            {depth > 0 && (
+              <span className="shrink-0 text-xs leading-none text-muted" aria-hidden>
+                ↳
+              </span>
+            )}
             <span
               className="h-2.5 w-2.5 shrink-0 rounded-full"
               style={{ backgroundColor: zone.color }}
@@ -170,7 +174,7 @@ export function ZonesPanel({ onClosePanel }: ZonesPanelProps) {
               />
             ) : (
               <span
-                className={cn('truncate', zone.locked ? 'text-muted' : 'text-ink')}
+                className="truncate text-ink"
                 onDoubleClick={(e) => {
                   e.stopPropagation()
                   startRename(zone.id, zone.name)
@@ -182,22 +186,6 @@ export function ZonesPanel({ onClosePanel }: ZonesPanelProps) {
           </span>
           <span className="flex items-center gap-1.5">
             <span className="tabular-nums text-xs text-muted">{countFor(zone.id)}</span>
-            <button
-              aria-label={zone.locked ? `Unlock ${zone.name}` : `Lock ${zone.name}`}
-              title={zone.locked ? 'Unlock (show tables)' : 'Lock (hide tables)'}
-              onClick={(e) => {
-                e.stopPropagation()
-                toggleZoneLock(zone.id)
-              }}
-              className={cn(
-                'transition-opacity hover:text-ink',
-                zone.locked
-                  ? 'text-ink opacity-100'
-                  : 'text-muted opacity-0 group-hover:opacity-100',
-              )}
-            >
-              {zone.locked ? '🔒' : '🔓'}
-            </button>
             <button
               aria-label={`Focus ${zone.name}`}
               title="Focus zone"
