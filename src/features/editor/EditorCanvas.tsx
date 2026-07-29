@@ -207,18 +207,18 @@ export function EditorCanvas() {
     [expandGroups, selectedIds, setSelection],
   )
 
-  // A table's chair-clearance halo counts as solid space, so bodies keep the
-  // dotted-ring gap from each other and from walls.
+  // A table's chair-clearance halo counts as solid space between tables only, so
+  // their dotted rings never overlap. Walls/paths/objects use the raw body.
   const clearanceOf = useCallback(
     (t: Table) => tableTypes.find((ty) => ty.id === t.typeId)?.clearance ?? 0,
     [tableTypes],
   )
 
   /**
-   * A placement is rejected when a table's body (grown by its own clearance)
-   * overlaps another table's body+clearance, or a wall, beyond a small tolerance.
-   * `ignore` skips tables that move together; `boxClearance` is the moving table's
-   * own halo.
+   * A placement is rejected when a table's body+clearance overlaps another table's
+   * body+clearance, or its raw body overlaps a wall/path/object, beyond a small
+   * tolerance. `ignore` skips tables that move together; `boxClearance` is the
+   * moving table's own halo (applied against other tables only).
    */
   const overlapsTooMuch = useCallback(
     (center: Vec2, size: Vec2, ignore: Set<string>, boxClearance = 0) =>

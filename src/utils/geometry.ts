@@ -109,23 +109,25 @@ export function boxBlocked(
   tables: Table[],
   obstacles: Obstacle[],
   ignoreTableIds: Set<string>,
-  // Chair-clearance halos count as solid: the moving box grows by `boxClearance`,
-  // and each other table grows by `clearanceOf(t)`, so neither body enters the
-  // other's dotted ring (enforced gap = both halos, i.e. the rings never overlap).
+  // Chair-clearance counts as solid ONLY between tables: the moving box grows by
+  // `boxClearance` and each other table by `clearanceOf(t)`, so neither body
+  // enters the other's dotted ring (the rings never overlap). Walls, paths, and
+  // objects use the raw body — a table may push its chair space against them.
   clearanceOf?: (t: Table) => number,
   boxClearance = 0,
 ): boolean {
-  const grown = grow(box, boxClearance)
-  const limit = grown.width * grown.height * OVERLAP_TOLERANCE
+  const limit = box.width * box.height * OVERLAP_TOLERANCE
   const hitsWall = obstacles.some((o) =>
     o.kind === 'path' && o.points?.length
-      ? pathBlocksRect(o, grown)
-      : overlapArea(grown, aabb(o.position, o.size)) > limit,
+      ? pathBlocksRect(o, box)
+      : overlapArea(box, aabb(o.position, o.size)) > limit,
   )
+  const grown = grow(box, boxClearance)
+  const grownLimit = grown.width * grown.height * OVERLAP_TOLERANCE
   const hitsTable = tables.some((t) => {
     if (ignoreTableIds.has(t.id)) return false
     const tbox = grow(aabb(t.position, t.size), clearanceOf?.(t) ?? 0)
-    return overlapArea(grown, tbox) > limit
+    return overlapArea(grown, tbox) > grownLimit
   })
   return hitsWall || hitsTable
 }
