@@ -98,20 +98,34 @@ export function pathBlocksRect(o: Obstacle, box: Rect): boolean {
  * more than a tolerated sliver? Shared by drag/resize placement and merge
  * auto-placement so both use the same "too much overlap" definition.
  */
+function grow(box: Rect, by: number): Rect {
+  return by
+    ? { x: box.x - by, y: box.y - by, width: box.width + by * 2, height: box.height + by * 2 }
+    : box
+}
+
 export function boxBlocked(
   box: Rect,
   tables: Table[],
   obstacles: Obstacle[],
   ignoreTableIds: Set<string>,
+  // Chair-clearance halos count as solid: the moving box grows by `boxClearance`,
+  // and each other table grows by `clearanceOf(t)`, so neither body enters the
+  // other's dotted ring (enforced gap = both halos, i.e. the rings never overlap).
+  clearanceOf?: (t: Table) => number,
+  boxClearance = 0,
 ): boolean {
-  const limit = box.width * box.height * OVERLAP_TOLERANCE
+  const grown = grow(box, boxClearance)
+  const limit = grown.width * grown.height * OVERLAP_TOLERANCE
   const hitsWall = obstacles.some((o) =>
     o.kind === 'path' && o.points?.length
-      ? pathBlocksRect(o, box)
-      : overlapArea(box, aabb(o.position, o.size)) > limit,
+      ? pathBlocksRect(o, grown)
+      : overlapArea(grown, aabb(o.position, o.size)) > limit,
   )
-  const hitsTable = tables.some(
-    (t) => !ignoreTableIds.has(t.id) && overlapArea(box, aabb(t.position, t.size)) > limit,
-  )
+  const hitsTable = tables.some((t) => {
+    if (ignoreTableIds.has(t.id)) return false
+    const tbox = grow(aabb(t.position, t.size), clearanceOf?.(t) ?? 0)
+    return overlapArea(grown, tbox) > limit
+  })
   return hitsWall || hitsTable
 }

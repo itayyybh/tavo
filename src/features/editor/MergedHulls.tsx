@@ -55,13 +55,20 @@ export function MergedHulls({
         const border = isSelected ? 3 : 2
         const seats = groupCapacity(members, tableTypes)
 
-        // Union top-left, for placing the combined seat badge.
+        // Union box, for the seat badge (top-left) and the clearance halo.
         let minX = Infinity
         let minY = Infinity
+        let maxX = -Infinity
+        let maxY = -Infinity
+        let clearance = 0
         for (const m of members) {
           const box = aabb(m.position, m.size)
           minX = Math.min(minX, box.x)
           minY = Math.min(minY, box.y)
+          maxX = Math.max(maxX, box.x + box.width)
+          maxY = Math.max(maxY, box.y + box.height)
+          const c = tableTypes.find((ty) => ty.id === m.typeId)?.clearance ?? 0
+          clearance = Math.max(clearance, c)
         }
 
         // Members are arranged left-to-right (see arrangeCluster) — bridge each
@@ -119,6 +126,22 @@ export function MergedHulls({
             ref={(node) => registerNode(group.id, node)}
             listening={false}
           >
+            {isSelected && clearance > 0 && (
+              // One continuous chair-clearance ring around the whole group — no
+              // dotted lines between members, only around the outer perimeter.
+              <Rect
+                x={minX - clearance}
+                y={minY - clearance}
+                width={maxX - minX + clearance * 2}
+                height={maxY - minY + clearance * 2}
+                cornerRadius={CORNER + clearance}
+                stroke={colors.muted}
+                strokeWidth={1}
+                dash={[4, 4]}
+                fillEnabled={false}
+                perfectDrawEnabled={false}
+              />
+            )}
             {members.map((m) => memberShape(m, 'grow'))}
             {members.map((m) => memberShape(m, 'fill'))}
             {bridges.map((b, i) => (

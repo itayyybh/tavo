@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { Layer, Line, Rect, Stage } from 'react-konva'
 import type Konva from 'konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
@@ -15,7 +16,7 @@ import {
   snapPoint,
   worldToScreen,
 } from '@/utils'
-import type { Vec2 } from '@/types'
+import type { Table, Vec2 } from '@/types'
 import { GridBackground } from './GridBackground'
 import { ZoneShape } from './ZoneShape'
 import { TableShape } from './TableShape'
@@ -62,6 +63,9 @@ export function EditorCanvas() {
   const [rename, setRename] = useState<RenameState | null>(null)
   // In-progress freehand brush stroke (world points), while the path tool draws.
   const [draftPath, setDraftPath] = useState<Vec2[] | null>(null)
+  // Transient top-center note shown when a move/resize is rejected for no room.
+  const [notice, setNotice] = useState<string | null>(null)
+  const noticeTimer = useRef<number | null>(null)
 
   const viewport = useUIStore((s) => s.viewport)
   const selectedIds = useUIStore((s) => s.selectedTableIds)
@@ -94,6 +98,27 @@ export function EditorCanvas() {
   const colors = useCanvasColors()
 
   useEffect(() => setStageSize(size), [size, setStageSize])
+
+  // Briefly flash a note; a fresh call resets the dismiss timer.
+  const flashNotice = useCallback((msg: string) => {
+    setNotice(msg)
+    if (noticeTimer.current) window.clearTimeout(noticeTimer.current)
+    noticeTimer.current = window.setTimeout(() => setNotice(null), 1600)
+  }, [])
+  useEffect(
+    () => () => {
+      if (noticeTimer.current) window.clearTimeout(noticeTimer.current)
+    },
+    [],
+  )
+
+  // Merged-hull bodies are translated imperatively to track a live drag. Once any
+  // move/rotate/nudge commits to the store, snap every overlay back to the origin
+  // so it re-renders from absolute member coordinates — a missed imperative reset
+  // (or react-konva skipping an unchanged x/y prop) can never leave a ghost hull.
+  useEffect(() => {
+    overlayRefs.current.forEach((node) => node.position({ x: 0, y: 0 }))
+  }, [tables, mergedGroups])
 
   // Track Space for pan mode (ignored while typing in the rename field).
   useEffect(() => {
@@ -182,16 +207,23 @@ export function EditorCanvas() {
     [expandGroups, selectedIds, setSelection],
   )
 
+  // A table's chair-clearance halo counts as solid space, so bodies keep the
+  // dotted-ring gap from each other and from walls.
+  const clearanceOf = useCallback(
+    (t: Table) => tableTypes.find((ty) => ty.id === t.typeId)?.clearance ?? 0,
+    [tableTypes],
+  )
+
   /**
-   * A placement is rejected only when a table overlaps another table or a wall by
-   * more than a fraction of its own area. Edges touching and slight overlaps are
-   * fine; chair clearance is now just the visual halo, not a hard rule.
-   * `ignore` skips tables that move together.
+   * A placement is rejected when a table's body (grown by its own clearance)
+   * overlaps another table's body+clearance, or a wall, beyond a small tolerance.
+   * `ignore` skips tables that move together; `boxClearance` is the moving table's
+   * own halo.
    */
   const overlapsTooMuch = useCallback(
-    (center: Vec2, size: Vec2, ignore: Set<string>) =>
-      boxBlocked(aabb(center, size), tables, obstacles, ignore),
-    [obstacles, tables],
+    (center: Vec2, size: Vec2, ignore: Set<string>, boxClearance = 0) =>
+      boxBlocked(aabb(center, size), tables, obstacles, ignore, clearanceOf, boxClearance),
+    [obstacles, tables, clearanceOf],
   )
 
   const handleWheel = (e: KonvaEventObject<WheelEvent>) => {
@@ -421,7 +453,7 @@ export function EditorCanvas() {
       if (!t) return false
       const newCenter =
         mid === id ? snapped : { x: t.position.x + delta.x, y: t.position.y + delta.y }
-      return overlapsTooMuch(newCenter, t.size, movingSet)
+      return overlapsTooMuch(newCenter, t.size, movingSet, clearanceOf(t))
     })
 
     if (blocked) {
@@ -433,6 +465,7 @@ export function EditorCanvas() {
       })
       resetOverlays()
       getNode(id)?.getLayer()?.batchDraw()
+      flashNotice('No room here')
       return
     }
 
@@ -458,7 +491,7 @@ export function EditorCanvas() {
     const newCenter = maybeSnap(center)
     const only = new Set([id])
 
-    const blocked = overlapsTooMuch(newCenter, newSize, only)
+    const blocked = overlapsTooMuch(newCenter, newSize, only, clearanceOf(table))
 
     if (blocked) {
       // Revert the node to its stored transform.
@@ -470,6 +503,7 @@ export function EditorCanvas() {
         node.rotation(table.rotation)
         node.getLayer()?.batchDraw()
       }
+      flashNotice('No room here')
       return
     }
 
@@ -698,6 +732,20 @@ export function EditorCanvas() {
           />
         </Layer>
       </Stage>
+
+      <AnimatePresence>
+        {notice && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            className="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-full border border-line bg-surface px-3.5 py-1.5 text-xs font-medium text-ink shadow-[var(--shadow-soft)]"
+          >
+            {notice}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {focusedZone && (
         <button
