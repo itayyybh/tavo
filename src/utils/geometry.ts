@@ -1,4 +1,4 @@
-import type { Vec2 } from '@/types'
+import type { Obstacle, Table, Vec2 } from '@/types'
 import type { Viewport } from '@/stores/uiStore'
 
 export function clamp(value: number, min: number, max: number): number {
@@ -60,4 +60,74 @@ export function overlapArea(a: Rect, b: Rect): number {
   const ox = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x)
   const oy = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y)
   return ox > 0 && oy > 0 ? ox * oy : 0
+}
+
+/** Overlap up to this fraction of a table's area is tolerated (edges/slight touch ok). */
+export const OVERLAP_TOLERANCE = 0.1
+
+/**
+ * Does a rect overlap a freehand path obstacle's lane? Samples the stroke
+ * centerline and tests each sample against the rect expanded by the lane's
+ * half-width.
+ */
+export function pathBlocksRect(o: Obstacle, box: Rect): boolean {
+  if (!o.points?.length) return false
+  const r = (o.brushWidth ?? 0) / 2
+  const ex = { x: box.x - r, y: box.y - r, width: box.width + 2 * r, height: box.height + 2 * r }
+  const pts = o.points.map((p) => ({ x: p.x + o.position.x, y: p.y + o.position.y }))
+  const step = Math.max(4, r)
+  for (let i = 0; i < pts.length; i++) {
+    if (pointInRect(pts[i], ex)) return true
+    if (i > 0) {
+      const a = pts[i - 1]
+      const b = pts[i]
+      const segLen = Math.hypot(b.x - a.x, b.y - a.y)
+      const n = Math.ceil(segLen / step)
+      for (let k = 1; k < n; k++) {
+        const t = k / n
+        if (pointInRect({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }, ex))
+          return true
+      }
+    }
+  }
+  return false
+}
+
+/**
+ * Would placing a box here overlap another table or a wall/path obstacle by
+ * more than a tolerated sliver? Shared by drag/resize placement and merge
+ * auto-placement so both use the same "too much overlap" definition.
+ */
+function grow(box: Rect, by: number): Rect {
+  return by
+    ? { x: box.x - by, y: box.y - by, width: box.width + by * 2, height: box.height + by * 2 }
+    : box
+}
+
+export function boxBlocked(
+  box: Rect,
+  tables: Table[],
+  obstacles: Obstacle[],
+  ignoreTableIds: Set<string>,
+  // Chair-clearance counts as solid ONLY between tables: the moving box grows by
+  // `boxClearance` and each other table by `clearanceOf(t)`, so neither body
+  // enters the other's dotted ring (the rings never overlap). Walls, paths, and
+  // objects use the raw body — a table may push its chair space against them.
+  clearanceOf?: (t: Table) => number,
+  boxClearance = 0,
+): boolean {
+  const limit = box.width * box.height * OVERLAP_TOLERANCE
+  const hitsWall = obstacles.some((o) =>
+    o.kind === 'path' && o.points?.length
+      ? pathBlocksRect(o, box)
+      : overlapArea(box, aabb(o.position, o.size)) > limit,
+  )
+  const grown = grow(box, boxClearance)
+  const grownLimit = grown.width * grown.height * OVERLAP_TOLERANCE
+  const hitsTable = tables.some((t) => {
+    if (ignoreTableIds.has(t.id)) return false
+    const tbox = grow(aabb(t.position, t.size), clearanceOf?.(t) ?? 0)
+    return overlapArea(grown, tbox) > grownLimit
+  })
+  return hitsWall || hitsTable
 }

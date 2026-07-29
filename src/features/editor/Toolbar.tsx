@@ -7,13 +7,21 @@ import { parseLayoutFile, serializeLayout } from '@/services/layoutStorage'
 const MIN_ZOOM = 0.25
 const MAX_ZOOM = 4
 
+interface ToolbarProps {
+  /** Toggles the zones drawer on small screens. */
+  onToggleZones?: () => void
+}
+
 /** Editor toolbar — add tables, delete, undo/redo, zoom, snap. */
-export function Toolbar() {
+export function Toolbar({ onToggleZones }: ToolbarProps) {
   const tableTypes = useLayoutStore((s) => s.tableTypes)
   const addTable = useLayoutStore((s) => s.addTable)
   const addObstacle = useLayoutStore((s) => s.addObstacle)
   const removeTables = useLayoutStore((s) => s.removeTables)
   const removeObstacle = useLayoutStore((s) => s.removeObstacle)
+  const tables = useLayoutStore((s) => s.tables)
+  const mergeTables = useLayoutStore((s) => s.mergeTables)
+  const splitGroup = useLayoutStore((s) => s.splitGroup)
   const undo = useLayoutStore((s) => s.undo)
   const redo = useLayoutStore((s) => s.redo)
   const loadSnapshot = useLayoutStore((s) => s.loadSnapshot)
@@ -29,10 +37,20 @@ export function Toolbar() {
   const selectedIds = useUIStore((s) => s.selectedTableIds)
   const selectedObstacleId = useUIStore((s) => s.selectedObstacleId)
   const clearSelection = useUIStore((s) => s.clearSelection)
+  const tool = useUIStore((s) => s.tool)
+  const setTool = useUIStore((s) => s.setTool)
 
   const gridSize = useSettingsStore((s) => s.gridSize)
   const snapToGrid = useSettingsStore((s) => s.snapToGrid)
   const setSnapToGrid = useSettingsStore((s) => s.setSnapToGrid)
+  const pathWidth = useSettingsStore((s) => s.pathWidth)
+  const setPathWidth = useSettingsStore((s) => s.setPathWidth)
+
+  const togglePathTool = () => {
+    const next = tool === 'path' ? 'select' : 'path'
+    setTool(next)
+    if (next === 'path') clearSelection()
+  }
 
   const viewCenterWorld = () => {
     const center = { x: stageSize.width / 2, y: stageSize.height / 2 }
@@ -48,6 +66,14 @@ export function Toolbar() {
     else removeTables(selectedIds)
     clearSelection()
   }
+
+  // Merge needs 2+ tables that aren't already one single group; split needs a group.
+  const selectedTables = tables.filter((t) => selectedIds.includes(t.id))
+  const groupId = selectedTables.find((t) => t.mergedGroupId)?.mergedGroupId
+  const allOneGroup =
+    !!groupId && selectedTables.every((t) => t.mergedGroupId === groupId)
+  const canMerge = selectedIds.length >= 2 && !allOneGroup
+  const canSplit = !!groupId
 
   const handleSave = () => {
     const snapshot = useLayoutStore.getState().snapshot()
@@ -80,7 +106,21 @@ export function Toolbar() {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b border-line bg-surface px-4 py-2">
+    <div className="flex flex-nowrap items-center gap-2 overflow-x-auto border-b border-line bg-surface px-4 py-2 [&>*]:shrink-0 md:flex-wrap md:overflow-visible">
+      {onToggleZones && (
+        <>
+          <Button
+            size="sm"
+            variant="secondary"
+            className="md:hidden"
+            onClick={onToggleZones}
+          >
+            Zones
+          </Button>
+          <span className="mx-1 h-5 w-px bg-line md:hidden" />
+        </>
+      )}
+
       <span className="mr-1 text-xs font-medium text-muted">Add</span>
       {tableTypes.map((type) => (
         <Button
@@ -110,11 +150,52 @@ export function Toolbar() {
       >
         Object
       </Button>
+      <Button
+        size="sm"
+        variant={tool === 'path' ? 'primary' : 'secondary'}
+        onClick={togglePathTool}
+        title="Draw a keep-clear lane freely — tables can't be placed on it (kitchen path, exit)"
+      >
+        Path
+      </Button>
+      {tool === 'path' && (
+        <label className="flex items-center gap-1.5 text-xs text-muted">
+          Width
+          <input
+            type="range"
+            min={12}
+            max={120}
+            step={2}
+            value={pathWidth}
+            onChange={(e) => setPathWidth(Number(e.target.value))}
+            className="w-20 accent-ink"
+          />
+          <span className="w-6 tabular-nums">{pathWidth}</span>
+        </label>
+      )}
 
       <span className="mx-1 h-5 w-px bg-line" />
 
       <Button size="sm" variant="ghost" onClick={handleDelete} disabled={!hasSelection}>
         Delete
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={() => mergeTables(selectedIds)}
+        disabled={!canMerge}
+        title="Merge selected tables into one (M)"
+      >
+        Merge
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={() => groupId && splitGroup(groupId)}
+        disabled={!canSplit}
+        title="Split the merged group (M)"
+      >
+        Split
       </Button>
       <Button size="sm" variant="ghost" onClick={undo} disabled={!canUndo}>
         Undo

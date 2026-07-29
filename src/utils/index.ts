@@ -9,6 +9,9 @@ export {
   pointInRect,
   aabb,
   overlapArea,
+  OVERLAP_TOLERANCE,
+  pathBlocksRect,
+  boxBlocked,
 } from './geometry'
 export {
   zonesById,
@@ -19,3 +22,5 @@ export {
   deriveZoneParents,
   hiddenZoneIds,
 } from './zones'
+export { seatsForTable, groupCapacity, floorTotals } from './capacity'
+export type { FloorTotals } from './capacity'
