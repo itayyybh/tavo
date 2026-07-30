@@ -1,0 +1,117 @@
+import { useMemo } from 'react'
+import { Text } from '@/components/ui'
+import { minutesOfDay, cn } from '@/utils'
+import type { Reservation, ReservationStatus } from '@/types'
+
+interface ReservationTimelineProps {
+  reservations: Reservation[]
+  onEdit: (reservation: Reservation) => void
+}
+
+const SLOT_MINUTES = 30
+
+// Status dot colors (literal classes so Tailwind detects them).
+const dotClass: Record<ReservationStatus, string> = {
+  pending: 'bg-reservation-pending',
+  confirmed: 'bg-reservation-confirmed',
+  arrived: 'bg-reservation-arrived',
+  seated: 'bg-reservation-seated',
+  completed: 'bg-reservation-completed',
+  cancelled: 'bg-reservation-cancelled',
+  no_show: 'bg-reservation-no_show',
+  waitlist: 'bg-reservation-waitlist',
+}
+
+function slotLabel(minutes: number): string {
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  return `${`${h}`.padStart(2, '0')}:${`${m}`.padStart(2, '0')}`
+}
+
+interface Slot {
+  start: number
+  items: Reservation[]
+  guests: number
+}
+
+/**
+ * Chronological day view. Buckets reservations into 30-minute slots and shows a
+ * load bar per slot so the host can see where service is heavy. No tables (Phase 7).
+ */
+export function ReservationTimeline({ reservations, onEdit }: ReservationTimelineProps) {
+  const slots = useMemo<Slot[]>(() => {
+    if (reservations.length === 0) return []
+    const times = reservations.map((r) => minutesOfDay(r.dateTime))
+    const floor = Math.floor(Math.min(...times) / SLOT_MINUTES) * SLOT_MINUTES
+    const ceil = Math.floor(Math.max(...times) / SLOT_MINUTES) * SLOT_MINUTES
+
+    const result: Slot[] = []
+    for (let start = floor; start <= ceil; start += SLOT_MINUTES) {
+      const items = reservations
+        .filter((r) => {
+          const m = minutesOfDay(r.dateTime)
+          return m >= start && m < start + SLOT_MINUTES
+        })
+        .sort((a, b) => a.dateTime.localeCompare(b.dateTime))
+      result.push({
+        start,
+        items,
+        guests: items.reduce((sum, r) => sum + r.partySize, 0),
+      })
+    }
+    return result
+  }, [reservations])
+
+  const maxGuests = useMemo(
+    () => Math.max(1, ...slots.map((s) => s.guests)),
+    [slots],
+  )
+
+  if (slots.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-line py-16">
+        <Text className="font-medium text-ink">Nothing scheduled</Text>
+        <Text muted>Reservations for the selected day appear here on a timeline.</Text>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col">
+      {slots.map((slot) => (
+        <div key={slot.start} className="flex gap-4 border-t border-line py-2 first:border-t-0">
+          <div className="w-14 shrink-0 pt-1 text-xs font-semibold tabular-nums text-muted">
+            {slotLabel(slot.start)}
+          </div>
+          <div className="min-w-0 flex-1">
+            {/* Load bar. */}
+            <div className="mb-2 h-1 w-full overflow-hidden rounded-full bg-surface-2">
+              <div
+                className="h-full rounded-full bg-ink/70 transition-all duration-200"
+                style={{ width: `${(slot.guests / maxGuests) * 100}%` }}
+              />
+            </div>
+            {/* Reservation chips. */}
+            <div className="flex flex-wrap gap-1.5">
+              {slot.items.map((r) => (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => onEdit(r)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-2.5 py-1 text-xs text-ink transition-colors duration-200 hover:bg-surface-2"
+                >
+                  <span className={cn('h-1.5 w-1.5 rounded-full', dotClass[r.status])} />
+                  <span className="font-medium">{r.guestName}</span>
+                  <span className="tabular-nums text-muted">·{r.partySize}</span>
+                </button>
+              ))}
+              {slot.items.length === 0 && (
+                <span className="text-xs text-line">—</span>
+              )}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}

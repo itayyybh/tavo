@@ -34,6 +34,9 @@ export default function App() {
           <NavLink to="/editor" className={navLinkClass}>
             Editor
           </NavLink>
+          <NavLink to="/reservations" className={navLinkClass}>
+            Reservations
+          </NavLink>
           <NavLink to="/design" className={navLinkClass}>
             Design
           </NavLink>

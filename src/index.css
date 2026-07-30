@@ -28,6 +28,16 @@
   --color-status-cleaning: #d97706;
   --color-status-blocked: #737373;
 
+  /* Reservation lifecycle colors — restrained, one hue per state. */
+  --color-reservation-pending: #d97706;
+  --color-reservation-confirmed: #2563eb;
+  --color-reservation-arrived: #0891b2;
+  --color-reservation-seated: #16a34a;
+  --color-reservation-completed: #737373;
+  --color-reservation-cancelled: #dc2626;
+  --color-reservation-no_show: #9f1239;
+  --color-reservation-waitlist: #7c3aed;
+
   /* Selection accent — Figma-like soft blue, used for canvas selection only. */
   --color-accent: #3b82f6;
 

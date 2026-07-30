@@ -102,20 +102,85 @@ export interface MergedGroup {
   clearance?: number
 }
 
+/**
+ * Reservation lifecycle. Ordered from creation to terminal states.
+ * The Reservation Engine owns this; seating (Phase 7) reacts to it — it never
+ * mutates it directly.
+ */
+export const RESERVATION_STATUSES = [
+  'pending',
+  'confirmed',
+  'arrived',
+  'seated',
+  'completed',
+  'cancelled',
+  'no_show',
+  'waitlist',
+] as const
+export type ReservationStatus = (typeof RESERVATION_STATUSES)[number]
+
+/** Where a reservation came from. Only `manual` functions today; rest are Phase 12+. */
+export const RESERVATION_SOURCES = [
+  'manual',
+  'phone',
+  'walk_in',
+  'website',
+  'google',
+] as const
+export type ReservationSource = (typeof RESERVATION_SOURCES)[number]
+
+/** Optional occasion tag — drives future VIP/upsell logic, purely descriptive now. */
+export const RESERVATION_OCCASIONS = [
+  'birthday',
+  'anniversary',
+  'business',
+  'date',
+  'celebration',
+  'other',
+] as const
+export type ReservationOccasion = (typeof RESERVATION_OCCASIONS)[number]
+
+/**
+ * Optional guest metadata. Extensible bag of soft preferences — the seating
+ * engine may later weight these, but nothing here is required or hardcoded.
+ */
+export interface ReservationPreferences {
+  vip?: boolean
+  wheelchair?: boolean
+  highChair?: boolean
+  windowSeat?: boolean
+  smoking?: boolean
+  /** Free-text allergy notes. */
+  allergies?: string
+}
+
+/**
+ * A reservation. Deliberately DECOUPLED from the Table Engine: `preferredZoneId`
+ * and `preferredTableId` are plain id strings (soft hints), never object refs —
+ * Phase 7's Seating Engine resolves them. This model never imports Table/Zone.
+ */
 export interface Reservation {
   id: ID
-  name: string
-  phone: string
-  guests: number
-  /** ISO datetime. */
-  time: string
+  guestName: string
+  phone?: string
+  email?: string
+  partySize: number
+  /** ISO datetime — canonical source of truth for both service date and arrival time. */
+  dateTime: string
   /** Expected duration in minutes. */
-  durationMinutes: number
+  estimatedDuration: number
   preferredZoneId?: ID
+  /** Soft seating hint for Phase 7. Plain id, no Table coupling. */
+  preferredTableId?: ID
+  occasion?: ReservationOccasion
+  status: ReservationStatus
+  source: ReservationSource
+  preferences?: ReservationPreferences
   notes?: string
-  accessibility?: boolean
-  babyChair?: boolean
-  smoking?: boolean
+  /** ISO timestamp of creation. */
+  createdAt: string
+  /** ISO timestamp of last edit. */
+  updatedAt: string
 }
 
 export interface Restaurant {

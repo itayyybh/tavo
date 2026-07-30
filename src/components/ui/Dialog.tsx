@@ -1,16 +1,25 @@
 import { useEffect, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
+import { cn } from '@/utils'
+
+type DialogSize = 'md' | 'lg'
 
 interface DialogProps {
   open: boolean
   onClose: () => void
   title?: string
+  size?: DialogSize
   children?: ReactNode
 }
 
+const sizeClass: Record<DialogSize, string> = {
+  md: 'max-w-md',
+  lg: 'max-w-2xl',
+}
+
 /** Animated modal dialog. Subtle motion per the `animation` skill (200ms, ease-out). */
-export function Dialog({ open, onClose, title, children }: DialogProps) {
+export function Dialog({ open, onClose, title, size = 'md', children }: DialogProps) {
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
@@ -35,7 +44,10 @@ export function Dialog({ open, onClose, title, children }: DialogProps) {
             role="dialog"
             aria-modal
             aria-label={title}
-            className="relative z-10 w-full max-w-md rounded-xl border border-line bg-surface p-6 shadow-[var(--shadow-soft)]"
+            className={cn(
+              'relative z-10 max-h-[90vh] w-full overflow-y-auto rounded-xl border border-line bg-surface p-6 shadow-[var(--shadow-soft)]',
+              sizeClass[size],
+            )}
             initial={{ opacity: 0, scale: 0.98, y: 8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.98, y: 8 }}
