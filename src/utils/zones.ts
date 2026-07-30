@@ -3,12 +3,22 @@
  * Zones form a folder-like tree via `parentId`; tables resolve to the innermost
  * containing zone, and nested zones act as no-go regions for outside tables.
  */
-import type { ID, Vec2, Zone } from '@/types'
+import type { ID, Table, Vec2, Zone } from '@/types'
 import { aabb, pointInRect } from './geometry'
 
 /** Index zones by id for O(1) parent lookups. */
 export function zonesById(zones: Zone[]): Map<ID, Zone> {
   return new Map(zones.map((z) => [z.id, z]))
+}
+
+/** Count tables assigned to each zone id. Used as a zone's reservation capacity. */
+export function countTablesByZone(tables: Table[]): Map<ID, number> {
+  const counts = new Map<ID, number>()
+  for (const t of tables) {
+    if (!t.zoneId) continue
+    counts.set(t.zoneId, (counts.get(t.zoneId) ?? 0) + 1)
+  }
+  return counts
 }
 
 /** Depth from the root (root zone = 0). Cycle-safe. */

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useReservationStore } from '@/stores'
 import {
   filterReservations,
+  isInSlot,
   matchesQuery,
   sortReservations,
   todayKey,
@@ -19,6 +20,8 @@ export interface ReservationFilterState {
   statuses: ReservationStatus[]
   preferredZoneId: ID | ''
   partySize: number | null
+  /** Selected time-slot start (minutes since midnight) from the load chart, or null. */
+  slotStart: number | null
 }
 
 const DEFAULT_STATE: ReservationFilterState = {
@@ -28,6 +31,7 @@ const DEFAULT_STATE: ReservationFilterState = {
   statuses: [],
   preferredZoneId: '',
   partySize: null,
+  slotStart: null,
 }
 
 function resolveDayKey(state: ReservationFilterState): string | undefined {
@@ -46,8 +50,13 @@ function resolveDayKey(state: ReservationFilterState): string | undefined {
 interface UseReservationFilters {
   state: ReservationFilterState
   patch: (partial: Partial<ReservationFilterState>) => void
-  /** Filtered + searched + time-sorted list, memoized. */
+  /** Filtered + searched + time-sorted list, memoized (includes the slot filter). */
   results: Reservation[]
+  /**
+   * The same list WITHOUT the slot filter — the load chart buckets this so its
+   * bars stay stable when a single slot is selected.
+   */
+  slotSource: Reservation[]
   /** Total reservations before filtering (for empty-state messaging). */
   total: number
 }
@@ -63,7 +72,8 @@ export function useReservationFilters(): UseReservationFilters {
   const patch = (partial: Partial<ReservationFilterState>) =>
     setState((s) => ({ ...s, ...partial }))
 
-  const results = useMemo(() => {
+  // Everything except the time-slot filter — the chart's data source.
+  const slotSource = useMemo(() => {
     const dayKey = resolveDayKey(state)
     const filtered = filterReservations(reservations, {
       dayKey,
@@ -75,5 +85,14 @@ export function useReservationFilters(): UseReservationFilters {
     return sortReservations(searched, 'time', 'asc')
   }, [reservations, state])
 
-  return { state, patch, results, total: reservations.length }
+  // Apply the slot filter on top for the visible list.
+  const results = useMemo(
+    () =>
+      state.slotStart == null
+        ? slotSource
+        : slotSource.filter((r) => isInSlot(r, state.slotStart as number)),
+    [slotSource, state.slotStart],
+  )
+
+  return { state, patch, results, slotSource, total: reservations.length }
 }

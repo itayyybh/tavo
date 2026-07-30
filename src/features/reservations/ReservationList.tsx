@@ -11,6 +11,9 @@ interface ReservationListProps {
   reservations: Reservation[]
   /** id → zone name + color, for zone chips without per-card store lookups. */
   zoneMeta: Map<ID, ZoneMeta>
+  /** Keyboard-selected reservation id, if any. */
+  selectedId?: string
+  onSelect?: (id: string) => void
   onEdit: (reservation: Reservation) => void
   onDelete: (id: string) => void
 }
@@ -19,6 +22,8 @@ interface ReservationListProps {
 export function ReservationList({
   reservations,
   zoneMeta,
+  selectedId,
+  onSelect,
   onEdit,
   onDelete,
 }: ReservationListProps) {
@@ -41,6 +46,8 @@ export function ReservationList({
             reservation={r}
             zoneName={zone?.name}
             zoneColor={zone?.color}
+            selected={r.id === selectedId}
+            onSelect={onSelect}
             onEdit={onEdit}
             onDelete={onDelete}
           />

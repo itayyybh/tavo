@@ -1,14 +1,20 @@
 import { Select } from '@/components/ui'
-import { RESERVATION_STATUSES } from '@/types'
 import { statusLabel, cn } from '@/utils'
 import type { ReservationStatus } from '@/types'
 import type { SelectOption } from '@/components/ui'
 import type { DatePreset, ReservationFilterState } from './hooks/useReservationFilters'
+import { ACTIVE_UI_STATUSES } from './constants'
+
+export interface ZoneChoice {
+  id: string
+  name: string
+  color: string
+}
 
 interface ReservationFiltersProps {
   state: ReservationFilterState
   patch: (partial: Partial<ReservationFilterState>) => void
-  zoneOptions: SelectOption[]
+  zones: ZoneChoice[]
 }
 
 const DATE_PRESETS: { value: DatePreset; label: string }[] = [
@@ -24,7 +30,7 @@ const partyOptions: SelectOption[] = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({
 }))
 
 /** Filter bar — date presets, status chips, party size, zone. Presentational. */
-export function ReservationFilters({ state, patch, zoneOptions }: ReservationFiltersProps) {
+export function ReservationFilters({ state, patch, zones }: ReservationFiltersProps) {
   const toggleStatus = (status: ReservationStatus) => {
     const has = state.statuses.includes(status)
     patch({
@@ -77,22 +83,49 @@ export function ReservationFilters({ state, patch, zoneOptions }: ReservationFil
             className="h-8"
           />
         </div>
-        {zoneOptions.length > 0 && (
-          <div className="w-40">
-            <Select
-              options={zoneOptions}
-              placeholder="Any zone"
-              value={state.preferredZoneId}
-              onChange={(e) => patch({ preferredZoneId: e.target.value })}
-              className="h-8"
-            />
-          </div>
-        )}
       </div>
+
+      {/* Zone buttons — tinted with each zone's editor color. */}
+      {zones.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => patch({ preferredZoneId: '' })}
+            className={cn(
+              'rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors duration-200',
+              state.preferredZoneId === ''
+                ? 'border-ink bg-ink text-surface'
+                : 'border-line bg-surface text-muted hover:text-ink',
+            )}
+          >
+            All zones
+          </button>
+          {zones.map((z) => {
+            const active = state.preferredZoneId === z.id
+            return (
+              <button
+                key={z.id}
+                type="button"
+                onClick={() => patch({ preferredZoneId: active ? '' : z.id })}
+                aria-pressed={active}
+                style={{ backgroundColor: z.color }}
+                className={cn(
+                  'rounded-full border px-2.5 py-0.5 text-xs font-medium text-neutral-900 transition-shadow duration-200',
+                  active
+                    ? 'border-ink ring-1 ring-ink'
+                    : 'border-black/5 hover:ring-1 hover:ring-black/10',
+                )}
+              >
+                {z.name}
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       {/* Status chips. */}
       <div className="flex flex-wrap gap-1.5">
-        {RESERVATION_STATUSES.map((status) => {
+        {ACTIVE_UI_STATUSES.map((status) => {
           const active = state.statuses.includes(status)
           return (
             <button

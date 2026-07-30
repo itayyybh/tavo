@@ -60,6 +60,13 @@ export function formatDate(iso: string): string {
   })
 }
 
+/** Format minutes-since-midnight as `HH:mm` (used by the timeline + load chart). */
+export function formatClock(minutes: number): string {
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  return `${`${h}`.padStart(2, '0')}:${`${m}`.padStart(2, '0')}`
+}
+
 /** Minutes since local midnight — used to place a reservation on the timeline. */
 export function minutesOfDay(iso: string): number {
   const d = new Date(iso)

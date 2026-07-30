@@ -3,6 +3,7 @@ import {
   RESERVATION_SOURCES,
   RESERVATION_STATUSES,
 } from '@/types'
+import type { ReservationStatus } from '@/types'
 import type { SelectOption } from '@/components/ui'
 import { occasionLabel, sourceLabel, statusLabel } from '@/utils'
 
@@ -15,6 +16,12 @@ export const statusOptions: SelectOption[] = RESERVATION_STATUSES.map((s) => ({
   value: s,
   label: statusLabel[s],
 }))
+
+/**
+ * Statuses surfaced in the UI right now. The data model keeps all 8 for Phase 7,
+ * but hosts currently only work with Confirmed (auto on creation) and Arrived.
+ */
+export const ACTIVE_UI_STATUSES: ReservationStatus[] = ['confirmed', 'arrived']
 
 export const sourceOptions: SelectOption[] = RESERVATION_SOURCES.map((s) => ({
   value: s,

@@ -5,7 +5,7 @@ import type {
   ReservationSource,
   ReservationStatus,
 } from '@/types'
-import { isOnDay } from './datetime'
+import { isOnDay, minutesOfDay } from './datetime'
 
 /**
  * Pure reservation domain helpers — labels, the status workflow, and
@@ -137,6 +137,112 @@ export function sortReservations(
       partySize: (a, b) => a.partySize - b.partySize,
     }
   return [...list].sort((a, b) => sign * compare[key](a, b))
+}
+
+export const SLOT_MINUTES = 30
+
+export interface TimeSlot {
+  /** Slot start in minutes since local midnight. */
+  start: number
+  items: Reservation[]
+  /** Total guests in this slot (the "load"). */
+  guests: number
+}
+
+/**
+ * Bucket reservations into fixed slots spanning the earliest→latest arrival.
+ * Shared by the timeline and the service-load chart so they never drift.
+ */
+export function bucketByTimeSlot(
+  list: Reservation[],
+  slotMinutes = SLOT_MINUTES,
+): TimeSlot[] {
+  if (list.length === 0) return []
+  const times = list.map((r) => minutesOfDay(r.dateTime))
+  const floor = Math.floor(Math.min(...times) / slotMinutes) * slotMinutes
+  const ceil = Math.floor(Math.max(...times) / slotMinutes) * slotMinutes
+
+  const slots: TimeSlot[] = []
+  for (let start = floor; start <= ceil; start += slotMinutes) {
+    const items = list
+      .filter((r) => {
+        const m = minutesOfDay(r.dateTime)
+        return m >= start && m < start + slotMinutes
+      })
+      .sort((a, b) => a.dateTime.localeCompare(b.dateTime))
+    slots.push({
+      start,
+      items,
+      guests: items.reduce((sum, r) => sum + r.partySize, 0),
+    })
+  }
+  return slots
+}
+
+/** Statuses that occupy a zone's tables (a live/expected guest). */
+const OCCUPYING_STATUSES: ReservationStatus[] = ['confirmed', 'arrived']
+
+/**
+ * How many of a zone's tables are already committed on a given day — i.e. active
+ * (confirmed/arrived) reservations for that zone. Used to cap bookings at the
+ * zone's table count. `ignoreId` excludes the reservation being edited.
+ */
+export function zoneReservationUsage(
+  list: Reservation[],
+  zoneId: ID,
+  dayKey: string,
+  ignoreId?: ID,
+): number {
+  return list.filter(
+    (r) =>
+      r.id !== ignoreId &&
+      r.preferredZoneId === zoneId &&
+      OCCUPYING_STATUSES.includes(r.status) &&
+      isOnDay(r.dateTime, dayKey),
+  ).length
+}
+
+/** True when a reservation falls in the [start, start+slotMinutes) slot. */
+export function isInSlot(
+  reservation: Reservation,
+  start: number,
+  slotMinutes = SLOT_MINUTES,
+): boolean {
+  const m = minutesOfDay(reservation.dateTime)
+  return m >= start && m < start + slotMinutes
+}
+
+/** At-a-glance service metrics for the summary dashboard. */
+export interface ReservationSummaryData {
+  count: number
+  totalGuests: number
+  confirmed: number
+  arrived: number
+  vip: number
+  avgParty: number
+}
+
+/** Aggregate a list into headline service metrics. Pure + cheap (single pass). */
+export function summarizeReservations(list: Reservation[]): ReservationSummaryData {
+  let totalGuests = 0
+  let confirmed = 0
+  let arrived = 0
+  let vip = 0
+  for (const r of list) {
+    totalGuests += r.partySize
+    if (r.status === 'confirmed') confirmed += 1
+    if (r.status === 'arrived') arrived += 1
+    if (r.preferences?.vip) vip += 1
+  }
+  const count = list.length
+  return {
+    count,
+    totalGuests,
+    confirmed,
+    arrived,
+    vip,
+    avgParty: count ? totalGuests / count : 0,
+  }
 }
 
 /**

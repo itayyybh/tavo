@@ -1,6 +1,7 @@
 import { useReservationStore } from '@/stores'
-import { statusTransitions, statusLabel, cn } from '@/utils'
+import { statusLabel, cn } from '@/utils'
 import type { ID, ReservationStatus } from '@/types'
+import { ACTIVE_UI_STATUSES } from './constants'
 
 interface ReservationStatusControlProps {
   id: ID
@@ -18,7 +19,10 @@ export function ReservationStatusControl({
   className,
 }: ReservationStatusControlProps) {
   const setStatus = useReservationStore((s) => s.setStatus)
-  const choices: ReservationStatus[] = [status, ...statusTransitions[status]]
+  // Current status first (covers legacy data), then the two UI statuses.
+  const choices: ReservationStatus[] = Array.from(
+    new Set<ReservationStatus>([status, ...ACTIVE_UI_STATUSES]),
+  )
 
   return (
     <select

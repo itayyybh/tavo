@@ -20,6 +20,7 @@ export {
   zoneDescendantIds,
   innermostZoneAt,
   deriveZoneParents,
+  countTablesByZone,
 } from './zones'
 export { seatsForTable, groupCapacity, floorTotals } from './capacity'
 export type { FloorTotals } from './capacity'
@@ -31,6 +32,7 @@ export {
   isValidDateTime,
   formatTime,
   formatDate,
+  formatClock,
   minutesOfDay,
   todayKey,
   tomorrowKey,
@@ -48,8 +50,18 @@ export {
   filterReservations,
   sortReservations,
   findDuplicate,
+  summarizeReservations,
+  zoneReservationUsage,
+  bucketByTimeSlot,
+  isInSlot,
+  SLOT_MINUTES,
 } from './reservations'
-export type { ReservationFilter, ReservationSortKey } from './reservations'
+export type {
+  ReservationFilter,
+  ReservationSortKey,
+  ReservationSummaryData,
+  TimeSlot,
+} from './reservations'
 export { validateReservation, isValidDraft } from './reservationValidation'
 export type {
   ReservationDraft,

@@ -6,7 +6,7 @@ import type {
   ReservationStatus,
 } from '@/types'
 import type { NewReservation } from '@/stores/reservationStore'
-import { combineDateTime, todayKey, tomorrowKey } from '@/utils'
+import { combineDateTime, toDateKey } from '@/utils'
 
 /**
  * Dev-only fixtures — a spread of realistic reservations for manual testing.
@@ -49,18 +49,12 @@ const TIMES = [
   '21:30',
 ]
 
-// Weighted toward active states so the board looks like a live service.
+// Only the two UI statuses, weighted toward Confirmed.
 const STATUSES: ReservationStatus[] = [
-  'pending',
+  'confirmed',
   'confirmed',
   'confirmed',
   'arrived',
-  'seated',
-  'waitlist',
-  'completed',
-  'cancelled',
-  'no_show',
-  'confirmed',
 ]
 
 const SOURCES: ReservationSource[] = ['manual', 'phone', 'walk_in', 'website', 'google']
@@ -85,28 +79,67 @@ const PREFS: ReservationPreferences[] = [
   {},
 ]
 
-/** Build 20 varied reservations, cycling zones across the provided ids. */
-export function buildSampleReservations(zoneIds: ID[]): NewReservation[] {
-  const zones = zoneIds.length ? zoneIds : ['zone-inside']
+export interface ZoneCapacity {
+  id: ID
+  capacity: number
+}
 
-  return NAMES.map((name, i) => {
-    const day = i < 15 ? todayKey() : tomorrowKey()
-    const dateTime = combineDateTime(day, TIMES[i % TIMES.length])
+const MAX_SAMPLES = 20
+const MAX_DAYS = 14
+
+function dayKeyForOffset(offset: number): string {
+  const d = new Date()
+  d.setDate(d.getDate() + offset)
+  return toDateKey(d)
+}
+
+/**
+ * Build up to 20 varied reservations that RESPECT each zone's table capacity
+ * (same-day active). Guests are placed into the first zone/day slot with room,
+ * spilling to later days as needed — so seeded data never violates the guard.
+ * Returns fewer than 20 if total capacity over the window is smaller.
+ */
+export function buildSampleReservations(zones: ZoneCapacity[]): NewReservation[] {
+  const available = zones.length ? zones : [{ id: 'zone-inside', capacity: 3 }]
+  // Remaining capacity per `${zoneId}|${dayOffset}`.
+  const remaining = new Map<string, number>()
+
+  const takeSlot = (): { zoneId: ID; offset: number } | null => {
+    for (let offset = 0; offset < MAX_DAYS; offset += 1) {
+      for (const zone of available) {
+        const key = `${zone.id}|${offset}`
+        const left = remaining.get(key) ?? zone.capacity
+        if (left > 0) {
+          remaining.set(key, left - 1)
+          return { zoneId: zone.id, offset }
+        }
+      }
+    }
+    return null
+  }
+
+  const result: NewReservation[] = []
+  for (let i = 0; i < MAX_SAMPLES; i += 1) {
+    const slot = takeSlot()
+    if (!slot) break // out of capacity across the whole window
+    const name = NAMES[i]
+    const dateTime = combineDateTime(dayKeyForOffset(slot.offset), TIMES[i % TIMES.length])
     const prefs = PREFS[i % PREFS.length]
 
-    return {
+    result.push({
       guestName: name,
       phone: `+1 555 01${`${i}`.padStart(2, '0')}`,
       email: i % 3 === 0 ? `${name.split(' ')[0].toLowerCase()}@example.com` : undefined,
       partySize: (i % 8) + 1,
       dateTime,
       estimatedDuration: [60, 90, 120, 150][i % 4],
-      preferredZoneId: zones[i % zones.length],
+      preferredZoneId: slot.zoneId,
       occasion: OCCASIONS[i % OCCASIONS.length],
       status: STATUSES[i % STATUSES.length],
       source: SOURCES[i % SOURCES.length],
       preferences: Object.keys(prefs).length ? prefs : undefined,
       notes: i % 5 === 0 ? 'Regular guest — prefers a quiet corner.' : undefined,
-    }
-  })
+    })
+  }
+  return result
 }

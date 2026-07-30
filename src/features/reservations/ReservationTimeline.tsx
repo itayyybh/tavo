@@ -1,14 +1,12 @@
 import { useMemo } from 'react'
 import { Text } from '@/components/ui'
-import { minutesOfDay, cn } from '@/utils'
+import { bucketByTimeSlot, formatClock, cn } from '@/utils'
 import type { Reservation, ReservationStatus } from '@/types'
 
 interface ReservationTimelineProps {
   reservations: Reservation[]
   onEdit: (reservation: Reservation) => void
 }
-
-const SLOT_MINUTES = 30
 
 // Status dot colors (literal classes so Tailwind detects them).
 const dotClass: Record<ReservationStatus, string> = {
@@ -22,45 +20,12 @@ const dotClass: Record<ReservationStatus, string> = {
   waitlist: 'bg-reservation-waitlist',
 }
 
-function slotLabel(minutes: number): string {
-  const h = Math.floor(minutes / 60)
-  const m = minutes % 60
-  return `${`${h}`.padStart(2, '0')}:${`${m}`.padStart(2, '0')}`
-}
-
-interface Slot {
-  start: number
-  items: Reservation[]
-  guests: number
-}
-
 /**
  * Chronological day view. Buckets reservations into 30-minute slots and shows a
  * load bar per slot so the host can see where service is heavy. No tables (Phase 7).
  */
 export function ReservationTimeline({ reservations, onEdit }: ReservationTimelineProps) {
-  const slots = useMemo<Slot[]>(() => {
-    if (reservations.length === 0) return []
-    const times = reservations.map((r) => minutesOfDay(r.dateTime))
-    const floor = Math.floor(Math.min(...times) / SLOT_MINUTES) * SLOT_MINUTES
-    const ceil = Math.floor(Math.max(...times) / SLOT_MINUTES) * SLOT_MINUTES
-
-    const result: Slot[] = []
-    for (let start = floor; start <= ceil; start += SLOT_MINUTES) {
-      const items = reservations
-        .filter((r) => {
-          const m = minutesOfDay(r.dateTime)
-          return m >= start && m < start + SLOT_MINUTES
-        })
-        .sort((a, b) => a.dateTime.localeCompare(b.dateTime))
-      result.push({
-        start,
-        items,
-        guests: items.reduce((sum, r) => sum + r.partySize, 0),
-      })
-    }
-    return result
-  }, [reservations])
+  const slots = useMemo(() => bucketByTimeSlot(reservations), [reservations])
 
   const maxGuests = useMemo(
     () => Math.max(1, ...slots.map((s) => s.guests)),
@@ -81,7 +46,7 @@ export function ReservationTimeline({ reservations, onEdit }: ReservationTimelin
       {slots.map((slot) => (
         <div key={slot.start} className="flex gap-4 border-t border-line py-2 first:border-t-0">
           <div className="w-14 shrink-0 pt-1 text-xs font-semibold tabular-nums text-muted">
-            {slotLabel(slot.start)}
+            {formatClock(slot.start)}
           </div>
           <div className="min-w-0 flex-1">
             {/* Load bar. */}
