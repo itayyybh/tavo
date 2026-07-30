@@ -55,11 +55,11 @@ export default function EditorPage() {
   useAutosave()
   const [panelOpen, setPanelOpen] = useState(false)
 
-  // Load a saved layout, or seed a demo the first time.
+  // App hydrates a saved layout globally; seed a demo only when there's nothing
+  // saved and the store is still empty (first-ever visit).
   useEffect(() => {
-    const saved = loadLayout()
-    if (saved) useLayoutStore.getState().loadSnapshot(saved)
-    else seedDemo()
+    if (loadLayout()) return
+    if (useLayoutStore.getState().tables.length === 0) seedDemo()
   }, [])
 
   return (

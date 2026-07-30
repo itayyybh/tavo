@@ -6,10 +6,11 @@ import { cn } from '@/utils'
 import { useReservationPersistence } from './hooks/useReservationPersistence'
 import { useReservationFilters } from './hooks/useReservationFilters'
 import { ReservationFilters } from './ReservationFilters'
-import { ReservationList } from './ReservationList'
+import { ReservationList, type ZoneMeta } from './ReservationList'
 import { ReservationTimeline } from './ReservationTimeline'
 import { ReservationDialog } from './ReservationDialog'
 import { useReservationStore } from '@/stores'
+import { buildSampleReservations } from './sampleData'
 
 type ViewMode = 'list' | 'timeline'
 
@@ -22,7 +23,12 @@ export function ReservationsView() {
 
   const zones = useLayoutStore((s) => s.zones)
   const removeReservation = useReservationStore((s) => s.removeReservation)
+  const addReservation = useReservationStore((s) => s.addReservation)
   const { state, patch, results, total } = useReservationFilters()
+
+  const seedSamples = () => {
+    buildSampleReservations(zones.map((z) => z.id)).forEach(addReservation)
+  }
 
   const [view, setView] = useState<ViewMode>('list')
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -32,8 +38,8 @@ export function ReservationsView() {
     () => zones.map((z) => ({ value: z.id, label: z.name })),
     [zones],
   )
-  const zoneNames = useMemo<Map<ID, string>>(
-    () => new Map(zones.map((z) => [z.id, z.name])),
+  const zoneMeta = useMemo<Map<ID, ZoneMeta>>(
+    () => new Map(zones.map((z) => [z.id, { name: z.name, color: z.color }])),
     [zones],
   )
 
@@ -56,7 +62,14 @@ export function ReservationsView() {
             {results.length} shown · {total} total
           </Text>
         </div>
-        <Button onClick={openCreate}>New reservation</Button>
+        <div className="flex items-center gap-2">
+          {import.meta.env.DEV && (
+            <Button variant="secondary" onClick={seedSamples}>
+              Seed 20
+            </Button>
+          )}
+          <Button onClick={openCreate}>New reservation</Button>
+        </div>
       </div>
 
       {/* Search + view toggle. */}
@@ -90,7 +103,7 @@ export function ReservationsView() {
       {view === 'list' ? (
         <ReservationList
           reservations={results}
-          zoneNames={zoneNames}
+          zoneMeta={zoneMeta}
           onEdit={openEdit}
           onDelete={removeReservation}
         />

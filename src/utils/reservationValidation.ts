@@ -29,12 +29,11 @@ export type ReservationErrorField =
   | 'dateTime'
   | 'phone'
   | 'email'
+  | 'preferredZoneId'
   | 'estimatedDuration'
 
 export type ReservationErrors = Partial<Record<ReservationErrorField, string>>
 
-// Lenient phone: digits with optional +, spaces, dashes, parens; at least 7 digits.
-const PHONE_RE = /^[+]?[\d\s().-]{7,}$/
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export function validateReservation(draft: ReservationDraft): ReservationErrors {
@@ -59,9 +58,14 @@ export function validateReservation(draft: ReservationDraft): ReservationErrors 
     errors.estimatedDuration = 'Duration must be a positive number of minutes.'
   }
 
-  const phone = draft.phone.trim()
-  if (phone && !PHONE_RE.test(phone)) {
-    errors.phone = 'Enter a valid phone number.'
+  // Phone is required, but any value is accepted — no format check.
+  if (!draft.phone.trim()) {
+    errors.phone = 'Phone is required.'
+  }
+
+  // Zone is required so every reservation carries a placement preference.
+  if (!draft.preferredZoneId) {
+    errors.preferredZoneId = 'Zone is required.'
   }
 
   const email = draft.email.trim()

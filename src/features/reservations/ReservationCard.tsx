@@ -8,6 +8,8 @@ interface ReservationCardProps {
   reservation: Reservation
   /** Resolved preferred-zone name, if any (looked up by the list to avoid per-card subscriptions). */
   zoneName?: string
+  /** Zone's editor color (hex) — used as the zone chip background. */
+  zoneColor?: string
   onEdit: (reservation: Reservation) => void
   onDelete: (id: string) => void
 }
@@ -15,6 +17,7 @@ interface ReservationCardProps {
 function ReservationCardBase({
   reservation,
   zoneName,
+  zoneColor,
   onEdit,
   onDelete,
 }: ReservationCardProps) {
@@ -46,10 +49,12 @@ function ReservationCardBase({
             {partySize} {partySize === 1 ? 'guest' : 'guests'}
           </span>
           {zoneName && (
-            <>
-              <span className="text-line">·</span>
-              <span>{zoneName}</span>
-            </>
+            <span
+              className="rounded-full border border-black/5 px-2 py-0.5 text-[10px] font-medium text-neutral-900"
+              style={zoneColor ? { backgroundColor: zoneColor } : undefined}
+            >
+              {zoneName}
+            </span>
           )}
           {occasion && (
             <>

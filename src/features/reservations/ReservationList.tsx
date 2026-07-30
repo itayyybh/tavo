@@ -2,10 +2,15 @@ import { Text } from '@/components/ui'
 import type { ID, Reservation } from '@/types'
 import { ReservationCard } from './ReservationCard'
 
+export interface ZoneMeta {
+  name: string
+  color: string
+}
+
 interface ReservationListProps {
   reservations: Reservation[]
-  /** id → zone name, for showing preferred-zone labels without per-card lookups. */
-  zoneNames: Map<ID, string>
+  /** id → zone name + color, for zone chips without per-card store lookups. */
+  zoneMeta: Map<ID, ZoneMeta>
   onEdit: (reservation: Reservation) => void
   onDelete: (id: string) => void
 }
@@ -13,7 +18,7 @@ interface ReservationListProps {
 /** Scannable, time-ordered list of reservation cards. */
 export function ReservationList({
   reservations,
-  zoneNames,
+  zoneMeta,
   onEdit,
   onDelete,
 }: ReservationListProps) {
@@ -28,15 +33,19 @@ export function ReservationList({
 
   return (
     <div className="flex flex-col gap-2">
-      {reservations.map((r) => (
-        <ReservationCard
-          key={r.id}
-          reservation={r}
-          zoneName={r.preferredZoneId ? zoneNames.get(r.preferredZoneId) : undefined}
-          onEdit={onEdit}
-          onDelete={onDelete}
-        />
-      ))}
+      {reservations.map((r) => {
+        const zone = r.preferredZoneId ? zoneMeta.get(r.preferredZoneId) : undefined
+        return (
+          <ReservationCard
+            key={r.id}
+            reservation={r}
+            zoneName={zone?.name}
+            zoneColor={zone?.color}
+            onEdit={onEdit}
+            onDelete={onDelete}
+          />
+        )
+      })}
     </div>
   )
 }

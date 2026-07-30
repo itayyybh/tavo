@@ -136,6 +136,7 @@ export function ReservationForm({ initial, onSubmit, onCancel }: ReservationForm
       partySize: form.partySize,
       dateTime,
       estimatedDuration: form.estimatedDuration,
+      preferredZoneId: form.preferredZoneId,
       source: form.source,
       notes: form.notes,
     }
@@ -213,6 +214,20 @@ export function ReservationForm({ initial, onSubmit, onCancel }: ReservationForm
           value={form.time}
           onChange={(e) => set('time', e.target.value)}
         />
+        <Input
+          label="Phone"
+          value={form.phone}
+          onChange={(e) => set('phone', e.target.value)}
+          error={errors.phone}
+        />
+        <Select
+          label="Zone"
+          options={zoneOptions}
+          placeholder="Select zone"
+          value={form.preferredZoneId}
+          onChange={(e) => set('preferredZoneId', e.target.value)}
+          error={errors.preferredZoneId}
+        />
       </div>
 
       {duplicate && (
@@ -226,26 +241,12 @@ export function ReservationForm({ initial, onSubmit, onCancel }: ReservationForm
       <div className="border-t border-line pt-4">
         <div className="grid grid-cols-2 gap-3">
           <Input
-            label="Phone"
-            value={form.phone}
-            onChange={(e) => set('phone', e.target.value)}
-            error={errors.phone}
-            placeholder="Optional"
-          />
-          <Input
             label="Email"
             type="email"
             value={form.email}
             onChange={(e) => set('email', e.target.value)}
             error={errors.email}
             placeholder="Optional"
-          />
-          <Select
-            label="Preferred zone"
-            options={zoneOptions}
-            placeholder="No preference"
-            value={form.preferredZoneId}
-            onChange={(e) => set('preferredZoneId', e.target.value)}
           />
           <Select
             label="Occasion"
