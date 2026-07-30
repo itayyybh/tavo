@@ -51,6 +51,7 @@ export function ServiceLoadChart({
               key={slot.start}
               type="button"
               disabled={empty}
+              title={`${slot.items.length} ${slot.items.length === 1 ? 'reservation' : 'reservations'} · ${slot.guests} guests`}
               onClick={() => onSelect(active ? null : slot.start)}
               className={cn(
                 'group flex items-center gap-2 rounded-md px-1 py-0.5 text-left transition-colors duration-200',
@@ -76,7 +77,7 @@ export function ServiceLoadChart({
                 />
               </span>
               <span className="w-4 shrink-0 text-right text-[11px] tabular-nums text-muted">
-                {slot.items.length}
+                {slot.guests}
               </span>
             </button>
           )
