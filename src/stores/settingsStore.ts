@@ -26,9 +26,16 @@ interface SettingsState {
   pathWidth: number
   /** Seating Engine configuration (Phase 7). */
   seating: SeatingConfig
+  /**
+   * Live Floor turnover (Phase 8): when true, a cleaning table returns to
+   * available on its own once `seating.turnoverBufferMin` elapses. Manual
+   * finish-cleaning always works regardless.
+   */
+  autoTurnover: boolean
   setGridSize: (size: number) => void
   setSnapToGrid: (snap: boolean) => void
   setPathWidth: (width: number) => void
+  setAutoTurnover: (on: boolean) => void
   /** Patch the merge rule config (one field or many). */
   updateMergeConfig: (patch: Partial<MergeConfig>) => void
 }
@@ -38,9 +45,11 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   snapToGrid: true,
   pathWidth: 40,
   seating: DEFAULT_SEATING,
+  autoTurnover: true,
   setGridSize: (gridSize) => set({ gridSize }),
   setSnapToGrid: (snapToGrid) => set({ snapToGrid }),
   setPathWidth: (pathWidth) => set({ pathWidth }),
+  setAutoTurnover: (autoTurnover) => set({ autoTurnover }),
   updateMergeConfig: (patch) =>
     set((s) => ({ seating: { ...s.seating, merge: { ...s.seating.merge, ...patch } } })),
 }))

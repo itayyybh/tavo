@@ -31,7 +31,9 @@ export function useFloorPersistence() {
             seatings: state.seatings,
             runtimeMerges: state.runtimeMerges,
             statusOverrides: state.statusOverrides,
+            cleaningSince: state.cleaningSince,
             positionOverrides: state.positionOverrides,
+            rotationOverrides: state.rotationOverrides,
           }),
         DEBOUNCE_MS,
       )

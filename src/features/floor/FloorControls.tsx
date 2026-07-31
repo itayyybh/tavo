@@ -8,6 +8,9 @@ interface FloorControlsProps {
   onFocusZone: (id: string | null) => void
   summary: FloorSummary
   onFit: () => void
+  onRestoreDefault: () => void
+  autoTurnover: boolean
+  onToggleAutoTurnover: () => void
 }
 
 /** Status pills shown in the occupancy legend, in reading order. */
@@ -33,6 +36,9 @@ export function FloorControls({
   onFocusZone,
   summary,
   onFit,
+  onRestoreDefault,
+  autoTurnover,
+  onToggleAutoTurnover,
 }: FloorControlsProps) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-2">
@@ -86,6 +92,24 @@ export function FloorControls({
         <span className="hidden text-xs text-muted sm:inline">
           {summary.occupiedSeats}/{summary.totalSeats} seats
         </span>
+        <button
+          onClick={onToggleAutoTurnover}
+          title="Auto-return cleaning tables to available after the turnover buffer"
+          className={`${chip} ${
+            autoTurnover
+              ? 'border-ink text-ink'
+              : 'border-line text-muted hover:text-ink'
+          }`}
+        >
+          Auto-turnover {autoTurnover ? 'on' : 'off'}
+        </button>
+        <button
+          onClick={onRestoreDefault}
+          title="Reset all tables to their base layout position, rotation and merges"
+          className={`${chip} border-line text-muted hover:text-ink`}
+        >
+          Reset layout
+        </button>
         <button
           onClick={onFit}
           className={`${chip} border-line text-muted hover:text-ink`}

@@ -1,8 +1,11 @@
 import { Circle, Ellipse, Group, Label, Rect, Tag, Text } from 'react-konva'
 import type Konva from 'konva'
 import type { MergedGroup, Table, TableStatus, TableType } from '@/types'
-import { aabb, groupCapacity } from '@/utils'
+import { aabb, groupCapacity, mixHex } from '@/utils'
 import type { CanvasColors } from './hooks/useCanvasColors'
+
+/** Body tint strength when coloring a hull by status (floor). Matches FloorTableNode. */
+const FLOOR_TINT = 0.22
 
 interface MergedHullsProps {
   groups: MergedGroup[]
@@ -12,6 +15,17 @@ interface MergedHullsProps {
   colors: CanvasColors
   /** Register each group's Konva node so the body can track a live group drag. */
   registerNode: (groupId: string, node: Konva.Group | null) => void
+  /**
+   * Color the hull by its members' status (Live Floor): an active group borders
+   * and tints in its dominant status color. Off (editor default) keeps the neutral
+   * hairline + status dot.
+   */
+  tintByStatus?: boolean
+  /**
+   * Per-member label override (Live Floor): the seated party's name shown on every
+   * table it occupies, keyed by table id. Falls back to the table's own label.
+   */
+  memberLabels?: Record<string, string>
 }
 
 const STATUS_ORDER: TableStatus[] = ['occupied', 'reserved', 'blocked', 'available']
@@ -48,6 +62,8 @@ export function MergedHulls({
   selectedIds,
   colors,
   registerNode,
+  tintByStatus = false,
+  memberLabels,
 }: MergedHullsProps) {
   const selected = new Set(selectedIds)
   const shapeOf = (t: Table) =>
@@ -60,10 +76,21 @@ export function MergedHulls({
         if (members.length < 2) return null
 
         const isSelected = members.some((m) => selected.has(m.id))
-        // Neutral hairline border (status lives in the corner dot now); soft blue
-        // when selected. Grow-pass thickness = visible ring width.
-        const border = isSelected ? 2 : 1.5
-        const borderColor = isSelected ? colors.accent : colors.line
+        // Dominant status drives floor coloring; an "active" group (anything but
+        // available) borders + tints in that color.
+        const dominant = dominantStatus(members)
+        const active = tintByStatus && dominant !== 'available'
+        const statusColor = colors.status[dominant]
+        // Solid, flat body tint (no alpha) so merge passes never stack darker.
+        const bodyFill = active ? mixHex(colors.surface, statusColor, FLOOR_TINT) : colors.surface
+        // Neutral hairline (editor) or the status color (floor, when active); soft
+        // blue when selected. Grow-pass thickness = visible ring width.
+        const border = isSelected || active ? 2 : 1.5
+        const borderColor = isSelected
+          ? colors.accent
+          : active
+            ? statusColor
+            : colors.line
         const growShadow = isSelected
           ? { shadowColor: colors.accent, shadowBlur: 12, shadowOpacity: 0.3 }
           : { shadowColor: '#000000', shadowBlur: 6, shadowOffsetY: 2, shadowOpacity: 0.08 }
@@ -110,7 +137,7 @@ export function MergedHulls({
             pass === 'grow'
               ? { stroke: borderColor, strokeWidth: border * 2, ...growShadow, shadowForStrokeEnabled: false }
               : {}
-          const fill = pass === 'grow' ? borderColor : colors.surface
+          const fill = pass === 'grow' ? borderColor : bodyFill
           return shapeOf(m) === 'round' ? (
             <Circle
               key={pass + m.id}
@@ -189,7 +216,7 @@ export function MergedHulls({
                 y={b.y}
                 width={b.width}
                 height={b.height}
-                fill={colors.surface}
+                fill={bodyFill}
                 perfectDrawEnabled={false}
               />
             ))}
@@ -201,9 +228,11 @@ export function MergedHulls({
                 y={m.position.y - 7}
                 width={m.size.x}
                 align="center"
-                text={m.label}
+                text={memberLabels?.[m.id] ?? m.label}
                 fontSize={14}
                 fill={colors.ink}
+                wrap="none"
+                ellipsis
               />
             ))}
             <Label x={minX} y={minY - 20}>

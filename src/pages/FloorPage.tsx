@@ -1,11 +1,18 @@
 import { FloorCanvas } from '@/features/floor'
+import { FloorReservationRail } from '@/features/floor/FloorReservationRail'
 
 /**
  * Live Floor — top-down operational view of the restaurant (Phase 8).
- * Reads the effective floor (base layout + runtime shift overrides) and renders
- * it read-only. Seating, drag-to-assign and operational merges arrive in later
- * steps; this is the renderer foundation.
+ * The canvas renders the effective floor (base layout + runtime shift overrides);
+ * the right rail seats upcoming bookings and clears seated parties.
  */
 export default function FloorPage() {
-  return <FloorCanvas />
+  return (
+    <div className="flex h-full min-h-0">
+      <div className="min-w-0 flex-1">
+        <FloorCanvas />
+      </div>
+      <FloorReservationRail />
+    </div>
+  )
 }

@@ -52,7 +52,7 @@ export const occasionLabel: Record<ReservationOccasion, string> = {
 /** Statuses a reservation may move to from each state. Empty = terminal. */
 export const statusTransitions: Record<ReservationStatus, ReservationStatus[]> = {
   pending: ['confirmed', 'waitlist', 'arrived', 'cancelled', 'no_show'],
-  confirmed: ['arrived', 'waitlist', 'cancelled', 'no_show'],
+  confirmed: ['arrived', 'seated', 'waitlist', 'cancelled', 'no_show'],
   waitlist: ['confirmed', 'arrived', 'cancelled', 'no_show'],
   arrived: ['seated', 'completed', 'cancelled', 'no_show'],
   seated: ['completed', 'cancelled'],

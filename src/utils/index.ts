@@ -1,5 +1,6 @@
 export { cn } from './cn'
 export { createId } from './id'
+export { mixHex } from './color'
 export {
   clamp,
   snap,

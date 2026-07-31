@@ -317,8 +317,15 @@ export interface FloorSnapshot {
    * `blocked` (host-set). Occupancy is derived from `seatings`, never stored here.
    */
   statusOverrides: Record<ID, Extract<FloorTableStatus, 'cleaning' | 'blocked'>>
+  /**
+   * ISO timestamp a table entered `cleaning`, keyed by table id. Drives
+   * auto-turnover (a table clears itself once the turnover buffer elapses).
+   */
+  cleaningSince: Record<ID, string>
   /** Runtime table-center positions when staff push furniture. Keyed by table id. */
   positionOverrides: Record<ID, Vec2>
+  /** Runtime table rotations (degrees) when staff turn furniture. Keyed by table id. */
+  rotationOverrides: Record<ID, number>
 }
 
 export interface Restaurant {
