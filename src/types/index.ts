@@ -265,6 +265,62 @@ export interface SeatingDecision {
   chosen?: ID[]
 }
 
+/**
+ * Runtime table status on the Live Floor (Phase 8). Extends the design-time
+ * `TableStatus` with `cleaning` — the turnover state a table enters after a party
+ * leaves. Deliberately a SEPARATE type from `TableStatus`: the editor still edits
+ * only design-time statuses; `cleaning` exists only in the operational floor layer.
+ */
+export type FloorTableStatus = TableStatus | 'cleaning'
+
+/**
+ * A live seating (Phase 8) — a party physically occupying one or more tables for
+ * the current shift. Owns the runtime merge when it spans several tables. Created
+ * when the host seats a reservation; removed when the party is cleared.
+ */
+export interface Seating {
+  id: ID
+  /** The reservation being seated. */
+  reservationId: ID
+  /** Member table ids the party occupies (one, or several for a merge). */
+  tableIds: ID[]
+  /** ISO timestamp the party was seated. */
+  seatedAt: string
+}
+
+/**
+ * A merge that exists only for the current shift (Phase 8), not in the base
+ * layout. Its lifespan is the seating that owns it (`seatingId`); when the party
+ * leaves the tables stay pushed together but the merge is flagged unowned
+ * (`seatingId` cleared) until the host splits or reuses it.
+ */
+export interface RuntimeMergedGroup {
+  id: ID
+  /** Sorted member table ids. */
+  tableIds: ID[]
+  /** The seating that owns this merge, if any. Undefined = unowned (party left). */
+  seatingId?: ID
+}
+
+/**
+ * Serializable snapshot of the Live Floor's runtime override layer (Phase 8).
+ * Kept entirely separate from `LayoutSnapshot`: the base design stays read-only
+ * and versioned; the floor only records what THIS shift changed on top of it.
+ */
+export interface FloorSnapshot {
+  /** Active seatings (parties currently on the floor). */
+  seatings: Seating[]
+  /** Runtime merges (owned + unowned). */
+  runtimeMerges: RuntimeMergedGroup[]
+  /**
+   * Manual runtime status overrides keyed by table id — only `cleaning` and
+   * `blocked` (host-set). Occupancy is derived from `seatings`, never stored here.
+   */
+  statusOverrides: Record<ID, Extract<FloorTableStatus, 'cleaning' | 'blocked'>>
+  /** Runtime table-center positions when staff push furniture. Keyed by table id. */
+  positionOverrides: Record<ID, Vec2>
+}
+
 export interface Restaurant {
   id: ID
   name: string
