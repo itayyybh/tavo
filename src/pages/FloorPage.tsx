@@ -1,14 +1,11 @@
+import { FloorCanvas } from '@/features/floor'
+
 /**
- * Live Floor — top-down real-time restaurant view.
- * Placeholder shell; built out in Phase 8.
+ * Live Floor — top-down operational view of the restaurant (Phase 8).
+ * Reads the effective floor (base layout + runtime shift overrides) and renders
+ * it read-only. Seating, drag-to-assign and operational merges arrive in later
+ * steps; this is the renderer foundation.
  */
 export default function FloorPage() {
-  return (
-    <section className="mx-auto max-w-3xl px-6 py-16">
-      <h1 className="text-2xl font-semibold tracking-tight">Live Floor</h1>
-      <p className="mt-2 text-sm text-[var(--color-muted)]">
-        Real-time restaurant floor with table states and seating. Coming in a later phase.
-      </p>
-    </section>
-  )
+  return <FloorCanvas />
 }
