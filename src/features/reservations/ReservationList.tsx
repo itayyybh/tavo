@@ -11,6 +11,8 @@ interface ReservationListProps {
   reservations: Reservation[]
   /** id → zone name + color, for zone chips without per-card store lookups. */
   zoneMeta: Map<ID, ZoneMeta>
+  /** Table id → label, for the reserved-table chip (Phase 7). */
+  tableLabels?: Map<ID, string>
   /** Keyboard-selected reservation id, if any. */
   selectedId?: string
   onSelect?: (id: string) => void
@@ -22,6 +24,7 @@ interface ReservationListProps {
 export function ReservationList({
   reservations,
   zoneMeta,
+  tableLabels,
   selectedId,
   onSelect,
   onEdit,
@@ -40,12 +43,16 @@ export function ReservationList({
     <div className="flex flex-col gap-2">
       {reservations.map((r) => {
         const zone = r.preferredZoneId ? zoneMeta.get(r.preferredZoneId) : undefined
+        const assignedLabel = r.assignedTableIds
+          ?.map((id) => tableLabels?.get(id) ?? id)
+          .join(' + ')
         return (
           <ReservationCard
             key={r.id}
             reservation={r}
             zoneName={zone?.name}
             zoneColor={zone?.color}
+            assignedLabel={assignedLabel}
             selected={r.id === selectedId}
             onSelect={onSelect}
             onEdit={onEdit}
