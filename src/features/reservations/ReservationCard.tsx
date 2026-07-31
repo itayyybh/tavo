@@ -11,6 +11,8 @@ interface ReservationCardProps {
   zoneName?: string
   /** Zone's editor color (hex) — used as the zone chip background. */
   zoneColor?: string
+  /** Reserved table label(s), if the reservation has a seating assignment (Phase 7). */
+  assignedLabel?: string
   /** Whether this row is the keyboard-selected one. */
   selected?: boolean
   onSelect?: (id: string) => void
@@ -22,6 +24,7 @@ function ReservationCardBase({
   reservation,
   zoneName,
   zoneColor,
+  assignedLabel,
   selected,
   onSelect,
   onEdit,
@@ -75,6 +78,11 @@ function ReservationCardBase({
               <span className="text-line">·</span>
               <span>{occasionLabel[occasion]}</span>
             </>
+          )}
+          {assignedLabel && (
+            <span className="rounded-full border border-ink/15 bg-surface-2 px-2 py-0.5 text-[10px] font-medium text-ink">
+              {assignedLabel}
+            </span>
           )}
         </div>
       </div>

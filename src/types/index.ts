@@ -173,6 +173,13 @@ export interface Reservation {
   /** Soft seating hint for Phase 7. Plain id, no Table coupling. */
   preferredTableId?: ID
   occasion?: ReservationOccasion
+  /**
+   * Seating assignment (Phase 7). Member table ids set when a suggestion is
+   * accepted — one id for a single table, several for a deferred merge. This only
+   * RESERVES the tables; the physical merge and seating happen on the Live Floor
+   * (Phase 8), so the layout is never mutated at reserve time.
+   */
+  assignedTableIds?: ID[]
   status: ReservationStatus
   source: ReservationSource
   preferences?: ReservationPreferences
@@ -181,6 +188,81 @@ export interface Reservation {
   createdAt: string
   /** ISO timestamp of last edit. */
   updatedAt: string
+}
+
+/**
+ * Seating Engine merge rules (Phase 7). Everything configurable — never hardcode
+ * restaurant merge logic (see the `data-model` skill). Consumed by the merge-rule
+ * pipeline in `src/services/seating/mergeRules.ts`.
+ */
+export interface MergeConfig {
+  /**
+   * Exact table-id sets that may never merge together — host judgment the layout
+   * geometry can't infer (e.g. "11+12 have no room"). Only the EXACT set is
+   * blocked: a larger set that merely contains a forbidden set is judged on its
+   * own, so {11,12} can be forbidden while {7,10,11,12} stays allowed.
+   */
+  forbiddenCombos: ID[][]
+  /** Cap on tables per merged group. Undefined = no cap. */
+  maxMergeSize?: number
+  /**
+   * When false (default) every member of a merge must share one zone. Flip to
+   * allow the rare cross-zone merge.
+   */
+  allowCrossZoneMerge: boolean
+  /**
+   * Soft-preference strength for merging physically close tables. Used only by
+   * the scorer (proximity is a preference, never a hard gate — tables may merge
+   * from anywhere in the zone).
+   */
+  proximityWeight: number
+}
+
+/**
+ * Relative weights for the seating scorer. All configurable — tuning seating
+ * behaviour is a restaurant policy decision, never hardcoded.
+ */
+export interface SeatingWeights {
+  /** Reward a tight capacity fit (fewer wasted seats). */
+  capacityFit: number
+  /** Reward matching the reservation's preferred zone. */
+  zoneMatch: number
+  /** Reward including the reservation's preferred table. */
+  preferredTable: number
+  /** Prefer a single table over a merge when both fit. */
+  singleTable: number
+}
+
+/** Seating Engine configuration (Phase 7). */
+export interface SeatingConfig {
+  merge: MergeConfig
+  /** Minutes reserved between two bookings on the same table (turnover). */
+  turnoverBufferMin: number
+  weights: SeatingWeights
+}
+
+/** One ranked option recorded in a seating decision. */
+export interface SeatingDecisionEntry {
+  kind: 'single' | 'merge'
+  tableIds: ID[]
+  score: number
+}
+
+/**
+ * A logged seating decision (Phase 7). Every suggestion run and acceptance is
+ * recorded so the engine's behaviour is auditable and — in Phase 11 — becomes
+ * training data / decision history for AI-assisted seating.
+ */
+export interface SeatingDecision {
+  id: ID
+  reservationId: ID
+  /** ISO timestamp of the decision. */
+  ts: string
+  partySize: number
+  /** Options the engine ranked, best first. */
+  ranked: SeatingDecisionEntry[]
+  /** Table ids the host accepted; undefined = suggested but not accepted. */
+  chosen?: ID[]
 }
 
 export interface Restaurant {

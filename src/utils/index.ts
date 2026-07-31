@@ -22,7 +22,12 @@ export {
   deriveZoneParents,
   countTablesByZone,
 } from './zones'
-export { seatsForTable, groupCapacity, floorTotals } from './capacity'
+export {
+  seatsForTable,
+  groupCapacity,
+  hypotheticalMergeCapacity,
+  floorTotals,
+} from './capacity'
 export type { FloorTotals } from './capacity'
 export {
   toDateKey,

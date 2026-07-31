@@ -24,6 +24,14 @@ interface ReservationState {
   addReservation: (input: NewReservation) => Reservation
   updateReservation: (id: ID, patch: ReservationPatch) => void
   setStatus: (id: ID, status: ReservationStatus) => void
+  /**
+   * Reserve table(s) for a reservation (Phase 7 Seating Engine). One id for a
+   * single table, several for a deferred merge. Reserve only — no layout mutation
+   * or status change; seating happens on the Live Floor (Phase 8).
+   */
+  assignTable: (id: ID, tableIds: ID[]) => void
+  /** Clear a reservation's table assignment. */
+  clearAssignment: (id: ID) => void
   removeReservation: (id: ID) => void
   /** Replace the whole collection — used to hydrate from storage. */
   replaceAll: (reservations: Reservation[]) => void
@@ -57,6 +65,20 @@ export const useReservationStore = create<ReservationState>((set) => ({
     set((state) => ({
       reservations: state.reservations.map((r) =>
         r.id === id ? { ...r, status, updatedAt: now() } : r,
+      ),
+    })),
+
+  assignTable: (id, tableIds) =>
+    set((state) => ({
+      reservations: state.reservations.map((r) =>
+        r.id === id ? { ...r, assignedTableIds: tableIds, updatedAt: now() } : r,
+      ),
+    })),
+
+  clearAssignment: (id) =>
+    set((state) => ({
+      reservations: state.reservations.map((r) =>
+        r.id === id ? { ...r, assignedTableIds: undefined, updatedAt: now() } : r,
       ),
     })),
 

@@ -2,11 +2,12 @@ import { useMemo, useState } from 'react'
 import { Button, Heading, Input } from '@/components/ui'
 import { useLayoutStore } from '@/stores'
 import type { ID, Reservation } from '@/types'
-import { cn, countTablesByZone } from '@/utils'
+import { cn, countTablesByZone, floorTotals } from '@/utils'
 import { useReservationPersistence } from './hooks/useReservationPersistence'
 import { useReservationFilters } from './hooks/useReservationFilters'
 import { ReservationFilters } from './ReservationFilters'
 import { ReservationList, type ZoneMeta } from './ReservationList'
+import { SeatingPanel } from './SeatingPanel'
 import { ReservationSummary } from './ReservationSummary'
 import { ServiceLoadChart } from './ServiceLoadChart'
 import { ReservationTimeline } from './ReservationTimeline'
@@ -29,12 +30,20 @@ export function ReservationsView() {
 
   const zones = useLayoutStore((s) => s.zones)
   const tables = useLayoutStore((s) => s.tables)
+  const tableTypes = useLayoutStore((s) => s.tableTypes)
+  const mergedGroups = useLayoutStore((s) => s.mergedGroups)
   const removeReservation = useReservationStore((s) => s.removeReservation)
   const addReservation = useReservationStore((s) => s.addReservation)
   const replaceAll = useReservationStore((s) => s.replaceAll)
   const { state, patch, results, slotSource } = useReservationFilters()
 
   const tableCounts = useMemo(() => countTablesByZone(tables), [tables])
+  // Total floor seats — lets the load chart show occupancy against real capacity
+  // (free space = the visible remainder). Read-only; no reservation↔table coupling.
+  const floorCapacity = useMemo(
+    () => floorTotals(tables, tableTypes, mergedGroups).seats,
+    [tables, tableTypes, mergedGroups],
+  )
 
   const seedSamples = () => {
     const capacities = zones.map((z) => ({
@@ -59,6 +68,11 @@ export function ReservationsView() {
   const zoneMeta = useMemo<Map<ID, ZoneMeta>>(
     () => new Map(zones.map((z) => [z.id, { name: z.name, color: z.color }])),
     [zones],
+  )
+  // Table id → label, so a row can show its reserved table(s) (Phase 7).
+  const tableLabels = useMemo<Map<ID, string>>(
+    () => new Map(tables.map((t) => [t.id, t.label])),
+    [tables],
   )
 
   const [helpOpen, setHelpOpen] = useState(false)
@@ -182,16 +196,19 @@ export function ReservationsView() {
             <ReservationList
               reservations={results}
               zoneMeta={zoneMeta}
+              tableLabels={tableLabels}
               selectedId={selectedId ?? undefined}
               onSelect={setSelectedId}
               onEdit={openEdit}
               onDelete={removeReservation}
             />
           </div>
-          <aside className="hidden w-52 shrink-0 lg:block">
-            <div className="sticky top-6">
+          <aside className="hidden w-64 shrink-0 lg:block">
+            <div className="sticky top-6 flex flex-col gap-4">
+              {selected && <SeatingPanel reservation={selected} />}
               <ServiceLoadChart
                 reservations={slotSource}
+                capacity={floorCapacity}
                 activeStart={state.slotStart}
                 onSelect={(slotStart) => patch({ slotStart })}
               />
