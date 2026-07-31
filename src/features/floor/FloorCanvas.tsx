@@ -13,7 +13,6 @@ import {
   zonesById,
 } from '@/utils'
 import type { Table } from '@/types'
-import { GridBackground } from '@/features/editor/GridBackground'
 import { ZoneShape } from '@/features/editor/ZoneShape'
 import { ObstacleShape } from '@/features/editor/ObstacleShape'
 import { MergedHulls } from '@/features/editor/MergedHulls'
@@ -137,7 +136,11 @@ export function FloorCanvas() {
         summary={summary}
         onFit={() => fit(bounds, size)}
       />
-      <div ref={containerRef} className="relative min-h-0 flex-1" style={{ touchAction: 'none' }}>
+      <div
+        ref={containerRef}
+        className="relative min-h-0 flex-1 bg-[#ececeb] dark:bg-[#141414]"
+        style={{ touchAction: 'none' }}
+      >
         <Stage
           ref={stageRef}
           width={size.width}
@@ -150,14 +153,6 @@ export function FloorCanvas() {
           onWheel={handleWheel}
           onDragEnd={handleDragEnd}
         >
-          <Layer listening={false}>
-            <GridBackground
-              viewport={viewport}
-              stageSize={size}
-              gridSize={20}
-              color={colors.line}
-            />
-          </Layer>
           <Layer listening={false}>
             {visibleZones.map((zone) => (
               <ZoneShape
