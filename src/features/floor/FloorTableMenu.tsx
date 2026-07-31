@@ -3,8 +3,6 @@ import { statusLabel } from './status'
 
 interface FloorTableMenuProps {
   table: EffectiveTable
-  /** Screen position (px, container-relative) of the table center. */
-  screen: { x: number; y: number }
   /** Seated party's name, when occupied. */
   reservationName?: string
   /** Show the rotate action (hidden for a merged member). */
@@ -24,13 +22,13 @@ const action =
   'w-full rounded-lg px-3 py-1.5 text-left text-sm text-ink transition-colors hover:bg-surface-2'
 
 /**
- * Contextual actions for a tapped table, as a small popover anchored above the
- * table. Which actions show depends on the table's effective status — occupied
- * clears, cleaning finishes turnover, blocked unblocks, and a free table blocks.
+ * Contextual actions for a tapped table, pinned to the top-left of the floor so
+ * it never covers the table or the canvas. Which actions show depends on the
+ * table's effective status — occupied clears, cleaning finishes turnover, blocked
+ * unblocks, and a free table blocks.
  */
 export function FloorTableMenu({
   table,
-  screen,
   reservationName,
   canRotate,
   canSplit,
@@ -45,11 +43,8 @@ export function FloorTableMenu({
   const { status } = table
 
   return (
-    <div
-      className="absolute z-20 -translate-x-1/2 -translate-y-full pb-2"
-      style={{ left: screen.x, top: screen.y }}
-    >
-      <div className="min-w-40 rounded-xl border border-line bg-surface p-1.5 shadow-[var(--shadow-soft)]">
+    <div className="absolute left-3 top-3 z-20">
+      <div className="min-w-44 rounded-xl border border-line bg-surface p-1.5 shadow-[var(--shadow-soft)]">
         <div className="flex items-center justify-between gap-2 px-2 py-1">
           <span className="truncate text-xs font-medium text-ink">
             {reservationName ?? `Table ${table.base.label}`}

@@ -8,7 +8,6 @@ import {
   aabb,
   overlapArea,
   seatsForTable,
-  worldToScreen,
   zoneDepth,
   zoneDescendantIds,
   zonesById,
@@ -184,7 +183,6 @@ export function FloorCanvas() {
     selectedIds.length === 1 && visibleIds.has(selectedIds[0])
       ? effective.byId[selectedIds[0]]
       : undefined
-  const menuScreen = single ? worldToScreen(single.position, viewport) : null
   const selectedSeating =
     single?.status === 'occupied'
       ? seatings.find((s) => s.tableIds.includes(single.base.id))
@@ -347,10 +345,9 @@ export function FloorCanvas() {
           </Layer>
         </Stage>
 
-        {single && menuScreen && (
+        {single && (
           <FloorTableMenu
             table={single}
-            screen={menuScreen}
             reservationName={
               selectedSeating
                 ? reservationsById.get(selectedSeating.reservationId)?.guestName

@@ -32,10 +32,17 @@ interface SettingsState {
    * finish-cleaning always works regardless.
    */
   autoTurnover: boolean
+  /**
+   * Restaurant rules (Phase 8; per-restaurant in Phase 10). Table stay time in
+   * minutes: the default a new booking gets, and the hard maximum.
+   */
+  defaultStayMinutes: number
+  maxStayMinutes: number
   setGridSize: (size: number) => void
   setSnapToGrid: (snap: boolean) => void
   setPathWidth: (width: number) => void
   setAutoTurnover: (on: boolean) => void
+  setStayMinutes: (rule: { default?: number; max?: number }) => void
   /** Patch the merge rule config (one field or many). */
   updateMergeConfig: (patch: Partial<MergeConfig>) => void
 }
@@ -46,10 +53,17 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   pathWidth: 40,
   seating: DEFAULT_SEATING,
   autoTurnover: true,
+  defaultStayMinutes: 120,
+  maxStayMinutes: 120,
   setGridSize: (gridSize) => set({ gridSize }),
   setSnapToGrid: (snapToGrid) => set({ snapToGrid }),
   setPathWidth: (pathWidth) => set({ pathWidth }),
   setAutoTurnover: (autoTurnover) => set({ autoTurnover }),
+  setStayMinutes: ({ default: def, max }) =>
+    set((s) => ({
+      defaultStayMinutes: def ?? s.defaultStayMinutes,
+      maxStayMinutes: max ?? s.maxStayMinutes,
+    })),
   updateMergeConfig: (patch) =>
     set((s) => ({ seating: { ...s.seating, merge: { ...s.seating.merge, ...patch } } })),
 }))

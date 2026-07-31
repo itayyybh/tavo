@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Button, Input, Select } from '@/components/ui'
-import { useLayoutStore, useReservationStore } from '@/stores'
+import { useLayoutStore, useReservationStore, useSettingsStore } from '@/stores'
 import {
   combineDateTime,
   countTablesByZone,
@@ -25,7 +25,6 @@ import type {
 import type { NewReservation } from '@/stores/reservationStore'
 import { cn } from '@/utils'
 import {
-  DEFAULT_DURATION,
   DEFAULT_PARTY_SIZE,
   durationOptions,
   occasionOptions,
@@ -57,7 +56,7 @@ const PREF_TOGGLES: { key: keyof ReservationPreferences; label: string }[] = [
   { key: 'smoking', label: 'Smoking' },
 ]
 
-function buildInitialState(initial?: Reservation): FormState {
+function buildInitialState(initial: Reservation | undefined, defaultDuration: number): FormState {
   if (initial) {
     const { date, time } = splitDateTime(initial.dateTime)
     return {
@@ -84,7 +83,7 @@ function buildInitialState(initial?: Reservation): FormState {
     partySize: DEFAULT_PARTY_SIZE,
     date: todayKey(),
     time: '19:00',
-    estimatedDuration: DEFAULT_DURATION,
+    estimatedDuration: defaultDuration,
     preferredZoneId: '',
     preferredTableId: '',
     occasion: '',
@@ -107,7 +106,11 @@ export function ReservationForm({ initial, onSubmit, onCancel }: ReservationForm
   const zones = useLayoutStore((s) => s.zones)
   const tables = useLayoutStore((s) => s.tables)
   const reservations = useReservationStore((s) => s.reservations)
-  const [form, setForm] = useState<FormState>(() => buildInitialState(initial))
+  const defaultStay = useSettingsStore((s) => s.defaultStayMinutes)
+  const maxStay = useSettingsStore((s) => s.maxStayMinutes)
+  const [form, setForm] = useState<FormState>(() => buildInitialState(initial, defaultStay))
+  // Rule: a booking may not exceed the restaurant's max stay time.
+  const durations = durationOptions.filter((o) => Number(o.value) <= maxStay)
   const [errors, setErrors] = useState<ReservationErrors>({})
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
@@ -230,7 +233,7 @@ export function ReservationForm({ initial, onSubmit, onCancel }: ReservationForm
         />
         <Select
           label="Duration"
-          options={durationOptions}
+          options={durations}
           value={String(form.estimatedDuration)}
           onChange={(e) => set('estimatedDuration', Number(e.target.value))}
           error={errors.estimatedDuration}

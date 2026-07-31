@@ -130,7 +130,7 @@ export function buildSampleReservations(zones: ZoneCapacity[]): NewReservation[]
       phone: `+1 555 01${`${i}`.padStart(2, '0')}`,
       partySize: (i % 8) + 1,
       dateTime: combineDateTime(dayKeyForOffset(offset), time),
-      estimatedDuration: [60, 90, 120, 150][i % 4],
+      estimatedDuration: [60, 90, 120, 90][i % 4],
       preferredZoneId: zoneId,
       status: STATUSES[i % STATUSES.length],
       source: SOURCES[i % SOURCES.length],
