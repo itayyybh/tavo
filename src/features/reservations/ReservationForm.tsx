@@ -3,16 +3,15 @@ import { Button, Input, Select } from '@/components/ui'
 import { useLayoutStore, useReservationStore, useSettingsStore } from '@/stores'
 import {
   combineDateTime,
-  countTablesByZone,
   findDuplicate,
   formatTime,
   isValidDraft,
   isValidDateTime,
   splitDateTime,
-  toDateKey,
   todayKey,
   validateReservation,
-  zoneReservationUsage,
+  zoneRemainingSeats,
+  zoneSeatCapacity,
   type ReservationErrors,
 } from '@/utils'
 import type {
@@ -105,9 +104,11 @@ interface ReservationFormProps {
 export function ReservationForm({ initial, onSubmit, onCancel }: ReservationFormProps) {
   const zones = useLayoutStore((s) => s.zones)
   const tables = useLayoutStore((s) => s.tables)
+  const tableTypes = useLayoutStore((s) => s.tableTypes)
   const reservations = useReservationStore((s) => s.reservations)
   const defaultStay = useSettingsStore((s) => s.defaultStayMinutes)
   const maxStay = useSettingsStore((s) => s.maxStayMinutes)
+  const bufferMin = useSettingsStore((s) => s.seating.turnoverBufferMin)
   const [form, setForm] = useState<FormState>(() => buildInitialState(initial, defaultStay))
   // Rule: a booking may not exceed the restaurant's max stay time.
   const durations = durationOptions.filter((o) => Number(o.value) <= maxStay)
@@ -119,17 +120,14 @@ export function ReservationForm({ initial, onSubmit, onCancel }: ReservationForm
   const togglePref = (key: keyof ReservationPreferences) =>
     setForm((f) => ({ ...f, prefs: { ...f.prefs, [key]: !f.prefs[key] } }))
 
-  // Each zone's capacity = its table count (read-only view of the layout).
-  const tableCounts = useMemo(() => countTablesByZone(tables), [tables])
-
-  // Zone options show remaining capacity so the host sees fullness at a glance.
+  // Zone options show total seating so the host sees each zone's size.
   const zoneOptions = useMemo(
     () =>
       zones.map((z) => ({
         value: z.id,
-        label: `${z.name} (${tableCounts.get(z.id) ?? 0} tables)`,
+        label: `${z.name} (${zoneSeatCapacity(z.id, tables, tableTypes)} seats)`,
       })),
-    [zones, tableCounts],
+    [zones, tables, tableTypes],
   )
 
   const dateTime = combineDateTime(form.date, form.time)
@@ -158,23 +156,27 @@ export function ReservationForm({ initial, onSubmit, onCancel }: ReservationForm
     }
     const found = validateReservation(draft)
 
-    // Zone capacity guard: a zone can't hold more same-day active reservations
-    // than it has tables. (UI-layer coupling to the Table Engine — Phase 7 owns
-    // the real placement logic.)
+    // Zone capacity gate: a guest is seated only in their chosen zone, so the
+    // zone must have enough seats free during the booking's window (time-aware,
+    // so a zone serves different parties across the service). No overflow to
+    // another zone — if it doesn't fit, the host must pick a different zone.
     if (!found.preferredZoneId && form.preferredZoneId && isValidDateTime(dateTime)) {
-      const capacity = tableCounts.get(form.preferredZoneId) ?? 0
-      const used = zoneReservationUsage(
+      const remaining = zoneRemainingSeats({
+        zoneId: form.preferredZoneId,
+        startISO: dateTime,
+        durationMin: form.estimatedDuration,
+        tables,
+        tableTypes,
         reservations,
-        form.preferredZoneId,
-        toDateKey(new Date(dateTime)),
-        initial?.id,
-      )
-      if (used >= capacity) {
+        bufferMin,
+        excludeId: initial?.id,
+      })
+      if (remaining < form.partySize) {
         const zoneName = zones.find((z) => z.id === form.preferredZoneId)?.name ?? 'Zone'
         found.preferredZoneId =
-          capacity === 0
-            ? `${zoneName} has no tables.`
-            : `${zoneName} is full for that day (${used}/${capacity} tables).`
+          remaining <= 0
+            ? `${zoneName} is full at that time — choose another zone.`
+            : `${zoneName} has ${remaining} seat${remaining === 1 ? '' : 's'} free then, need ${form.partySize} — choose another zone.`
       }
     }
 

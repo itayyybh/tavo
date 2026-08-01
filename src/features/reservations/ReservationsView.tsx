@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Button, Heading, Input } from '@/components/ui'
-import { useLayoutStore } from '@/stores'
+import { useLayoutStore, useSettingsStore } from '@/stores'
 import type { ID, Reservation } from '@/types'
-import { cn, countTablesByZone, floorTotals } from '@/utils'
+import { cn, floorTotals } from '@/utils'
 import { useReservationPersistence } from './hooks/useReservationPersistence'
 import { useReservationFilters } from './hooks/useReservationFilters'
 import { ReservationFilters } from './ReservationFilters'
@@ -44,20 +44,16 @@ export function ReservationsView() {
     assignedCount,
   } = useAssignAll()
 
-  const tableCounts = useMemo(() => countTablesByZone(tables), [tables])
   // Total floor seats — lets the load chart show occupancy against real capacity
   // (free space = the visible remainder). Read-only; no reservation↔table coupling.
   const floorCapacity = useMemo(
     () => floorTotals(tables, tableTypes, mergedGroups).seats,
     [tables, tableTypes, mergedGroups],
   )
+  const bufferMin = useSettingsStore((s) => s.seating.turnoverBufferMin)
 
   const seedSamples = () => {
-    const capacities = zones.map((z) => ({
-      id: z.id,
-      capacity: tableCounts.get(z.id) ?? 0,
-    }))
-    buildSampleReservations(capacities).forEach(addReservation)
+    buildSampleReservations({ zones, tables, tableTypes, bufferMin }).forEach(addReservation)
   }
   const clearAll = () => replaceAll([])
 

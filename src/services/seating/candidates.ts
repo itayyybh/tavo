@@ -184,7 +184,23 @@ export function generateCandidates(
       }
     }
   }
-  return withBringOptions(reservation, result)
+  return restrictToPreferredZone(reservation, withBringOptions(reservation, result))
+}
+
+/**
+ * Hard zone rule: a guest is only ever seated in their preferred zone — or on a
+ * table brought INTO it. Drops every other-zone option. No preferred zone (should
+ * not happen — zone is required) leaves candidates untouched.
+ */
+function restrictToPreferredZone(
+  reservation: Reservation,
+  candidates: SeatCandidate[],
+): SeatCandidate[] {
+  const preferred = reservation.preferredZoneId
+  if (!preferred) return candidates
+  return candidates.filter(
+    (c) => c.zoneId === preferred || c.relocateToZoneId === preferred,
+  )
 }
 
 /**

@@ -30,6 +30,7 @@ export {
   floorTotals,
 } from './capacity'
 export type { FloorTotals } from './capacity'
+export { zoneSeatCapacity, zoneRemainingSeats, type ZoneRemainingParams } from './zoneCapacity'
 export {
   toDateKey,
   toTimeKey,
