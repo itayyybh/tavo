@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { FloorSnapshot, ID, Seating, Table, Vec2 } from '@/types'
 import { createId } from '@/utils'
-import { arrangeSeatingCluster } from '@/services/floor'
+import { arrangeSeatingCluster, zoneArrangeDir } from '@/services/floor'
 import { useLayoutStore } from './layoutStore'
 import { useReservationStore } from './reservationStore'
 
@@ -89,7 +89,7 @@ function clusterOverrides(
 ): { positions: Record<ID, Vec2>; rotations: Record<ID, number> } {
   if (tableIds.length < 2) return { positions: {}, rotations: {} }
   const memberSet = new Set(tableIds)
-  const { tables, tableTypes, obstacles } = useLayoutStore.getState()
+  const { tables, tableTypes, obstacles, zones } = useLayoutStore.getState()
   const effective = (t: Table): Table => ({
     ...t,
     position: positionOverrides[t.id] ?? t.position,
@@ -98,7 +98,10 @@ function clusterOverrides(
   const members = tables.filter((t) => memberSet.has(t.id)).map(effective)
   if (members.length < 2) return { positions: {}, rotations: {} }
   const others = tables.filter((t) => !memberSet.has(t.id)).map(effective)
-  const arranged = arrangeSeatingCluster(members, tableTypes, others, obstacles)
+  // Zone rule: non-smoking builds vertically, smoking horizontally (soft).
+  const zone = zones.find((z) => z.id === members[0].zoneId)
+  const dir = zoneArrangeDir(zone)
+  const arranged = arrangeSeatingCluster(members, tableTypes, others, obstacles, dir)
   const positions: Record<ID, Vec2> = {}
   const rotations: Record<ID, number> = {}
   for (const [id, p] of arranged) {

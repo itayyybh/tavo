@@ -66,6 +66,12 @@ export interface Zone {
    * don't belong to it.
    */
   parentId?: ID
+  /**
+   * Smoking policy. Drives how merged tables build on the Live Floor: a
+   * non-smoking zone stacks them vertically, a smoking zone lays them
+   * horizontally (soft). Undefined = no rule (horizontal default).
+   */
+  smoking?: 'smoking' | 'non-smoking'
 }
 
 /**
