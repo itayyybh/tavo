@@ -22,11 +22,15 @@ function needsAssignment(r: Reservation): boolean {
 export function useAssignAll() {
   const reservations = useReservationStore((s) => s.reservations)
   const assignTable = useReservationStore((s) => s.assignTable)
+  const clearAssignment = useReservationStore((s) => s.clearAssignment)
   const logSuggestion = useDecisionLogStore((s) => s.logSuggestion)
   const recordAccept = useDecisionLogStore((s) => s.recordAccept)
   const floor = useSeatingFloor()
 
   const assignableCount = reservations.filter(needsAssignment).length
+  const assignedCount = reservations.filter(
+    (r) => r.assignedTableIds && r.assignedTableIds.length > 0,
+  ).length
 
   const assignAll = useCallback(() => {
     // Local working copy so each assignment is visible to later iterations
@@ -51,5 +55,11 @@ export function useAssignAll() {
     }
   }, [reservations, floor, assignTable, logSuggestion, recordAccept])
 
-  return { assignAll, assignableCount }
+  const clearAll = useCallback(() => {
+    for (const r of reservations) {
+      if (r.assignedTableIds && r.assignedTableIds.length > 0) clearAssignment(r.id)
+    }
+  }, [reservations, clearAssignment])
+
+  return { assignAll, assignableCount, clearAll, assignedCount }
 }
