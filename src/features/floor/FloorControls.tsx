@@ -9,6 +9,7 @@ interface FloorControlsProps {
   summary: FloorSummary
   onFit: () => void
   onRestoreDefault: () => void
+  onFinishAllCleaning: () => void
   autoTurnover: boolean
   onToggleAutoTurnover: () => void
 }
@@ -37,9 +38,11 @@ export function FloorControls({
   summary,
   onFit,
   onRestoreDefault,
+  onFinishAllCleaning,
   autoTurnover,
   onToggleAutoTurnover,
 }: FloorControlsProps) {
+  const cleaningCount = summary.counts.cleaning
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-2">
       <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto">
@@ -103,6 +106,15 @@ export function FloorControls({
         >
           Auto-turnover {autoTurnover ? 'on' : 'off'}
         </button>
+        {cleaningCount > 0 && (
+          <button
+            onClick={onFinishAllCleaning}
+            title="Mark every cleaning table available"
+            className={`${chip} border-line text-muted hover:text-ink`}
+          >
+            Finish cleaning ({cleaningCount})
+          </button>
+        )}
         <button
           onClick={onRestoreDefault}
           title="Reset all tables to their base layout position, rotation and merges"

@@ -39,6 +39,8 @@ interface FloorState extends FloorSnapshot {
   clear: (seatingId: ID) => void
   /** Finish turnover — remove the `cleaning` override so the table reads available. */
   finishCleaning: (tableId: ID) => void
+  /** Finish turnover on every cleaning table at once. */
+  finishAllCleaning: () => void
   /** Set (or clear, with `undefined`) a manual runtime status override for a table. */
   setTableStatus: (tableId: ID, status: ManualFloorStatus | undefined) => void
   /** Record a runtime center position for a table staff physically moved. */
@@ -206,6 +208,19 @@ export const useFloorStore = create<FloorState>((set, get) => ({
           }
         : state,
     ),
+
+  finishAllCleaning: () =>
+    set((state) => {
+      const statusOverrides = { ...state.statusOverrides }
+      const cleaningSince = { ...state.cleaningSince }
+      for (const [id, status] of Object.entries(state.statusOverrides)) {
+        if (status === 'cleaning') {
+          delete statusOverrides[id]
+          delete cleaningSince[id]
+        }
+      }
+      return { statusOverrides, cleaningSince }
+    }),
 
   setTableStatus: (tableId, status) =>
     set((state) => ({

@@ -71,6 +71,7 @@ export function FloorCanvas() {
   const seatings = useFloorStore((s) => s.seatings)
   const setTableStatus = useFloorStore((s) => s.setTableStatus)
   const finishCleaning = useFloorStore((s) => s.finishCleaning)
+  const finishAllCleaning = useFloorStore((s) => s.finishAllCleaning)
   const clearSeating = useFloorStore((s) => s.clear)
   const moveTable = useFloorStore((s) => s.moveTable)
   const moveTablesBy = useFloorStore((s) => s.moveTablesBy)
@@ -279,6 +280,7 @@ export function FloorCanvas() {
           restoreDefault()
           clearSelection()
         }}
+        onFinishAllCleaning={finishAllCleaning}
         autoTurnover={autoTurnover}
         onToggleAutoTurnover={() => setAutoTurnover(!autoTurnover)}
       />
