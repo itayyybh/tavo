@@ -1,4 +1,5 @@
 import { Circle, Group, Rect, Text } from 'react-konva'
+import type Konva from 'konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { TableType, Vec2 } from '@/types'
 import { mixHex } from '@/utils'
@@ -20,8 +21,12 @@ interface FloorTableNodeProps {
   merged?: boolean
   /** Tap handler — when set, the table is interactive (opens its action menu). */
   onSelect?: (id: string, additive: boolean) => void
+  /** Fires continuously while dragging — lets a merged group track the cursor live. */
+  onDragMove?: (id: string) => void
   /** Drag-move handler — fires with the table's new center on drag end. */
   onDragEnd?: (id: string, center: Vec2) => void
+  /** Register this table's Konva node so its group can be moved live during a drag. */
+  registerNode?: (id: string, node: Konva.Group | null) => void
   /** Highlight this table (selected / its action menu is open). */
   selected?: boolean
 }
@@ -42,7 +47,9 @@ export function FloorTableNode({
   secondary,
   merged,
   onSelect,
+  onDragMove,
   onDragEnd,
+  registerNode,
   selected,
 }: FloorTableNodeProps) {
   const { base, status, position, rotation } = et
@@ -94,6 +101,7 @@ export function FloorTableNode({
 
   return (
     <Group
+      ref={(node) => registerNode?.(base.id, node)}
       x={position.x}
       y={position.y}
       offsetX={w / 2}
@@ -101,6 +109,10 @@ export function FloorTableNode({
       rotation={rotation}
       listening={!!onSelect}
       draggable={!!onDragEnd}
+      onDragMove={(e: KonvaEventObject<DragEvent>) => {
+        e.cancelBubble = true
+        onDragMove?.(base.id)
+      }}
       onMouseDown={(e: KonvaEventObject<MouseEvent>) => {
         e.cancelBubble = true
       }}

@@ -170,6 +170,12 @@ export function MergedHulls({
           <Group
             key={group.id}
             ref={(node) => registerNode(group.id, node)}
+            // Explicit origin so React-Konva reconciles position every render:
+            // a live group-drag sets this node's position imperatively, and this
+            // resets it once the store re-renders members at their new coords —
+            // otherwise a split/drag leaves the hull stuck at an offset (a stray box).
+            x={0}
+            y={0}
             listening={false}
           >
             {isSelected &&

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Layer, Stage } from 'react-konva'
 import type Konva from 'konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
@@ -76,7 +76,6 @@ export function FloorCanvas() {
   const moveTablesBy = useFloorStore((s) => s.moveTablesBy)
   const rotateTable = useFloorStore((s) => s.rotateTable)
   const rotateGroup = useFloorStore((s) => s.rotateGroup)
-  const mergeTables = useFloorStore((s) => s.mergeTables)
   const splitRuntime = useFloorStore((s) => s.splitRuntime)
   const restoreDefault = useFloorStore((s) => s.restoreDefault)
   const autoTurnover = useSettingsStore((s) => s.autoTurnover)
@@ -84,17 +83,23 @@ export function FloorCanvas() {
   useAutoTurnover()
 
   const { viewport, handleWheel, commitPan, fit } = useFloorCamera(stageRef)
-  // Selected tables — one opens its action menu; two-plus offer a merge.
+  // A single selected table opens its action menu. (Merges come from seating, so
+  // there is no manual multi-select merge.)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
-  const selectTable = (id: string, additive: boolean) =>
-    setSelectedIds((prev) =>
-      additive
-        ? prev.includes(id)
-          ? prev.filter((x) => x !== id)
-          : [...prev, id]
-        : [id],
-    )
+  const selectTable = (id: string) => setSelectedIds([id])
   const clearSelection = () => setSelectedIds([])
+
+  // Konva node refs so a merged group (its members + hull) tracks the cursor live.
+  const nodeRefs = useRef<Map<string, Konva.Group>>(new Map())
+  const hullRefs = useRef<Map<string, Konva.Group>>(new Map())
+  const registerNode = useCallback((id: string, node: Konva.Group | null) => {
+    if (node) nodeRefs.current.set(id, node)
+    else nodeRefs.current.delete(id)
+  }, [])
+  const registerHull = useCallback((id: string, node: Konva.Group | null) => {
+    if (node) hullRefs.current.set(id, node)
+    else hullRefs.current.delete(id)
+  }, [])
 
   const zonesIndex = useMemo(() => zonesById(zones), [zones])
   const reservationsById = useMemo(
@@ -194,6 +199,25 @@ export function FloorCanvas() {
     if (stage) commitPan({ x: stage.x(), y: stage.y() })
   }
 
+  // While dragging a merged member, move its siblings + the hull body live so the
+  // whole group travels as one (not a lone shadow with a lagging body).
+  const handleTableDragMove = (id: string) => {
+    const et = effective.byId[id]
+    const node = nodeRefs.current.get(id)
+    if (!et?.mergedGroupId || !node) return
+    const group = hullGroups.find((g) => g.id === et.mergedGroupId)
+    if (!group) return
+    const delta = { x: node.x() - et.position.x, y: node.y() - et.position.y }
+    for (const mid of group.tableIds) {
+      if (mid === id) continue
+      const n = nodeRefs.current.get(mid)
+      const met = effective.byId[mid]
+      if (n && met) n.position({ x: met.position.x + delta.x, y: met.position.y + delta.y })
+    }
+    hullRefs.current.get(group.id)?.position(delta)
+    node.getLayer()?.batchDraw()
+  }
+
   // Drag-move a table; a merged member drags its whole group as one.
   const handleTableDragEnd = (id: string, center: { x: number; y: number }) => {
     const et = effective.byId[id]
@@ -203,6 +227,8 @@ export function FloorCanvas() {
       const group = hullGroups.find((g) => g.id === groupId)
       const delta = { x: center.x - et.position.x, y: center.y - et.position.y }
       moveTablesBy(group ? group.tableIds : [id], delta)
+      // Store re-renders members at absolute coords; return the hull to origin.
+      hullRefs.current.get(groupId)?.position({ x: 0, y: 0 })
     } else {
       moveTable(id, center)
     }
@@ -320,7 +346,9 @@ export function FloorCanvas() {
                   merged={!!et.mergedGroupId}
                   selected={selectedIds.includes(et.base.id)}
                   onSelect={selectTable}
+                  onDragMove={handleTableDragMove}
                   onDragEnd={handleTableDragEnd}
+                  registerNode={registerNode}
                   primary={showGuest && res ? res.guestName : et.base.label}
                   secondary={
                     showGuest && res
@@ -338,7 +366,7 @@ export function FloorCanvas() {
               tableTypes={tableTypes}
               selectedIds={[]}
               colors={colors}
-              registerNode={noop}
+              registerNode={registerHull}
               tintByStatus
               memberLabels={memberLabels}
             />
@@ -380,26 +408,6 @@ export function FloorCanvas() {
           />
         )}
 
-        {selectedIds.length >= 2 && (
-          <div className="absolute left-1/2 top-3 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full border border-line bg-surface px-2 py-1.5 shadow-[var(--shadow-soft)]">
-            <span className="px-2 text-xs text-muted">{selectedIds.length} tables</span>
-            <button
-              className="rounded-full bg-ink px-3 py-1 text-xs font-medium text-surface transition-opacity hover:opacity-90"
-              onClick={() => {
-                mergeTables(selectedIds)
-                clearSelection()
-              }}
-            >
-              Merge
-            </button>
-            <button
-              className="rounded-full border border-line px-3 py-1 text-xs text-muted transition-colors hover:text-ink"
-              onClick={clearSelection}
-            >
-              Cancel
-            </button>
-          </div>
-        )}
       </div>
     </div>
   )
