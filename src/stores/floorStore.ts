@@ -105,8 +105,8 @@ function clusterOverrides(
   const positions: Record<ID, Vec2> = {}
   const rotations: Record<ID, number> = {}
   for (const [id, p] of arranged) {
-    positions[id] = p
-    rotations[id] = 0
+    positions[id] = p.position
+    rotations[id] = p.rotation
   }
   return { positions, rotations }
 }
