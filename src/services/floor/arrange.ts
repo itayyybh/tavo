@@ -54,12 +54,16 @@ function findClearOffset(
   placed: Map<ID, Vec2>,
   otherTables: Table[],
   obstacles: Obstacle[],
+  clearanceOf: (t: Table) => number,
 ): Vec2 {
+  // The row keeps each table's chair-clearance from its neighbours, not just a
+  // non-overlap — so a merged party never lands flush against another table.
+  const rowClearance = Math.max(0, ...members.map(clearanceOf))
   const blockedAt = (delta: Vec2) =>
     members.some((m) => {
       const p = placed.get(m.id)!
       const box = aabb({ x: p.x + delta.x, y: p.y + delta.y }, m.size)
-      return boxBlocked(box, otherTables, obstacles, new Set())
+      return boxBlocked(box, otherTables, obstacles, new Set(), clearanceOf, rowClearance)
     })
 
   if (!blockedAt({ x: 0, y: 0 })) return { x: 0, y: 0 }
@@ -92,10 +96,11 @@ export function arrangeSeatingCluster(
   obstacles: Obstacle[],
 ): Map<ID, Vec2> {
   if (members.length < 2) return new Map()
-  const isRound = (t: Table) =>
-    tableTypes.find((ty) => ty.id === t.typeId)?.shape === 'round'
+  const typeOf = (t: Table) => tableTypes.find((ty) => ty.id === t.typeId)
+  const isRound = (t: Table) => typeOf(t)?.shape === 'round'
+  const clearanceOf = (t: Table) => typeOf(t)?.clearance ?? 0
   const arranged = arrangeCluster(members, isRound)
-  const offset = findClearOffset(members, arranged, otherTables, obstacles)
+  const offset = findClearOffset(members, arranged, otherTables, obstacles, clearanceOf)
   const out = new Map<ID, Vec2>()
   for (const [id, p] of arranged) out.set(id, { x: p.x + offset.x, y: p.y + offset.y })
   return out

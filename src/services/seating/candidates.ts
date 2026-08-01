@@ -14,7 +14,7 @@
  * seed, not every possible merge — acceptable, since a smaller fitting merge is
  * always preferable and the scorer ranks across all seeds' results.
  */
-import type { Reservation } from '@/types'
+import type { ID, Reservation, Table } from '@/types'
 import { hypotheticalMergeCapacity, seatsForTable } from '@/utils'
 import { centerDistance } from './geometry'
 import { evaluateMerge, type MergeRuleContext } from './mergeRules'
@@ -56,7 +56,13 @@ function mergeCandidates(reservation: Reservation, floor: SeatingFloor): SeatCan
   const seen = new Set<string>()
   const out: SeatCandidate[] = []
 
-  for (const seed of available) {
+  // Organize the largest tables first: seed merges from the biggest tables so a
+  // party lands on prime capacity before smaller tables get chained.
+  const capOf = (t: (typeof available)[number]) =>
+    floor.tableTypes.find((ty) => ty.id === t.typeId)?.connectedCapacity ?? 0
+  const seeds = [...available].sort((a, b) => capOf(b) - capOf(a))
+
+  for (const seed of seeds) {
     // Grow toward nearest neighbours; same zone unless cross-zone merging is on.
     const pool = available
       .filter((t) => t.id !== seed.id)
@@ -92,13 +98,110 @@ function mergeCandidates(reservation: Reservation, floor: SeatingFloor): SeatCan
   return out
 }
 
+/** A restricted zone from an active large-party rule. */
+interface ZoneRestriction {
+  zoneId: ID
+  /** comboKey of each allowed table-id set. */
+  allowedKeys: Set<string>
+  /** The allowed combos as ready candidates, so generation can't miss them. */
+  injected: SeatCandidate[]
+}
+
+/**
+ * Resolve the large-party rules that apply to this reservation into per-zone
+ * restrictions. Rules are authored by zone name + table label; they resolve
+ * against the current layout here. A zone with an active rule only permits its
+ * listed combos; the same combos are injected (when all members are free) so a
+ * mandated arrangement like 7+10+11+12 is always offered.
+ */
+function largePartyRestrictions(
+  reservation: Reservation,
+  floor: SeatingFloor,
+): ZoneRestriction[] {
+  const rules = floor.config.merge.largePartyRules ?? []
+  const active = rules.filter((r) => reservation.partySize >= r.minPartySize)
+  if (active.length === 0) return []
+
+  const zoneByName = new Map(floor.zones.map((z) => [z.name, z]))
+  const out: ZoneRestriction[] = []
+  for (const rule of active) {
+    const zone = zoneByName.get(rule.zoneName)
+    if (!zone) continue
+    const byLabel = new Map(
+      floor.tables.filter((t) => t.zoneId === zone.id).map((t) => [t.label, t]),
+    )
+    const allowedKeys = new Set<string>()
+    const injected: SeatCandidate[] = []
+    for (const combo of rule.allowedCombos) {
+      const tables = combo
+        .map((label) => byLabel.get(label))
+        .filter((t): t is Table => !!t)
+      if (tables.length !== combo.length) continue // a label isn't in this zone
+      allowedKeys.add(comboKey(tables.map((t) => t.id)))
+      // Inject only when every member is free to seat right now.
+      if (tables.every((t) => t.status === 'available')) {
+        injected.push({
+          kind: 'merge',
+          tableIds: [...tables.map((t) => t.id)].sort(),
+          tables,
+          seats: hypotheticalMergeCapacity(tables, floor.tableTypes),
+          zoneId: zone.id,
+        })
+      }
+    }
+    out.push({ zoneId: zone.id, allowedKeys, injected })
+  }
+  return out
+}
+
 /**
  * All seating options for a reservation: available singles + bounded merge
- * combinations that reach the party size and pass membership merge rules.
+ * combinations that reach the party size and pass membership merge rules. Then
+ * large-party rules restrict/inject combos for their zones.
  */
 export function generateCandidates(
   reservation: Reservation,
   floor: SeatingFloor,
 ): SeatCandidate[] {
-  return [...singleCandidates(floor), ...mergeCandidates(reservation, floor)]
+  const base = [...singleCandidates(floor), ...mergeCandidates(reservation, floor)]
+  const restrictions = largePartyRestrictions(reservation, floor)
+  if (restrictions.length === 0) return base
+
+  const byZone = new Map(restrictions.map((r) => [r.zoneId, r]))
+  // In a restricted zone, keep only exact allowed combos; other zones untouched.
+  const result = base.filter((c) => {
+    const r = byZone.get(c.zoneId)
+    return !r || r.allowedKeys.has(comboKey(c.tableIds))
+  })
+  // Add mandated combos generation may have missed (dedup by id-set).
+  const seen = new Set(result.map((c) => comboKey(c.tableIds)))
+  for (const r of restrictions) {
+    for (const cand of r.injected) {
+      const key = comboKey(cand.tableIds)
+      if (!seen.has(key)) {
+        seen.add(key)
+        result.push(cand)
+      }
+    }
+  }
+  return withBringOptions(reservation, result)
+}
+
+/**
+ * When a reservation has a preferred zone, offer to BRING a free single table
+ * from another zone into it — a second-choice above seating in a different zone
+ * (the host keeps their preferred zone). Suggest-only: the physical move is
+ * Phase 8. Only single tables are brought; a party needing a merge falls through
+ * to the normal other-zone options.
+ */
+function withBringOptions(
+  reservation: Reservation,
+  candidates: SeatCandidate[],
+): SeatCandidate[] {
+  const preferred = reservation.preferredZoneId
+  if (!preferred) return candidates
+  const brings = candidates
+    .filter((c) => c.kind === 'single' && c.zoneId !== preferred)
+    .map<SeatCandidate>((c) => ({ ...c, relocateToZoneId: preferred }))
+  return [...candidates, ...brings]
 }

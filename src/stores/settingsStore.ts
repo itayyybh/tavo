@@ -10,6 +10,7 @@ const DEFAULT_SEATING: SeatingConfig = {
     proximityWeight: 1,
   },
   turnoverBufferMin: 15,
+  maxUnderfill: 2,
   weights: {
     capacityFit: 10,
     zoneMatch: 6,

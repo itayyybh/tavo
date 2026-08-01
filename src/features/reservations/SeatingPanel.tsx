@@ -63,7 +63,7 @@ export function SeatingPanel({ reservation }: SeatingPanelProps) {
             <Text className="text-[10px] font-semibold uppercase tracking-wide text-muted">
               Reserved
             </Text>
-            <Text className="truncate text-sm font-medium text-ink">
+            <Text className="break-words text-sm font-medium text-ink">
               {labelsFor(assigned)}
             </Text>
           </div>
@@ -86,7 +86,7 @@ export function SeatingPanel({ reservation }: SeatingPanelProps) {
             const chosen = assigned.length > 0 && labelsFor(assigned) === labelsFor(s.candidate.tableIds)
             return (
               <motion.div
-                key={s.candidate.tableIds.join('+')}
+                key={s.candidate.tableIds.join('+') + (s.candidate.relocateToZoneId ? ':bring' : '')}
                 initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.18, ease: 'easeOut', delay: i * 0.03 }}
@@ -97,8 +97,8 @@ export function SeatingPanel({ reservation }: SeatingPanelProps) {
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate text-sm font-semibold text-ink">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="break-words text-sm font-semibold text-ink">
                         {labelsFor(s.candidate.tableIds)}
                       </span>
                       {i === 0 && (
@@ -115,6 +115,12 @@ export function SeatingPanel({ reservation }: SeatingPanelProps) {
                         <span> · {zoneName.get(s.candidate.zoneId)}</span>
                       )}
                     </div>
+                    {s.candidate.relocateToZoneId && (
+                      <div className="mt-1 text-[11px] font-medium text-ink">
+                        Bring from {zoneName.get(s.candidate.zoneId)} →{' '}
+                        {zoneName.get(s.candidate.relocateToZoneId)}
+                      </div>
+                    )}
                   </div>
                   <Button
                     size="sm"

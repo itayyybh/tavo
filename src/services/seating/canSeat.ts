@@ -75,6 +75,9 @@ export function canSeat(
 
   if (candidate.seats < reservation.partySize) {
     reasons.push(`Seats ${candidate.seats}, party of ${reservation.partySize}`)
+  } else if (candidate.seats - reservation.partySize > floor.config.maxUnderfill) {
+    // Too big — wastes more than the allowed slack (e.g. a party of 3 at an 8-top).
+    reasons.push(`Too large — seats ${candidate.seats} for ${reservation.partySize}`)
   }
   if (hasTimeConflict(reservation, candidate, floor, others)) {
     reasons.push('Booked at this time')
