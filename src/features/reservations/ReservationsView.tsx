@@ -15,6 +15,7 @@ import { ReservationDialog } from './ReservationDialog'
 import { useReservationStore } from '@/stores'
 import { buildSampleReservations } from './sampleData'
 import { useReservationShortcuts } from './hooks/useReservationShortcuts'
+import { useAssignAll } from './hooks/useAssignAll'
 import { DeleteConfirmDialog } from './DeleteConfirmDialog'
 import { CommandPalettePlaceholder } from './CommandPalettePlaceholder'
 import { ShortcutsHelp } from './ShortcutsHelp'
@@ -36,6 +37,7 @@ export function ReservationsView() {
   const addReservation = useReservationStore((s) => s.addReservation)
   const replaceAll = useReservationStore((s) => s.replaceAll)
   const { state, patch, results, slotSource } = useReservationFilters()
+  const { assignAll, assignableCount } = useAssignAll()
 
   const tableCounts = useMemo(() => countTablesByZone(tables), [tables])
   // Total floor seats — lets the load chart show occupancy against real capacity
@@ -154,6 +156,11 @@ export function ReservationsView() {
           >
             ?
           </Button>
+          {assignableCount > 0 && (
+            <Button variant="secondary" onClick={assignAll}>
+              Assign all ({assignableCount})
+            </Button>
+          )}
           <Button onClick={openCreate}>New reservation</Button>
         </div>
       </div>

@@ -53,6 +53,11 @@ const STATUSES: ReservationStatus[] = [
 
 const SOURCES: ReservationSource[] = ['manual', 'phone', 'walk_in', 'website', 'google']
 
+// Party sizes weighted toward LARGER parties so seeding exercises table fitting:
+// merges, the under-fill slack, and large-party rules (e.g. Inside 13+). One per
+// sample, in index order.
+const PARTY_SIZES = [2, 4, 6, 3, 8, 10, 5, 12, 4, 15, 6, 9, 2, 14, 7, 11, 3, 13, 5, 16]
+
 export interface ZoneCapacity {
   id: ID
   capacity: number
@@ -128,7 +133,7 @@ export function buildSampleReservations(zones: ZoneCapacity[]): NewReservation[]
     result.push({
       guestName: NAMES[i],
       phone: `+1 555 01${`${i}`.padStart(2, '0')}`,
-      partySize: (i % 8) + 1,
+      partySize: PARTY_SIZES[i % PARTY_SIZES.length],
       dateTime: combineDateTime(dayKeyForOffset(offset), time),
       estimatedDuration: [60, 90, 120, 90][i % 4],
       preferredZoneId: zoneId,
