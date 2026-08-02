@@ -36,6 +36,14 @@ function dominantStatus(members: Table[]): TableStatus {
   return 'available'
 }
 
+const STATUS_ORDER: TableStatus[] = ['occupied', 'reserved', 'blocked', 'available']
+
+/** The status that should represent the whole group (most "active" wins). */
+function dominantStatus(members: Table[]): TableStatus {
+  for (const s of STATUS_ORDER) if (members.some((m) => m.status === s)) return s
+  return 'available'
+}
+
 const CORNER = 12
 // How far the seam-bridge patch (below) reaches into each neighbor — wide enough
 // to hide a round table's curvature near the touch point, not just the 1px overlap.
