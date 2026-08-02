@@ -96,6 +96,71 @@ function mergeCandidates(reservation: Reservation, floor: SeatingFloor): SeatCan
     }
   }
 
+  // Last resort: the proximity-seeded search above tries one nearest-neighbour
+  // chain per seed and stops at its first fit, so it can miss a valid combo
+  // whose members aren't mutually nearest (e.g. four tables scattered around a
+  // zone that together fit the party). Only kicks in when NOTHING above already
+  // reaches the party size — a good local merge always wins over one that
+  // gathers tables from all over the room.
+  if (
+    floor.config.merge.lastResortGatherZone !== false &&
+    !out.some((c) => c.seats >= reservation.partySize)
+  ) {
+    out.push(...gatherFromZone(reservation, floor, ctx, available, seen))
+  }
+
+  return out
+}
+
+/**
+ * Last-resort merge: for each zone, gather its free tables (largest first,
+ * ignoring physical proximity) and keep adding until the party fits or
+ * `maxMergeSize` is hit. One attempt per zone — a broader net than the
+ * per-seed nearest-neighbour search above, tried only once that's failed.
+ */
+function gatherFromZone(
+  reservation: Reservation,
+  floor: SeatingFloor,
+  ctx: MergeRuleContext,
+  available: Table[],
+  seen: Set<string>,
+): SeatCandidate[] {
+  const maxSize = floor.config.merge.maxMergeSize ?? Infinity
+  const capOf = (t: Table) =>
+    floor.tableTypes.find((ty) => ty.id === t.typeId)?.connectedCapacity ?? 0
+  const zoneIds = new Set(available.map((t) => t.zoneId))
+  const out: SeatCandidate[] = []
+
+  for (const zoneId of zoneIds) {
+    const pool = available
+      .filter((t) => t.zoneId === zoneId)
+      .sort((a, b) => capOf(b) - capOf(a))
+
+    let members: Table[] = []
+    for (const cand of pool) {
+      if (members.length >= maxSize) break
+      const trial = [...members, cand]
+      if (trial.length >= 2 && !evaluateMerge(trial, ctx).ok) continue
+      members = trial
+      if (members.length < 2) continue
+      const seats = hypotheticalMergeCapacity(members, floor.tableTypes)
+      if (seats >= reservation.partySize) {
+        const key = comboKey(members.map((t) => t.id))
+        if (!seen.has(key)) {
+          seen.add(key)
+          out.push({
+            kind: 'merge',
+            tableIds: [...members.map((t) => t.id)].sort(),
+            tables: members,
+            seats,
+            zoneId,
+          })
+        }
+        break
+      }
+    }
+  }
+
   return out
 }
 

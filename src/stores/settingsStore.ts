@@ -21,6 +21,7 @@ const DEFAULT_SEATING: SeatingConfig = {
     largePartyRules: [
       { zoneName: 'Inside', minPartySize: 13, allowedCombos: [['7', '10', '11', '12']] },
     ],
+    lastResortGatherZone: true,
   },
   turnoverBufferMin: 15,
   maxUnderfill: 2,

@@ -245,6 +245,14 @@ export interface MergeConfig {
    * layout at eval time) until the Phase 10 settings UI exists.
    */
   largePartyRules?: LargePartyRule[]
+  /**
+   * Last resort when the normal proximity-seeded merge search finds nothing big
+   * enough for the party: gather ANY free tables anywhere in the zone (not just
+   * near each other) until the party fits, or `maxMergeSize` is hit. Applies to
+   * every zone by default (`undefined`/`true`); set `false` to disable
+   * restaurant-wide. Per-zone toggle deferred to Phase 10 settings UI.
+   */
+  lastResortGatherZone?: boolean
 }
 
 /** A large-party seating restriction for one zone (see `MergeConfig.largePartyRules`). */
