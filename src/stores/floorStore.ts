@@ -26,11 +26,14 @@ export type ManualFloorStatus = 'cleaning' | 'blocked'
 
 interface FloorState extends FloorSnapshot {
   /**
-   * Seat a party: create a seating over `tableIds`, physically join a multi-table
-   * party into one merged cluster, clear any stale status override, and move the
-   * reservation to `seated`.
+   * Seat a party: create a seating over `tableIds`, clear any stale status
+   * override, and move the reservation to `seated`. A multi-table party is
+   * joined into one runtime merge. `arrange` (default true) snaps the members
+   * into one touching cluster (used by auto-seat / suggestions); pass `false`
+   * for a host drag-to-seat, where the tables must stay EXACTLY where they are
+   * (the host placed them — never fling them around or out of the zone).
    */
-  seat: (reservationId: ID, tableIds: ID[]) => void
+  seat: (reservationId: ID, tableIds: ID[], arrange?: boolean) => void
   /**
    * Clear a seated party: drop the seating, split its runtime merge, snap those
    * tables back to base position/rotation, put them into `cleaning`, and move the
@@ -123,13 +126,16 @@ function clusterOverrides(
   const anchor = (anchorZoneId && members.find((m) => m.zoneId === anchorZoneId)) || members[0]
   const zone = zones.find((z) => z.id === anchor.zoneId)
   const dir = zoneArrangeDir(zone)
+  // The merged block must stay inside the anchor's zone — never spill into empty
+  // space or another zone. `zone` is undefined only for an unzoned table (no
+  // containment to enforce then).
   const arranged = placeMergedBlock(members, tableTypes, {
     tables: others,
     obstacles,
     zones,
     zonesIndex: zonesById(zones),
     clearanceOf,
-  }, dir, anchor.id)
+  }, dir, anchor.id, zone)
   if (!arranged) return empty
   const positions: Record<ID, Vec2> = {}
   const rotations: Record<ID, number> = {}
@@ -148,7 +154,7 @@ export const useFloorStore = create<FloorState>((set, get) => ({
   positionOverrides: {},
   rotationOverrides: {},
 
-  seat: (reservationId, tableIds) => {
+  seat: (reservationId, tableIds, arrange = true) => {
     if (tableIds.length === 0) return
     const seating: Seating = {
       id: createId(),
@@ -159,11 +165,13 @@ export const useFloorStore = create<FloorState>((set, get) => ({
 
     // A multi-table party physically joins into one merged table (editor geometry),
     // anchored in the reservation's zone so a brought-in table is pulled to it.
+    // `arrange: false` (host drag-to-seat) skips this entirely — the tables stay
+    // exactly where they sit, and the merge just wraps them.
     const anchorZoneId = useReservationStore
       .getState()
       .reservations.find((r) => r.id === reservationId)?.preferredZoneId
     const cluster =
-      seating.tableIds.length > 1
+      arrange && seating.tableIds.length > 1
         ? clusterOverrides(
             seating.tableIds,
             get().positionOverrides,
