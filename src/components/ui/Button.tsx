@@ -10,7 +10,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const base =
-  'inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-colors duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/20 disabled:pointer-events-none disabled:opacity-40'
+  'hit-slop inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-colors duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/20 disabled:pointer-events-none disabled:opacity-40'
 
 const variants: Record<Variant, string> = {
   primary: 'bg-ink text-surface hover:bg-ink-soft',
@@ -21,7 +21,7 @@ const variants: Record<Variant, string> = {
 
 const sizes: Record<Size, string> = {
   sm: 'h-8 px-3 text-sm',
-  md: 'h-10 px-4 text-sm',
+  md: 'h-11 px-4 text-sm',
 }
 
 /** Primary interactive control. Minimal, premium, keyboard-accessible. */

@@ -82,3 +82,36 @@ body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
+
+/*
+ * Expands the tap target on touch devices without growing the visual size —
+ * keeps dense toolbars compact while getting closer to the 44px HIG minimum.
+ * Desktop (fine pointer, e.g. trackpad/mouse) is untouched.
+ */
+.hit-slop {
+  position: relative;
+}
+@media (pointer: coarse) {
+  .hit-slop::before {
+    content: '';
+    position: absolute;
+    inset: -4px;
+  }
+}
+
+/*
+ * Row actions that reveal on hover for mouse/trackpad users, but stay
+ * always-visible on touch (no hover event to reveal them there).
+ */
+.hover-reveal {
+  opacity: 1;
+}
+@media (hover: hover) {
+  .hover-reveal {
+    opacity: 0;
+    transition: opacity 200ms ease-out;
+  }
+  .group:hover .hover-reveal {
+    opacity: 1;
+  }
+}

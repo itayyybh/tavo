@@ -216,7 +216,7 @@ export function ReservationsView() {
               onDelete={removeReservation}
             />
           </div>
-          <aside className="hidden w-64 shrink-0 lg:block">
+          <aside className="hidden w-64 shrink-0 md:block">
             <div className="sticky top-6 flex flex-col gap-4">
               {selected && <SeatingPanel reservation={selected} />}
               <ServiceLoadChart

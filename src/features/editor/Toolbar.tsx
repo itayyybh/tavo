@@ -3,6 +3,7 @@ import { Button } from '@/components/ui'
 import { useHistoryStore, useLayoutStore, useSettingsStore, useUIStore } from '@/stores'
 import { clamp, screenToWorld, snapPoint } from '@/utils'
 import { parseLayoutFile, serializeLayout } from '@/services/layoutStorage'
+import { duplicateSelection } from './hooks/useEditorShortcuts'
 
 const MIN_ZOOM = 0.25
 const MAX_ZOOM = 4
@@ -22,6 +23,7 @@ export function Toolbar({ onToggleZones }: ToolbarProps) {
   const tables = useLayoutStore((s) => s.tables)
   const mergeTables = useLayoutStore((s) => s.mergeTables)
   const splitGroup = useLayoutStore((s) => s.splitGroup)
+  const rotateSelection90 = useLayoutStore((s) => s.rotateSelection90)
   const undo = useLayoutStore((s) => s.undo)
   const redo = useLayoutStore((s) => s.redo)
   const loadSnapshot = useLayoutStore((s) => s.loadSnapshot)
@@ -196,6 +198,24 @@ export function Toolbar({ onToggleZones }: ToolbarProps) {
         title="Split the merged group (M)"
       >
         Split
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={() => rotateSelection90(selectedIds)}
+        disabled={!selectedIds.length}
+        title="Rotate the selection 90° (R)"
+      >
+        Rotate
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={duplicateSelection}
+        disabled={!hasSelection}
+        title="Duplicate the selection (⌘D)"
+      >
+        Duplicate
       </Button>
       <Button size="sm" variant="ghost" onClick={undo} disabled={!canUndo}>
         Undo

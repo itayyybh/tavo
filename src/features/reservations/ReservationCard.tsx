@@ -91,7 +91,7 @@ function ReservationCardBase({
       <div className="flex shrink-0 items-center gap-2">
         <ReservationStatusBadge status={status} />
         <ReservationStatusControl id={reservation.id} status={status} />
-        <div className="flex items-center gap-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+        <div className="hover-reveal flex items-center gap-1">
           <Button size="sm" variant="ghost" onClick={() => onEdit(reservation)}>
             Edit
           </Button>

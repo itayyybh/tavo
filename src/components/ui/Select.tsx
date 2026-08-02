@@ -15,7 +15,7 @@ interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
 }
 
 const fieldClass =
-  'h-10 w-full appearance-none rounded-xl border border-line bg-surface pl-3 pr-9 text-sm text-ink transition-colors duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/20 disabled:opacity-40'
+  'h-11 w-full appearance-none rounded-xl border border-line bg-surface pl-3 pr-9 text-sm text-ink transition-colors duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/20 disabled:opacity-40'
 
 /** Labeled native select, styled to match Input. Native for accessibility + speed. */
 export function Select({

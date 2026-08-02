@@ -39,6 +39,14 @@ function pasteClipboard(clip: LayoutClipboard) {
   else if (zoneIds.length) selectZone(zoneIds[0])
 }
 
+/**
+ * Duplicate the current selection, offset by one grid step. Shared by the
+ * Cmd/Ctrl+D shortcut and the Toolbar's Duplicate button (no keyboard on iPad).
+ */
+export function duplicateSelection() {
+  pasteClipboard(selectionToClipboard())
+}
+
 /** Global editor keyboard shortcuts. Mount once (in EditorPage). */
 export function useEditorShortcuts() {
   useEffect(() => {
@@ -100,10 +108,9 @@ export function useEditorShortcuts() {
         return
       }
       if (mod && e.key.toLowerCase() === 'd') {
-        const clip = selectionToClipboard()
-        if (!clipboardEmpty(clip)) {
+        if (!clipboardEmpty(selectionToClipboard())) {
           e.preventDefault()
-          pasteClipboard(clip)
+          duplicateSelection()
         }
         return
       }

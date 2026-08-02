@@ -1,3 +1,4 @@
+import type Konva from 'konva'
 import type { CanvasColors } from './hooks/useCanvasColors'
 
 /**
@@ -17,5 +18,11 @@ export function transformerStyle(colors: CanvasColors) {
     rotateAnchorOffset: 26,
     // Don't fold the shape's own stroke into the box, so padding stays predictable.
     ignoreStroke: true,
+    // Anchors stay visually tiny (premium look) but grab ~20px wider on every
+    // side of touch — hitStrokeWidth extends the hit region without touching
+    // anchorSize, so the drawn handle never changes.
+    anchorStyleFunc: (anchor: Konva.Rect) => {
+      anchor.hitStrokeWidth(20)
+    },
   }
 }

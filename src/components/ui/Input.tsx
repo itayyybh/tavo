@@ -7,7 +7,7 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 }
 
 const fieldClass =
-  'h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm text-ink placeholder:text-muted transition-colors duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/20 disabled:opacity-40'
+  'h-11 w-full rounded-xl border border-line bg-surface px-3 text-sm text-ink placeholder:text-muted transition-colors duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/20 disabled:opacity-40'
 
 /** Labeled text input with optional inline error. */
 export function Input({ label, error, id, className, ...props }: InputProps) {
