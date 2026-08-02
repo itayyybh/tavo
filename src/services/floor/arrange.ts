@@ -92,11 +92,23 @@ function arrangeCluster(
   const byPosition = [...members].sort(
     (a, b) => mainOf(a.position) - mainOf(b.position) || crossOf(a.position) - crossOf(b.position),
   )
-  const sorted = roundsFirst(byPosition, isRound)
+  let sorted = roundsFirst(byPosition, isRound)
   // Force the pinned anchor to the front so the line origins on it.
   if (anchorId) {
     const idx = sorted.findIndex((m) => m.id === anchorId)
     if (idx > 0) sorted.unshift(sorted.splice(idx, 1)[0])
+    // Pinning a NON-round anchor to the front would shove a round member into
+    // the middle (a round only grazes a neighbour at one point — mid-line it
+    // gaps on both sides). Round belongs at an edge: with the anchor holding the
+    // front, push any other round to the FAR end. (An anchor that is itself
+    // round already owns the front edge — nothing to move.)
+    if (!isRound(sorted[0])) {
+      const rounds = sorted.filter((m, i) => i > 0 && isRound(m))
+      if (rounds.length > 0) {
+        const roundIds = new Set(rounds.map((m) => m.id))
+        sorted = [...sorted.filter((m) => !roundIds.has(m.id)), ...rounds]
+      }
+    }
   }
   const out = new Map<ID, Placement>()
   const anchor = sorted[0]
