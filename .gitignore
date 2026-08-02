@@ -20,3 +20,8 @@ pnpm-debug.log*
 
 # TS build cache
 *.tsbuildinfo
+
+# graphify + local tooling artifacts
+graphify-out/
+.codegraph/
+.claude_dev.log

@@ -1,12 +1,13 @@
 import type {
   ID,
-  ReservationOccasion,
-  ReservationPreferences,
+  Reservation,
   ReservationSource,
   ReservationStatus,
+  Table,
+  TableType,
 } from '@/types'
 import type { NewReservation } from '@/stores/reservationStore'
-import { combineDateTime, toDateKey } from '@/utils'
+import { combineDateTime, toDateKey, zoneRemainingSeats } from '@/utils'
 
 /**
  * Dev-only fixtures — a spread of realistic reservations for manual testing.
@@ -14,26 +15,26 @@ import { combineDateTime, toDateKey } from '@/utils'
  */
 
 const NAMES = [
-  'Dana Levi',
-  'Omar Haddad',
-  'Sophie Marchetti',
-  'Liam O’Brien',
-  'Yuki Tanaka',
-  'Noa Friedman',
-  'Carlos Mendez',
-  'Amara Okafor',
-  'Elena Petrova',
-  'Marcus Webb',
-  'Priya Nair',
-  'Tomás Silva',
-  'Hana Kim',
-  'Julien Dubois',
-  'Rania Aziz',
-  'Ben Carter',
-  'Ingrid Larsen',
-  'Diego Rossi',
-  'Maya Cohen',
-  'Samuel Adeyemi',
+  'דנה לוי',
+  'עומר כהן',
+  'נועה פרידמן',
+  'איתי בר',
+  'יעל אברהם',
+  'רון שפירא',
+  'מיכל דיין',
+  'גיא אזולאי',
+  'שירה מזרחי',
+  'אורי פרץ',
+  'תמר ביטון',
+  'יונתן גל',
+  'ליאת נחום',
+  'אסף רוזן',
+  'נטע חדד',
+  'עידן שלום',
+  'מאיה קפלן',
+  'דניאל עמר',
+  'הדר לביא',
+  'טל וקנין',
 ]
 
 const TIMES = [
@@ -58,31 +59,11 @@ const STATUSES: ReservationStatus[] = [
 ]
 
 const SOURCES: ReservationSource[] = ['manual', 'phone', 'walk_in', 'website', 'google']
-const OCCASIONS: (ReservationOccasion | undefined)[] = [
-  undefined,
-  'birthday',
-  undefined,
-  'anniversary',
-  'business',
-  undefined,
-  'date',
-  'celebration',
-]
-const PREFS: ReservationPreferences[] = [
-  {},
-  { vip: true },
-  { highChair: true },
-  { wheelchair: true },
-  { windowSeat: true },
-  { vip: true, allergies: 'Nut allergy' },
-  { smoking: true },
-  {},
-]
 
-export interface ZoneCapacity {
-  id: ID
-  capacity: number
-}
+// Party sizes weighted toward LARGER parties so seeding exercises table fitting:
+// merges, the under-fill slack, and large-party rules (e.g. Inside 13+). One per
+// sample, in index order.
+const PARTY_SIZES = [2, 4, 6, 3, 8, 10, 5, 12, 4, 15, 6, 9, 2, 14, 7, 11, 3, 13, 5, 16]
 
 const MAX_SAMPLES = 20
 const MAX_DAYS = 14
@@ -93,53 +74,69 @@ function dayKeyForOffset(offset: number): string {
   return toDateKey(d)
 }
 
-/**
- * Build up to 20 varied reservations that RESPECT each zone's table capacity
- * (same-day active). Guests are placed into the first zone/day slot with room,
- * spilling to later days as needed — so seeded data never violates the guard.
- * Returns fewer than 20 if total capacity over the window is smaller.
- */
-export function buildSampleReservations(zones: ZoneCapacity[]): NewReservation[] {
-  const available = zones.length ? zones : [{ id: 'zone-inside', capacity: 3 }]
-  // Remaining capacity per `${zoneId}|${dayOffset}`.
-  const remaining = new Map<string, number>()
+export interface SampleInput {
+  zones: { id: ID }[]
+  tables: Table[]
+  tableTypes: TableType[]
+  bufferMin: number
+}
 
-  const takeSlot = (): { zoneId: ID; offset: number } | null => {
+/**
+ * Build up to 20 varied reservations SPREAD across the zones and the service
+ * timeline, respecting the SAME seat-based, time-windowed zone gate the create
+ * form enforces: a guest is only ever booked into their zone, and only when it
+ * has enough seats free during their window. Bookings are round-robin across
+ * zones and staggered across the evening; when a zone/time is full, the guest is
+ * pushed to the earliest day that fits, and skipped entirely if the whole window
+ * is exhausted — so fewer than 20 may be returned.
+ */
+export function buildSampleReservations({
+  zones,
+  tables,
+  tableTypes,
+  bufferMin,
+}: SampleInput): NewReservation[] {
+  const available = zones.length ? zones : [{ id: 'zone-inside' }]
+  const zoneCount = available.length
+  const result: NewReservation[] = []
+
+  for (let i = 0; i < MAX_SAMPLES; i += 1) {
+    const zoneIndex = i % zoneCount
+    const zoneId = available[zoneIndex].id
+    // Round = full passes over the zones; advancing time by round spreads each
+    // zone across the evening, +zoneIndex keeps zones off the same slot.
+    const round = Math.floor(i / zoneCount)
+    const time = TIMES[(round + zoneIndex) % TIMES.length]
+    const partySize = PARTY_SIZES[i % PARTY_SIZES.length]
+    const estimatedDuration = [60, 90, 120, 90][i % 4]
+
+    // Earliest day the zone has room for this party at this time (seat + time
+    // aware, counting the reservations already built).
     for (let offset = 0; offset < MAX_DAYS; offset += 1) {
-      for (const zone of available) {
-        const key = `${zone.id}|${offset}`
-        const left = remaining.get(key) ?? zone.capacity
-        if (left > 0) {
-          remaining.set(key, left - 1)
-          return { zoneId: zone.id, offset }
-        }
+      const dateTime = combineDateTime(dayKeyForOffset(offset), time)
+      const remaining = zoneRemainingSeats({
+        zoneId,
+        startISO: dateTime,
+        durationMin: estimatedDuration,
+        tables,
+        tableTypes,
+        reservations: result as unknown as Reservation[],
+        bufferMin,
+      })
+      if (remaining >= partySize) {
+        result.push({
+          guestName: NAMES[i],
+          phone: `+1 555 01${`${i}`.padStart(2, '0')}`,
+          partySize,
+          dateTime,
+          estimatedDuration,
+          preferredZoneId: zoneId,
+          status: STATUSES[i % STATUSES.length],
+          source: SOURCES[i % SOURCES.length],
+        })
+        break // placed on the earliest fitting day
       }
     }
-    return null
-  }
-
-  const result: NewReservation[] = []
-  for (let i = 0; i < MAX_SAMPLES; i += 1) {
-    const slot = takeSlot()
-    if (!slot) break // out of capacity across the whole window
-    const name = NAMES[i]
-    const dateTime = combineDateTime(dayKeyForOffset(slot.offset), TIMES[i % TIMES.length])
-    const prefs = PREFS[i % PREFS.length]
-
-    result.push({
-      guestName: name,
-      phone: `+1 555 01${`${i}`.padStart(2, '0')}`,
-      email: i % 3 === 0 ? `${name.split(' ')[0].toLowerCase()}@example.com` : undefined,
-      partySize: (i % 8) + 1,
-      dateTime,
-      estimatedDuration: [60, 90, 120, 150][i % 4],
-      preferredZoneId: slot.zoneId,
-      occasion: OCCASIONS[i % OCCASIONS.length],
-      status: STATUSES[i % STATUSES.length],
-      source: SOURCES[i % SOURCES.length],
-      preferences: Object.keys(prefs).length ? prefs : undefined,
-      notes: i % 5 === 0 ? 'Regular guest — prefers a quiet corner.' : undefined,
-    })
   }
   return result
 }

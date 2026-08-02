@@ -20,6 +20,8 @@ export interface EffectiveTable {
   base: Table
   /** Effective center position (runtime override, or base position). */
   position: Vec2
+  /** Effective rotation in degrees (runtime override, or base rotation). */
+  rotation: number
   /** Effective runtime status (occupancy/cleaning/blocked/reserved/available). */
   status: FloorTableStatus
   /** Set when the table is occupied — the seating on it. */

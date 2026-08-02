@@ -39,7 +39,8 @@ export function deriveFloorState({
   reservations,
   snapshot,
 }: DeriveFloorInput): EffectiveFloor {
-  const { seatings, runtimeMerges, statusOverrides, positionOverrides } = snapshot
+  const { seatings, runtimeMerges, statusOverrides, positionOverrides, rotationOverrides } =
+    snapshot
 
   // table id → its active seating (occupancy is derived, never stored as status).
   const seatingByTable = new Map<ID, { seatingId: ID; reservationId: ID }>()
@@ -91,6 +92,7 @@ export function deriveFloorState({
     return {
       base,
       position: positionOverrides[base.id] ?? base.position,
+      rotation: rotationOverrides[base.id] ?? base.rotation,
       status,
       seatingId,
       reservationId,

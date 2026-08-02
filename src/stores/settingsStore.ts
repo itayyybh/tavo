@@ -10,6 +10,7 @@ const DEFAULT_SEATING: SeatingConfig = {
     proximityWeight: 1,
   },
   turnoverBufferMin: 15,
+  maxUnderfill: 2,
   weights: {
     capacityFit: 10,
     zoneMatch: 6,
@@ -26,9 +27,23 @@ interface SettingsState {
   pathWidth: number
   /** Seating Engine configuration (Phase 7). */
   seating: SeatingConfig
+  /**
+   * Live Floor turnover (Phase 8): when true, a cleaning table returns to
+   * available on its own once `seating.turnoverBufferMin` elapses. Manual
+   * finish-cleaning always works regardless.
+   */
+  autoTurnover: boolean
+  /**
+   * Restaurant rules (Phase 8; per-restaurant in Phase 10). Table stay time in
+   * minutes: the default a new booking gets, and the hard maximum.
+   */
+  defaultStayMinutes: number
+  maxStayMinutes: number
   setGridSize: (size: number) => void
   setSnapToGrid: (snap: boolean) => void
   setPathWidth: (width: number) => void
+  setAutoTurnover: (on: boolean) => void
+  setStayMinutes: (rule: { default?: number; max?: number }) => void
   /** Patch the merge rule config (one field or many). */
   updateMergeConfig: (patch: Partial<MergeConfig>) => void
 }
@@ -38,9 +53,18 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   snapToGrid: true,
   pathWidth: 40,
   seating: DEFAULT_SEATING,
+  autoTurnover: true,
+  defaultStayMinutes: 120,
+  maxStayMinutes: 120,
   setGridSize: (gridSize) => set({ gridSize }),
   setSnapToGrid: (snapToGrid) => set({ snapToGrid }),
   setPathWidth: (pathWidth) => set({ pathWidth }),
+  setAutoTurnover: (autoTurnover) => set({ autoTurnover }),
+  setStayMinutes: ({ default: def, max }) =>
+    set((s) => ({
+      defaultStayMinutes: def ?? s.defaultStayMinutes,
+      maxStayMinutes: max ?? s.maxStayMinutes,
+    })),
   updateMergeConfig: (patch) =>
     set((s) => ({ seating: { ...s.seating, merge: { ...s.seating.merge, ...patch } } })),
 }))

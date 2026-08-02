@@ -66,6 +66,12 @@ export interface Zone {
    * don't belong to it.
    */
   parentId?: ID
+  /**
+   * Smoking policy. Drives how merged tables build on the Live Floor: a
+   * non-smoking zone stacks them vertically, a smoking zone lays them
+   * horizontally (soft). Undefined = no rule (horizontal default).
+   */
+  smoking?: 'smoking' | 'non-smoking'
 }
 
 /**
@@ -216,6 +222,23 @@ export interface MergeConfig {
    * from anywhere in the zone).
    */
   proximityWeight: number
+  /**
+   * Zone + party-size restrictions: for a large party in a named zone, only the
+   * listed combinations are allowed (e.g. Inside, 13+ → only 7+10+11+12).
+   * Authored by table label / zone name (host-readable; resolved to the current
+   * layout at eval time) until the Phase 10 settings UI exists.
+   */
+  largePartyRules?: LargePartyRule[]
+}
+
+/** A large-party seating restriction for one zone (see `MergeConfig.largePartyRules`). */
+export interface LargePartyRule {
+  /** Zone this rule governs, by name (e.g. "Inside"). */
+  zoneName: string
+  /** Applies when the party size is at least this. */
+  minPartySize: number
+  /** The only merges allowed in the zone at/above the threshold — table labels. */
+  allowedCombos: string[][]
 }
 
 /**
@@ -238,6 +261,12 @@ export interface SeatingConfig {
   merge: MergeConfig
   /** Minutes reserved between two bookings on the same table (turnover). */
   turnoverBufferMin: number
+  /**
+   * Max seats a table/merge may exceed the party by and still be offered — caps
+   * wasted capacity. A party of 3 fits a 4- or 5-top (waste ≤ 2) but never an
+   * 8-top. Applies to singles and merges alike.
+   */
+  maxUnderfill: number
   weights: SeatingWeights
 }
 
@@ -317,8 +346,15 @@ export interface FloorSnapshot {
    * `blocked` (host-set). Occupancy is derived from `seatings`, never stored here.
    */
   statusOverrides: Record<ID, Extract<FloorTableStatus, 'cleaning' | 'blocked'>>
+  /**
+   * ISO timestamp a table entered `cleaning`, keyed by table id. Drives
+   * auto-turnover (a table clears itself once the turnover buffer elapses).
+   */
+  cleaningSince: Record<ID, string>
   /** Runtime table-center positions when staff push furniture. Keyed by table id. */
   positionOverrides: Record<ID, Vec2>
+  /** Runtime table rotations (degrees) when staff turn furniture. Keyed by table id. */
+  rotationOverrides: Record<ID, number>
 }
 
 export interface Restaurant {
