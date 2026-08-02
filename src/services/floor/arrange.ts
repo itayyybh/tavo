@@ -171,18 +171,29 @@ function withOffset(placed: Map<ID, Placement>, offset: Vec2): Map<ID, Placement
   return out
 }
 
+/** Result of clustering: every member's placement, and whether it landed clear. */
+export interface ClusterResult {
+  placements: Map<ID, Placement>
+  /** False when no fully clear spot was found — the fallback below still fixes
+   *  member ORDER (round-at-edge), just not necessarily overlap-free. Callers
+   *  surface this as the "arrange by hand" hint. */
+  clear: boolean
+}
+
 /**
  * Cluster `members` into one touching line and return each member's placement
  * (center + rotation), nudged to a spot clear of other tables/obstacles/foreign
  * zones via the shared `placementBlocked` gate. `preferredDir` (zone rule) is
  * tried first, then the other direction (soft).
  *
- * Returns `null` when NO clear spot exists in either direction — the caller then
- * leaves the tables where they are (a logical merge without a physical move)
- * rather than snapping them into an overlapping pile. This is the deliberate
- * break from the old auto-arrange, which returned a blocked layout and caused
- * tables to sit on top of each other. `ctx.tables` is the OTHER (non-member)
- * tables to test against; members move together.
+ * When NO clear spot exists in either direction, still returns the correctly
+ * ORDERED line (round member(s) pushed to an end — that invariant holds
+ * regardless of placement, see `pushRoundsToEnds`) at its unshifted anchor
+ * position, with `clear: false`. Never silently falls back to members' old,
+ * possibly out-of-order positions — a round table sandwiched mid-line is worse
+ * than one sitting in a not-perfectly-clear spot. `ctx.tables` is the OTHER
+ * (non-member) tables to test against; members move together. `null` only for
+ * a structurally invalid call (fewer than 2 members).
  */
 export function placeMergedBlock(
   members: Table[],
@@ -190,7 +201,7 @@ export function placeMergedBlock(
   ctx: PlacementContext,
   preferredDir?: ArrangeDir,
   anchorId?: ID,
-): Map<ID, Placement> | null {
+): ClusterResult | null {
   if (members.length < 2) return null
   const typeOf = (t: Table) => tableTypes.find((ty) => ty.id === t.typeId)
   const isRound = (t: Table) => typeOf(t)?.shape === 'round'
@@ -199,10 +210,12 @@ export function placeMergedBlock(
   const order: ArrangeDir[] = preferredDir
     ? [preferredDir, preferredDir === 'horizontal' ? 'vertical' : 'horizontal']
     : ['horizontal']
+  let fallback: Map<ID, Placement> | undefined
   for (const dir of order) {
     const arranged = arrangeCluster(members, isRound, dir, anchorId)
+    if (!fallback) fallback = arranged
     const { offset, ok } = findClearOffset(arranged, ctx, clearance)
-    if (ok) return withOffset(arranged, offset)
+    if (ok) return { placements: withOffset(arranged, offset), clear: true }
   }
-  return null
+  return { placements: fallback!, clear: false }
 }
