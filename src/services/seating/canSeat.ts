@@ -36,6 +36,30 @@ function windowsCollide(
 }
 
 /**
+ * Table ids held by another active reservation whose window overlaps this
+ * reservation's (± turnover buffer) — the tables NOT free to seat this booking.
+ * Candidate generation uses it to avoid proposing occupied tables.
+ */
+export function busyTableIds(
+  reservation: Reservation,
+  floor: SeatingFloor,
+  others: Reservation[],
+): Set<string> {
+  const start = Date.parse(reservation.dateTime)
+  const end = start + reservation.estimatedDuration * MINUTE
+  const buffer = floor.config.turnoverBufferMin * MINUTE
+  const busy = new Set<string>()
+  for (const other of others) {
+    if (other.id === reservation.id || !isActiveStatus(other.status)) continue
+    const oStart = Date.parse(other.dateTime)
+    const oEnd = oStart + other.estimatedDuration * MINUTE
+    if (!windowsCollide(start, end, oStart, oEnd, buffer)) continue
+    for (const id of heldTableIds(other)) busy.add(id)
+  }
+  return busy
+}
+
+/**
  * Is the candidate free of time conflicts for this reservation, given every
  * other reservation's current assignment?
  */
@@ -45,20 +69,8 @@ function hasTimeConflict(
   floor: SeatingFloor,
   others: Reservation[],
 ): boolean {
-  const start = Date.parse(reservation.dateTime)
-  const end = start + reservation.estimatedDuration * MINUTE
-  const buffer = floor.config.turnoverBufferMin * MINUTE
-  const wanted = new Set(candidate.tableIds)
-
-  return others.some((other) => {
-    if (other.id === reservation.id) return false
-    if (!isActiveStatus(other.status)) return false
-    const held = heldTableIds(other)
-    if (!held.some((id) => wanted.has(id))) return false
-    const oStart = Date.parse(other.dateTime)
-    const oEnd = oStart + other.estimatedDuration * MINUTE
-    return windowsCollide(start, end, oStart, oEnd, buffer)
-  })
+  const busy = busyTableIds(reservation, floor, others)
+  return candidate.tableIds.some((id) => busy.has(id))
 }
 
 /**

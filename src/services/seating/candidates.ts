@@ -15,7 +15,8 @@
  * always preferable and the scorer ranks across all seeds' results.
  */
 import type { ID, Reservation, Table } from '@/types'
-import { hypotheticalMergeCapacity, seatsForTable } from '@/utils'
+import { hypotheticalMergeCapacity, isActiveStatus, seatsForTable } from '@/utils'
+import { busyTableIds } from './canSeat'
 import { centerDistance } from './geometry'
 import { evaluateMerge, type MergeRuleContext } from './mergeRules'
 import type { SeatCandidate, SeatingFloor } from './types'
@@ -162,29 +163,127 @@ function largePartyRestrictions(
 export function generateCandidates(
   reservation: Reservation,
   floor: SeatingFloor,
+  others: Reservation[] = [],
 ): SeatCandidate[] {
-  const base = [...singleCandidates(floor), ...mergeCandidates(reservation, floor)]
-  const restrictions = largePartyRestrictions(reservation, floor)
-  if (restrictions.length === 0) return base
+  let result: SeatCandidate[] = [
+    ...singleCandidates(floor),
+    ...mergeCandidates(reservation, floor),
+  ]
 
-  const byZone = new Map(restrictions.map((r) => [r.zoneId, r]))
-  // In a restricted zone, keep only exact allowed combos; other zones untouched.
-  const result = base.filter((c) => {
-    const r = byZone.get(c.zoneId)
-    return !r || r.allowedKeys.has(comboKey(c.tableIds))
-  })
-  // Add mandated combos generation may have missed (dedup by id-set).
-  const seen = new Set(result.map((c) => comboKey(c.tableIds)))
-  for (const r of restrictions) {
-    for (const cand of r.injected) {
-      const key = comboKey(cand.tableIds)
-      if (!seen.has(key)) {
-        seen.add(key)
-        result.push(cand)
+  // Large-party zone restrictions (when any apply): keep only allowed combos in a
+  // restricted zone and inject the mandated ones.
+  const restrictions = largePartyRestrictions(reservation, floor)
+  if (restrictions.length > 0) {
+    const byZone = new Map(restrictions.map((r) => [r.zoneId, r]))
+    result = result.filter((c) => {
+      const r = byZone.get(c.zoneId)
+      return !r || r.allowedKeys.has(comboKey(c.tableIds))
+    })
+    const seen = new Set(result.map((c) => comboKey(c.tableIds)))
+    for (const r of restrictions) {
+      for (const cand of r.injected) {
+        const key = comboKey(cand.tableIds)
+        if (!seen.has(key)) {
+          seen.add(key)
+          result.push(cand)
+        }
       }
     }
   }
-  return restrictToPreferredZone(reservation, withBringOptions(reservation, result))
+
+  // Bring options: a free single table from another zone, and cross-zone merges
+  // that complete an in-zone table with a brought one. Then the HARD zone rule
+  // (always applied) drops anything not in / brought into the preferred zone.
+  const withBrings = [
+    ...withBringOptions(reservation, result),
+    ...bringToMergeCandidates(reservation, floor, others),
+  ]
+  return dedupeCandidates(restrictToPreferredZone(reservation, withBrings))
+}
+
+/** Drop duplicate options (same table set + same relocation intent). */
+function dedupeCandidates(candidates: SeatCandidate[]): SeatCandidate[] {
+  const seen = new Set<string>()
+  const out: SeatCandidate[] = []
+  for (const c of candidates) {
+    const key = `${comboKey(c.tableIds)}|${c.relocateToZoneId ?? ''}`
+    if (!seen.has(key)) {
+      seen.add(key)
+      out.push(c)
+    }
+  }
+  return out
+}
+
+/**
+ * Cross-zone bring-to-merge: when the preferred zone has a free table that's too
+ * small alone, complete the merge by BRINGING free tables from other zones —
+ * least-used first, then smallest that reaches the party size. The whole group
+ * lives in the preferred zone (`relocateToZoneId`), so it survives the hard zone
+ * rule. Only free (available + not time-conflicting) tables are used.
+ */
+function bringToMergeCandidates(
+  reservation: Reservation,
+  floor: SeatingFloor,
+  others: Reservation[],
+): SeatCandidate[] {
+  const preferred = reservation.preferredZoneId
+  if (!preferred) return []
+  const busy = busyTableIds(reservation, floor, others)
+  const free = floor.tables.filter((t) => t.status === 'available' && !busy.has(t.id))
+  const inZone = free.filter((t) => t.zoneId === preferred)
+  const otherZone = free.filter((t) => t.zoneId !== preferred)
+  if (inZone.length === 0 || otherZone.length === 0) return []
+
+  const typeOf = (t: Table) => floor.tableTypes.find((ty) => ty.id === t.typeId)
+  const connectedOf = (t: Table) => typeOf(t)?.connectedCapacity ?? 0
+  const soloOf = (t: Table) => typeOf(t)?.soloCapacity ?? 0
+  const usageOf = (id: ID) =>
+    others.filter((o) => isActiveStatus(o.status) && o.assignedTableIds?.includes(id)).length
+
+  // Least-used first, then smallest that completes the fit.
+  const donors = [...otherZone].sort(
+    (a, b) => usageOf(a.id) - usageOf(b.id) || connectedOf(a) - connectedOf(b),
+  )
+  // Cross-zone is the whole point here, so relax the same-zone membership rule.
+  const ctx: MergeRuleContext = {
+    zones: floor.zones,
+    obstacles: floor.obstacles,
+    tableTypes: floor.tableTypes,
+    allTables: floor.tables,
+    config: { ...floor.config.merge, allowCrossZoneMerge: true },
+  }
+  const maxSize = floor.config.merge.maxMergeSize ?? Infinity
+  const seen = new Set<string>()
+  const out: SeatCandidate[] = []
+
+  for (const anchor of inZone) {
+    if (soloOf(anchor) >= reservation.partySize) continue // fits alone → a single covers it
+    let members = [anchor]
+    for (const donor of donors) {
+      if (members.length >= maxSize) break
+      const trial = [...members, donor]
+      if (!evaluateMerge(trial, ctx).ok) continue
+      members = trial
+      const seats = hypotheticalMergeCapacity(members, floor.tableTypes)
+      if (seats >= reservation.partySize) {
+        const key = comboKey(members.map((t) => t.id))
+        if (!seen.has(key)) {
+          seen.add(key)
+          out.push({
+            kind: 'merge',
+            tableIds: [...members.map((t) => t.id)].sort(),
+            tables: members,
+            seats,
+            zoneId: preferred,
+            relocateToZoneId: preferred,
+          })
+        }
+        break
+      }
+    }
+  }
+  return out
 }
 
 /**

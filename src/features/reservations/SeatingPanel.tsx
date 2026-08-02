@@ -117,8 +117,9 @@ export function SeatingPanel({ reservation }: SeatingPanelProps) {
                     </div>
                     {s.candidate.relocateToZoneId && (
                       <div className="mt-1 text-[11px] font-medium text-ink">
-                        Bring from {zoneName.get(s.candidate.zoneId)} →{' '}
-                        {zoneName.get(s.candidate.relocateToZoneId)}
+                        {s.candidate.zoneId === s.candidate.relocateToZoneId
+                          ? `Bring a table into ${zoneName.get(s.candidate.relocateToZoneId)}`
+                          : `Bring from ${zoneName.get(s.candidate.zoneId)} → ${zoneName.get(s.candidate.relocateToZoneId)}`}
                       </div>
                     )}
                   </div>
