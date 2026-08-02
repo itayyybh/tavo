@@ -9,6 +9,8 @@ import {
   formatTime,
   overlapArea,
   placementBlocked,
+  pointInRect,
+  screenToWorld,
   seatsForTable,
   snapPoint,
   zoneDepth,
@@ -24,6 +26,7 @@ import { summarizeFloor } from '@/services/floor'
 import { FloorTableNode } from './FloorTableNode'
 import { FloorControls } from './FloorControls'
 import { FloorTableMenu } from './FloorTableMenu'
+import { RESERVATION_DRAG_MIME } from './FloorReservationRail'
 import { useEffectiveFloor } from './hooks/useEffectiveFloor'
 import { useFloorColors } from './hooks/useFloorColors'
 import { useFloorCamera, type Bounds } from './hooks/useFloorCamera'
@@ -75,6 +78,7 @@ export function FloorCanvas() {
   const setFocusedZone = useUIStore((s) => s.setFocusedZone)
 
   const seatings = useFloorStore((s) => s.seatings)
+  const seatReservation = useFloorStore((s) => s.seat)
   const setTableStatus = useFloorStore((s) => s.setTableStatus)
   const finishCleaning = useFloorStore((s) => s.finishCleaning)
   const finishAllCleaning = useFloorStore((s) => s.finishAllCleaning)
@@ -248,6 +252,40 @@ export function FloorCanvas() {
     if (stage) commitPan({ x: stage.x(), y: stage.y() })
   }
 
+  /**
+   * Drop a reservation card (dragged from the rail) onto the floor — a manual
+   * seat that bypasses the suggestion engine entirely. Target tables: whatever
+   * is currently selected (so the host can hand-pick an arbitrary combo the
+   * engine's proximity-bounded merge search doesn't find), or, with nothing
+   * selected, whichever single table sits under the drop point. Refuses if any
+   * target isn't `available` (occupied/reserved/blocked/cleaning tables are
+   * never silently overwritten).
+   */
+  const handleReservationDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    const reservationId = e.dataTransfer.getData(RESERVATION_DRAG_MIME)
+    if (!reservationId) return
+
+    let targetIds = selectedIds
+    if (targetIds.length === 0) {
+      const rect = containerRef.current?.getBoundingClientRect()
+      if (!rect) return
+      const world = screenToWorld(
+        { x: e.clientX - rect.left, y: e.clientY - rect.top },
+        viewport,
+      )
+      const hit = visibleEffective.find((et) => pointInRect(world, aabb(et.position, et.base.size)))
+      if (!hit) return
+      targetIds = expandGroups(hit.base.id)
+    }
+
+    const allAvailable = targetIds.every((id) => effective.byId[id]?.status === 'available')
+    if (!allAvailable) return
+
+    seatReservation(reservationId, targetIds)
+    clearSelection()
+  }
+
   // While dragging a merged member, move its siblings + the hull body live so the
   // whole group travels as one (not a lone shadow with a lagging body).
   const handleTableDragMove = (id: string) => {
@@ -401,6 +439,11 @@ export function FloorCanvas() {
         ref={containerRef}
         className="relative min-h-0 flex-1 bg-[#ececeb] dark:bg-[#141414]"
         style={{ touchAction: 'none' }}
+        onDragOver={(e) => {
+          e.preventDefault()
+          e.dataTransfer.dropEffect = 'move'
+        }}
+        onDrop={handleReservationDrop}
       >
         <Stage
           ref={stageRef}

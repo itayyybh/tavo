@@ -14,6 +14,13 @@ import type { Reservation, Zone } from '@/types'
 /** Statuses that make a booking seatable from the floor (an upcoming party). */
 const SEATABLE: Reservation['status'][] = ['pending', 'confirmed', 'arrived']
 
+/**
+ * Drag payload MIME for dragging a reservation card onto the floor canvas
+ * (manual seat — for merges the engine's proximity-bounded search doesn't
+ * find; see `FloorCanvas`'s drop handler). Shared constant so both sides agree.
+ */
+export const RESERVATION_DRAG_MIME = 'application/x-rfm-reservation-id'
+
 const seatBtn =
   'rounded-lg bg-ink px-3 py-1 text-xs font-medium text-surface transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40'
 const clearBtn =
@@ -122,7 +129,15 @@ export function FloorReservationRail() {
           const assigned = r.assignedTableIds ?? []
           const canSeat = assigned.length > 0
           return (
-            <li key={r.id} className="rounded-xl border border-line bg-surface p-2.5">
+            <li
+              key={r.id}
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData(RESERVATION_DRAG_MIME, r.id)
+                e.dataTransfer.effectAllowed = 'move'
+              }}
+              className="cursor-grab rounded-xl border border-line bg-surface p-2.5 active:cursor-grabbing"
+            >
               <div className="flex items-baseline justify-between gap-2">
                 <span className="truncate text-sm font-medium text-ink">
                   {r.guestName}
@@ -138,7 +153,7 @@ export function FloorReservationRail() {
                   {canSeat ? (
                     <span className="text-ink">{labelOf(assigned)}</span>
                   ) : (
-                    'no table'
+                    'no table — drag onto the floor'
                   )}
                 </span>
               </div>
@@ -146,7 +161,7 @@ export function FloorReservationRail() {
                 <button
                   className={seatBtn}
                   disabled={!canSeat}
-                  title={canSeat ? undefined : 'Assign a table on the Reservations page first'}
+                  title={canSeat ? undefined : 'Drag onto a table (or a selection) on the floor'}
                   onClick={() => seat(r.id, assigned)}
                 >
                   Seat
@@ -163,7 +178,15 @@ export function FloorReservationRail() {
           {waitlist.map((r) => {
             const suggestion = waitlistSuggestion.get(r.id)
             return (
-              <li key={r.id} className="rounded-xl border border-line bg-surface p-2.5">
+              <li
+                key={r.id}
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData(RESERVATION_DRAG_MIME, r.id)
+                  e.dataTransfer.effectAllowed = 'move'
+                }}
+                className="cursor-grab rounded-xl border border-line bg-surface p-2.5 active:cursor-grabbing"
+              >
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="truncate text-sm font-medium text-ink">
                     {r.guestName}
@@ -179,7 +202,7 @@ export function FloorReservationRail() {
                     {suggestion ? (
                       <span className="text-ink">{labelOf(suggestion.candidate.tableIds)}</span>
                     ) : (
-                      'no table'
+                      'no table — drag onto the floor'
                     )}
                   </span>
                 </div>
