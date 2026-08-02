@@ -183,30 +183,20 @@ const SEAM_OVERLAP = 1
  * the neighbor, leaving a visible gap). A row of only rects/squares keeps the
  * flush-top alignment.
  *
- * A round table also never lands strictly between two neighbors — sandwiched
- * on both sides it only ever grazes each one near a single point, worse than
- * being at an end where at least one side is open. Round members are pulled
- * to whichever end (front/back) they started closest to; everyone else keeps
- * their relative left-to-right order.
+ * A round table also never sits well strictly between two neighbors — sandwiched
+ * on both sides it only ever grazes each one near a single point. So a merge that
+ * includes a round leads with it: round + rect + rect… Position order is kept
+ * within the rounds and within the rest.
  */
-function pushRoundsToEnds(sorted: Table[], isRound: (t: Table) => boolean): Table[] {
-  const n = sorted.length
-  const front: Table[] = []
-  const rest: Table[] = []
-  const back: Table[] = []
-  sorted.forEach((m, i) => {
-    if (!isRound(m)) rest.push(m)
-    else if (i < n / 2) front.push(m)
-    else back.push(m)
-  })
-  return [...front, ...rest, ...back]
+function roundsFirst(sorted: Table[], isRound: (t: Table) => boolean): Table[] {
+  return [...sorted.filter((t) => isRound(t)), ...sorted.filter((t) => !isRound(t))]
 }
 
 function arrangeCluster(members: Table[], isRound: (t: Table) => boolean): Map<string, Vec2> {
   const byPosition = [...members].sort(
     (a, b) => a.position.x - b.position.x || a.position.y - b.position.y,
   )
-  const sorted = pushRoundsToEnds(byPosition, isRound)
+  const sorted = roundsFirst(byPosition, isRound)
   const out = new Map<string, Vec2>()
   const anchor = sorted[0]
   const centered = members.some(isRound)
