@@ -23,6 +23,7 @@ export {
   deriveZoneParents,
   countTablesByZone,
 } from './zones'
+export { placementBlocked, type PlacementContext } from './placement'
 export {
   seatsForTable,
   groupCapacity,

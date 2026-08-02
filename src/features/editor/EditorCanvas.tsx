@@ -7,17 +7,15 @@ import { useLayoutStore, useSettingsStore, useUIStore } from '@/stores'
 import { useContainerSize } from '@/hooks/useContainerSize'
 import {
   aabb,
-  boxBlocked,
   clamp,
   innermostZoneAt,
-  OVERLAP_TOLERANCE,
   overlapArea,
+  placementBlocked,
   pointInRect,
   screenToWorld,
   snap,
   snapPoint,
   worldToScreen,
-  zoneAncestorIds,
   zoneDepth,
   zoneDescendantIds,
   zonesById,
@@ -229,28 +227,18 @@ export function EditorCanvas() {
     [tableTypes, mergedGroups],
   )
 
-  /**
-   * A placement is rejected when a table's body+clearance overlaps another table's
-   * body+clearance, or its raw body overlaps a wall/path/object, beyond a small
-   * tolerance. `ignore` skips tables that move together; `boxClearance` is the
-   * moving table's own halo (applied against other tables only).
-   */
+  // The placement gate (table/wall overlap + nested-zone intrusion), shared with
+  // the Live Floor via `placementBlocked`. `ignore` skips tables that move
+  // together; `boxClearance` is the moving table's own halo.
   const overlapsTooMuch = useCallback(
-    (center: Vec2, size: Vec2, ignore: Set<string>, boxClearance = 0) => {
-      const box = aabb(center, size)
-      if (boxBlocked(box, tables, obstacles, ignore, clearanceOf, boxClearance)) return true
-      // Nested zones are no-go regions: a table may only intrude into a child
-      // zone it belongs to (its innermost zone, by center) or an ancestor of it.
-      const limit = size.x * size.y * OVERLAP_TOLERANCE
-      const ownZone = innermostZoneAt(center, zones, zonesIndex)
-      const allowed = new Set<string>([ownZone, ...zoneAncestorIds(ownZone, zonesIndex)])
-      return zones.some(
-        (z) =>
-          z.parentId &&
-          !allowed.has(z.id) &&
-          overlapArea(box, aabb(z.position, z.size)) > limit,
-      )
-    },
+    (center: Vec2, size: Vec2, ignore: Set<string>, boxClearance = 0) =>
+      placementBlocked(
+        center,
+        size,
+        ignore,
+        { tables, obstacles, zones, zonesIndex, clearanceOf },
+        boxClearance,
+      ),
     [obstacles, tables, clearanceOf, zones, zonesIndex],
   )
 
