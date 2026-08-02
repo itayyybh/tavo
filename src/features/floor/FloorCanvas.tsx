@@ -7,7 +7,9 @@ import { useContainerSize } from '@/hooks/useContainerSize'
 import {
   aabb,
   overlapArea,
+  placementBlocked,
   seatsForTable,
+  snapPoint,
   zoneDepth,
   zoneDescendantIds,
   zonesById,
@@ -50,11 +52,14 @@ function contentBounds(
 }
 
 /**
- * Live Floor canvas (Phase 8, Steps 2-3). Reuses the editor's presentational
+ * Live Floor canvas (Phase 8, Steps 2-4). Reuses the editor's presentational
  * shapes (zones, obstacles, merged hulls) in a non-listening backdrop layer, and
  * draws tables with `FloorTableNode` in an interactive layer: tapping a table
- * opens its action menu (finish cleaning, block/unblock, clear). Auto-turnover
- * frees cleaning tables once their buffer elapses. Drag-to-seat arrives in Step 4.
+ * opens its action menu (finish cleaning, block/unblock, clear). Manual floor
+ * management (Step 4d), mirroring the editor: drag to reposition (grid-snapped,
+ * collision-reverted via the shared `placementBlocked` gate), shift-click to
+ * multi-select, and `m` / the Merge control to merge the selection or split a
+ * runtime merge. Auto-turnover frees cleaning tables once their buffer elapses.
  */
 export function FloorCanvas() {
   const { ref: containerRef, size } = useContainerSize<HTMLDivElement>()
@@ -77,18 +82,21 @@ export function FloorCanvas() {
   const moveTablesBy = useFloorStore((s) => s.moveTablesBy)
   const rotateTable = useFloorStore((s) => s.rotateTable)
   const rotateGroup = useFloorStore((s) => s.rotateGroup)
+  const mergeTables = useFloorStore((s) => s.mergeTables)
   const splitRuntime = useFloorStore((s) => s.splitRuntime)
   const restoreDefault = useFloorStore((s) => s.restoreDefault)
   const autoTurnover = useSettingsStore((s) => s.autoTurnover)
   const setAutoTurnover = useSettingsStore((s) => s.setAutoTurnover)
+  const snapToGrid = useSettingsStore((s) => s.snapToGrid)
+  const gridSize = useSettingsStore((s) => s.gridSize)
   useAutoTurnover()
 
   const { viewport, handleWheel, commitPan, fit } = useFloorCamera(stageRef)
-  // A single selected table opens its action menu. (Merges come from seating, so
-  // there is no manual multi-select merge.)
+  // Selection drives the per-table action menu (when one is selected) and manual
+  // merge (when several are). Shift-click adds; `selectTable` is defined below,
+  // once merged-group membership (`hullGroups`) is known.
   const [selectedIds, setSelectedIds] = useState<string[]>([])
-  const selectTable = (id: string) => setSelectedIds([id])
-  const clearSelection = () => setSelectedIds([])
+  const clearSelection = useCallback(() => setSelectedIds([]), [])
 
   // Konva node refs so a merged group (its members + hull) tracks the cursor live.
   const nodeRefs = useRef<Map<string, Konva.Group>>(new Map())
@@ -108,6 +116,23 @@ export function FloorCanvas() {
     [reservations],
   )
   const typeById = useMemo(() => new Map(tableTypes.map((t) => [t.id, t])), [tableTypes])
+
+  // Effective tables as plain Table[] for drag collision — ALL zones (so a drag
+  // can't land on a table hidden by zone focus), at their runtime positions.
+  const allTables = useMemo<Table[]>(
+    () =>
+      effective.tables.map((et) => ({
+        ...et.base,
+        position: et.position,
+        rotation: et.rotation,
+        mergedGroupId: et.mergedGroupId,
+      })),
+    [effective.tables],
+  )
+  const clearanceOf = useCallback(
+    (t: Table) => typeById.get(t.typeId)?.clearance ?? 0,
+    [typeById],
+  )
 
   // Zone focus: isolate one zone + its subtree (mirrors the editor's focus rules).
   const focusedZone = focusedZoneId
@@ -146,6 +171,28 @@ export function FloorCanvas() {
       ...effective.runtimeMerges.map((m) => ({ id: m.id, tableIds: m.tableIds })),
     ],
     [mergedGroups, effective.runtimeMerges],
+  )
+
+  // A merged table behaves as one unit: expand any member id to its whole group.
+  const expandGroups = useCallback(
+    (id: string) => hullGroups.find((g) => g.tableIds.includes(id))?.tableIds ?? [id],
+    [hullGroups],
+  )
+
+  // Select a table (and its whole merged group). Shift-click toggles that group in
+  // the current selection; a plain click replaces it.
+  const selectTable = useCallback(
+    (id: string, additive: boolean) => {
+      const ids = expandGroups(id)
+      setSelectedIds((prev) => {
+        if (!additive) return ids
+        const allIn = ids.every((i) => prev.includes(i))
+        return allIn
+          ? prev.filter((i) => !ids.includes(i))
+          : [...new Set([...prev, ...ids])]
+      })
+    },
+    [expandGroups],
   )
 
   // Seated/reserved party name shown on every table it occupies (hull labels).
@@ -219,19 +266,52 @@ export function FloorCanvas() {
     node.getLayer()?.batchDraw()
   }
 
-  // Drag-move a table; a merged member drags its whole group as one.
+  // Drag-move a table; a merged member drags its whole group as one. Snaps to the
+  // grid and reverts if any moved table would overlap another table/wall/foreign
+  // zone — the same placement gate the editor drag uses (`placementBlocked`).
   const handleTableDragEnd = (id: string, center: { x: number; y: number }) => {
     const et = effective.byId[id]
     if (!et) return
     const groupId = et.mergedGroupId
-    if (groupId) {
-      const group = hullGroups.find((g) => g.id === groupId)
-      const delta = { x: center.x - et.position.x, y: center.y - et.position.y }
-      moveTablesBy(group ? group.tableIds : [id], delta)
+    const group = groupId ? hullGroups.find((g) => g.id === groupId) : undefined
+    const movingIds = group ? group.tableIds : [id]
+    const movingSet = new Set(movingIds)
+    const snapped = snapToGrid ? snapPoint(center, gridSize) : center
+    const delta = { x: snapped.x - et.position.x, y: snapped.y - et.position.y }
+
+    const ctx = {
+      tables: allTables.filter((t) => !movingSet.has(t.id)),
+      obstacles,
+      zones,
+      zonesIndex,
+      clearanceOf,
+    }
+    const blocked = movingIds.some((mid) => {
+      const met = effective.byId[mid]
+      if (!met) return false
+      const newCenter =
+        mid === id ? snapped : { x: met.position.x + delta.x, y: met.position.y + delta.y }
+      return placementBlocked(newCenter, met.base.size, movingSet, ctx, clearanceOf(met.base))
+    })
+
+    if (blocked) {
+      // Snap every moved node back to its stored effective position.
+      movingIds.forEach((mid) => {
+        const met = effective.byId[mid]
+        const n = nodeRefs.current.get(mid)
+        if (met && n) n.position({ x: met.position.x, y: met.position.y })
+      })
+      if (groupId) hullRefs.current.get(groupId)?.position({ x: 0, y: 0 })
+      nodeRefs.current.get(id)?.getLayer()?.batchDraw()
+      return
+    }
+
+    if (group) {
+      moveTablesBy(group.tableIds, delta)
       // Store re-renders members at absolute coords; return the hull to origin.
-      hullRefs.current.get(groupId)?.position({ x: 0, y: 0 })
+      hullRefs.current.get(groupId!)?.position({ x: 0, y: 0 })
     } else {
-      moveTable(id, center)
+      moveTable(id, snapped)
     }
   }
 
@@ -244,6 +324,17 @@ export function FloorCanvas() {
       rotateTable(et.base.id, (et.rotation + 90) % 360)
     }
   }
+
+  // The one runtime merge the current selection exactly covers, if any — the only
+  // kind splittable on the floor (base layout merges aren't touched at runtime).
+  const selectedRuntimeMerge = useMemo(() => {
+    if (selectedIds.length < 2) return undefined
+    const gid = hullGroups.find(
+      (g) => g.tableIds.length === selectedIds.length && selectedIds.every((i) => g.tableIds.includes(i)),
+    )?.id
+    return gid ? effective.runtimeMerges.find((m) => m.id === gid) : undefined
+  }, [selectedIds, hullGroups, effective.runtimeMerges])
+  const canMerge = selectedIds.length >= 2 && !selectedRuntimeMerge
 
   // `r` rotates the selected table (or merged group) — a floor shortcut.
   useEffect(() => {
@@ -264,6 +355,27 @@ export function FloorCanvas() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [selectedIds, effective, hullGroups, rotateTable, rotateGroup])
+
+  // `m` merges the selection, or splits it when it's exactly one runtime merge —
+  // mirrors the editor's merge shortcut, over the floor's runtime override layer.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() !== 'm' || e.metaKey || e.ctrlKey || e.altKey) return
+      const el = e.target
+      if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return
+      if (selectedRuntimeMerge) {
+        e.preventDefault()
+        splitRuntime(selectedRuntimeMerge.id)
+        clearSelection()
+      } else if (canMerge) {
+        e.preventDefault()
+        mergeTables(selectedIds)
+        clearSelection()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [selectedIds, selectedRuntimeMerge, canMerge, mergeTables, splitRuntime, clearSelection])
 
   return (
     <div className="flex h-full flex-col bg-surface">
@@ -410,6 +522,22 @@ export function FloorCanvas() {
           />
         )}
 
+        {(canMerge || selectedRuntimeMerge) && (
+          <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full border border-line bg-surface px-2 py-1.5 shadow-lg">
+            <span className="pl-1.5 text-xs text-muted">{selectedIds.length} selected</span>
+            <button
+              className="rounded-full bg-ink px-3 py-1 text-xs font-medium text-surface transition-opacity hover:opacity-90"
+              onClick={() => {
+                if (selectedRuntimeMerge) splitRuntime(selectedRuntimeMerge.id)
+                else mergeTables(selectedIds)
+                clearSelection()
+              }}
+            >
+              {selectedRuntimeMerge ? 'Split' : 'Merge'}
+            </button>
+            <kbd className="rounded border border-line px-1.5 py-0.5 text-[10px] text-muted">M</kbd>
+          </div>
+        )}
       </div>
     </div>
   )
