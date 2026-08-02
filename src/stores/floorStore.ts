@@ -156,6 +156,10 @@ export const useFloorStore = create<FloorState>((set, get) => ({
       seating.tableIds.length > 1
         ? clusterOverrides(seating.tableIds, get().positionOverrides, get().rotationOverrides)
         : null
+    // No clear spot for the block → merge stays logical, tables don't move, and
+    // the host is asked to arrange them by hand.
+    const needsArrange =
+      seating.tableIds.length > 1 && Object.keys(cluster?.positions ?? {}).length === 0
 
     set((state) => {
       // Seating occupies the tables — drop any stale cleaning/blocked override.
@@ -170,7 +174,7 @@ export const useFloorStore = create<FloorState>((set, get) => ({
         seating.tableIds.length > 1
           ? [
               ...state.runtimeMerges,
-              { id: createId(), tableIds: seating.tableIds, seatingId: seating.id },
+              { id: createId(), tableIds: seating.tableIds, seatingId: seating.id, needsArrange },
             ]
           : state.runtimeMerges
 
@@ -307,10 +311,11 @@ export const useFloorStore = create<FloorState>((set, get) => ({
     const ids = [...new Set(tableIds)]
     if (ids.length < 2) return
     const cluster = clusterOverrides(ids, get().positionOverrides, get().rotationOverrides)
+    const needsArrange = Object.keys(cluster.positions).length === 0
     set((state) => ({
       runtimeMerges: [
         ...state.runtimeMerges,
-        { id: createId(), tableIds: [...ids].sort(), seatingId: undefined },
+        { id: createId(), tableIds: [...ids].sort(), seatingId: undefined, needsArrange },
       ],
       positionOverrides: { ...state.positionOverrides, ...cluster.positions },
       rotationOverrides: { ...state.rotationOverrides, ...cluster.rotations },

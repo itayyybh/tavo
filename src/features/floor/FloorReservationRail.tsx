@@ -23,6 +23,7 @@ export function FloorReservationRail() {
   const tables = useLayoutStore((s) => s.tables)
   const zones = useLayoutStore((s) => s.zones)
   const seatings = useFloorStore((s) => s.seatings)
+  const runtimeMerges = useFloorStore((s) => s.runtimeMerges)
   const seat = useFloorStore((s) => s.seat)
   const clear = useFloorStore((s) => s.clear)
   const focusedZoneId = useUIStore((s) => s.focusedZoneId)
@@ -46,6 +47,14 @@ export function FloorReservationRail() {
   const seatedIds = useMemo(
     () => new Set(seatings.map((s) => s.reservationId)),
     [seatings],
+  )
+  // Owned merges the host still needs to arrange by hand (no clear auto-placement).
+  const arrangeBySeating = useMemo(
+    () =>
+      new Set(
+        runtimeMerges.filter((m) => m.needsArrange && m.seatingId).map((m) => m.seatingId as string),
+      ),
+    [runtimeMerges],
   )
 
   const upcoming = useMemo(
@@ -140,6 +149,15 @@ export function FloorReservationRail() {
                     <span className="text-ink">{labelOf(s.tableIds)}</span>
                   </span>
                 </div>
+                {arrangeBySeating.has(s.id) && (
+                  <div className="mt-1.5 flex items-center gap-1 rounded-md bg-surface-2 px-2 py-1 text-[10px] font-medium text-muted">
+                    <span
+                      className="h-1.5 w-1.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: 'var(--color-status-cleaning)' }}
+                    />
+                    Merged — arrange the tables by hand
+                  </div>
+                )}
                 <div className="mt-2 flex justify-end">
                   <button className={clearBtn} onClick={() => clear(s.id)}>
                     Clear

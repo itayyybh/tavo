@@ -329,6 +329,12 @@ export interface RuntimeMergedGroup {
   tableIds: ID[]
   /** The seating that owns this merge, if any. Undefined = unowned (party left). */
   seatingId?: ID
+  /**
+   * True when the party was merged logically but no clear spot was found to snap
+   * the tables physically together (`placeMergedBlock` returned null) — the
+   * tables stay where they are and the host arranges them by hand (drag, Step 4d).
+   */
+  needsArrange?: boolean
 }
 
 /**
