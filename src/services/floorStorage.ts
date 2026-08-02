@@ -36,7 +36,9 @@ export function loadFloor(): FloorSnapshot | null {
       seatings: Array.isArray(s.seatings) ? s.seatings : [],
       runtimeMerges: Array.isArray(s.runtimeMerges) ? s.runtimeMerges : [],
       statusOverrides: s.statusOverrides ?? {},
+      cleaningSince: s.cleaningSince ?? {},
       positionOverrides: s.positionOverrides ?? {},
+      rotationOverrides: s.rotationOverrides ?? {},
     }
   } catch {
     return null

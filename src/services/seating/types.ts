@@ -38,6 +38,12 @@ export interface SeatCandidate {
   seats: number
   /** Primary zone of the option (a merge shares one zone unless cross-zone is on). */
   zoneId: ID
+  /**
+   * When set, this option RELOCATES its table into the reservation's preferred
+   * zone (a free table brought over from `zoneId`). Suggest-only — the physical
+   * move happens on the Live Floor (Phase 8). Only single tables are brought.
+   */
+  relocateToZoneId?: ID
 }
 
 /** Whether a candidate can seat a reservation, with reasons when it can't. */

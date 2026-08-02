@@ -29,7 +29,7 @@ export function suggestSeating(
   others: Reservation[] = [],
   limit: number = DEFAULT_SUGGESTION_LIMIT,
 ): Suggestion[] {
-  return generateCandidates(reservation, floor)
+  return generateCandidates(reservation, floor, others)
     .filter((candidate) => canSeat(reservation, candidate, floor, others).ok)
     .map((candidate) => scoreCandidate(reservation, candidate, floor))
     .sort((a, b) => b.score - a.score)

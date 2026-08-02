@@ -42,11 +42,15 @@ export function isValidDateTime(iso: string): boolean {
   return !!iso && !Number.isNaN(new Date(iso).getTime())
 }
 
-/** Human arrival time, e.g. `7:30 PM`. Empty string for invalid input. */
+/** Human arrival time in 24h, e.g. `19:30`. Empty string for invalid input. */
 export function formatTime(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ''
-  return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+  return d.toLocaleTimeString(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
 }
 
 /** Human date, e.g. `Thu, Jul 30`. Empty string for invalid input. */
