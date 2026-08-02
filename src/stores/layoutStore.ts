@@ -153,6 +153,13 @@ interface LayoutState {
   // Persistence
   loadSnapshot: (snapshot: LayoutSnapshot) => void
   snapshot: () => LayoutSnapshot
+  /**
+   * True once the layout has been loaded from the database for the current
+   * restaurant. Gates autosave (never persist the pre-hydration defaults) and
+   * drives the empty-floor onboarding prompt.
+   */
+  hydrated: boolean
+  setHydrated: (hydrated: boolean) => void
 }
 
 const history = () => useHistoryStore.getState()
@@ -280,6 +287,9 @@ export const useLayoutStore = create<LayoutState>((set, get) => {
     tables: [],
     mergedGroups: [],
     obstacles: [],
+    hydrated: false,
+
+    setHydrated: (hydrated) => set({ hydrated }),
 
     snapshot: () => {
       const { tables, zones, mergedGroups, obstacles, tableTypes } = get()

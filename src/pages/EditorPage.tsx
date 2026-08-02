@@ -1,71 +1,36 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import {
   EditorCanvas,
   EditorSidebar,
+  FloorSetupPrompt,
   FloorSummary,
   Toolbar,
-  useAutosave,
   useEditorShortcuts,
 } from '@/features/editor'
 import { useLayoutStore } from '@/stores'
-import { loadLayout } from '@/services/layoutStorage'
-import { cn, createId } from '@/utils'
-import type { Obstacle, Table } from '@/types'
-
-/** Build a small demo floor so a first-time canvas isn't empty. */
-function seedDemo() {
-  const { tableTypes, zones, loadSnapshot } = useLayoutStore.getState()
-  const zoneId = zones[0]?.id ?? 'zone-inside'
-  const at = (typeId: string, x: number, y: number, label: string): Table | null => {
-    const type = tableTypes.find((t) => t.id === typeId)
-    if (!type) return null
-    return {
-      id: createId(),
-      zoneId,
-      typeId,
-      label,
-      position: { x, y },
-      size: { ...type.defaultSize },
-      rotation: 0,
-      status: 'available',
-    }
-  }
-  const tables = [
-    at('type-square', 160, 160, '12'),
-    at('type-round', 340, 160, '43'),
-    at('type-rect', 220, 340, '132'),
-  ].filter((t): t is Table => t !== null)
-
-  const obstacles: Obstacle[] = [
-    {
-      id: createId(),
-      kind: 'wall',
-      position: { x: 480, y: 260 },
-      size: { x: 20, y: 220 },
-      rotation: 0,
-    },
-  ]
-
-  loadSnapshot({ tables, zones, mergedGroups: [], obstacles })
-}
+import { cn } from '@/utils'
 
 /** Layout Editor — the Figma-like restaurant builder (see the `layout-editor` skill). */
 export default function EditorPage() {
   useEditorShortcuts()
-  useAutosave()
   const [panelOpen, setPanelOpen] = useState(false)
+  const [setupDismissed, setSetupDismissed] = useState(false)
 
-  // App hydrates a saved layout globally; seed a demo only when there's nothing
-  // saved and the store is still empty (first-ever visit).
-  useEffect(() => {
-    if (loadLayout()) return
-    if (useLayoutStore.getState().tables.length === 0) seedDemo()
-  }, [])
+  // A hydrated-but-empty floor means a fresh restaurant — show the setup prompt
+  // (the DB-backed layout sync lives in App; no demo seeding here anymore).
+  const hydrated = useLayoutStore((s) => s.hydrated)
+  const isEmpty = useLayoutStore(
+    (s) => s.tables.length === 0 && s.zones.length === 0,
+  )
+  const showSetup = hydrated && isEmpty && !setupDismissed
 
   return (
     <div className="flex h-full flex-col bg-surface">
       <Toolbar onToggleZones={() => setPanelOpen((o) => !o)} />
       <div className="relative flex min-h-0 flex-1">
+        {showSetup && (
+          <FloorSetupPrompt onCreate={() => setSetupDismissed(true)} />
+        )}
         {/* Zones: a static rail on desktop, a slide-over drawer on small screens. */}
         {panelOpen && (
           <div
