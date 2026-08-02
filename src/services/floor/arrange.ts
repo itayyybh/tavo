@@ -52,18 +52,13 @@ export function zoneArrangeDir(zone: Zone | undefined): ArrangeDir | undefined {
   return undefined
 }
 
-/** Round members sit worse in the middle of a line — pull them toward the ends. */
-function pushRoundsToEnds(sorted: Table[], isRound: (t: Table) => boolean): Table[] {
-  const n = sorted.length
-  const front: Table[] = []
-  const rest: Table[] = []
-  const back: Table[] = []
-  sorted.forEach((m, i) => {
-    if (!isRound(m)) rest.push(m)
-    else if (i < n / 2) front.push(m)
-    else back.push(m)
-  })
-  return [...front, ...rest, ...back]
+/**
+ * Round members lead the line: a merge that includes a round table reads as
+ * round + rect + rect… (the round anchors one end). Position order is preserved
+ * within the rounds and within the rects.
+ */
+function roundsFirst(sorted: Table[], isRound: (t: Table) => boolean): Table[] {
+  return [...sorted.filter((t) => isRound(t)), ...sorted.filter((t) => !isRound(t))]
 }
 
 /**
@@ -97,7 +92,7 @@ function arrangeCluster(
   const byPosition = [...members].sort(
     (a, b) => mainOf(a.position) - mainOf(b.position) || crossOf(a.position) - crossOf(b.position),
   )
-  const sorted = pushRoundsToEnds(byPosition, isRound)
+  const sorted = roundsFirst(byPosition, isRound)
   // Force the pinned anchor to the front so the line origins on it.
   if (anchorId) {
     const idx = sorted.findIndex((m) => m.id === anchorId)

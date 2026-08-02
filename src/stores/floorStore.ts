@@ -288,7 +288,15 @@ export const useFloorStore = create<FloorState>((set, get) => ({
         const cur = positionOverrides[id] ?? basePos.get(id)
         if (cur) positionOverrides[id] = { x: cur.x + delta.x, y: cur.y + delta.y }
       }
-      return { positionOverrides }
+      // Dragging a whole merged group into place IS the manual arrangement — clear
+      // its `needsArrange` flag (and its hint) once the host has positioned it.
+      const moved = new Set(tableIds)
+      const runtimeMerges = state.runtimeMerges.map((m) =>
+        m.needsArrange && m.tableIds.length === moved.size && m.tableIds.every((id) => moved.has(id))
+          ? { ...m, needsArrange: false }
+          : m,
+      )
+      return { positionOverrides, runtimeMerges }
     }),
 
   rotateTable: (tableId, rotation) =>

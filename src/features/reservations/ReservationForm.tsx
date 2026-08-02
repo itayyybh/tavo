@@ -4,12 +4,15 @@ import { useLayoutStore, useReservationStore, useSettingsStore } from '@/stores'
 import {
   combineDateTime,
   findDuplicate,
+  formatDate,
   formatTime,
   isValidDraft,
   isValidDateTime,
   splitDateTime,
+  toDateKey,
   todayKey,
   validateReservation,
+  zoneNextFreeTime,
   zoneRemainingSeats,
   zoneSeatCapacity,
   type ReservationErrors,
@@ -22,6 +25,8 @@ import type {
   ReservationStatus,
 } from '@/types'
 import type { NewReservation } from '@/stores/reservationStore'
+import { useSeatingFloor } from '@/hooks/useSeatingFloor'
+import { zoneHasFit } from '@/services/seating'
 import { cn } from '@/utils'
 import {
   DEFAULT_PARTY_SIZE,
@@ -109,6 +114,9 @@ export function ReservationForm({ initial, onSubmit, onCancel }: ReservationForm
   const defaultStay = useSettingsStore((s) => s.defaultStayMinutes)
   const maxStay = useSettingsStore((s) => s.maxStayMinutes)
   const bufferMin = useSettingsStore((s) => s.seating.turnoverBufferMin)
+  // Read-only floor snapshot for the physical-fit gate (can a real table/merge
+  // ever seat this party in the zone, ignoring current occupancy).
+  const seatingFloor = useSeatingFloor()
   const [form, setForm] = useState<FormState>(() => buildInitialState(initial, defaultStay))
   // Rule: a booking may not exceed the restaurant's max stay time.
   const durations = durationOptions.filter((o) => Number(o.value) <= maxStay)
@@ -161,7 +169,22 @@ export function ReservationForm({ initial, onSubmit, onCancel }: ReservationForm
     // so a zone serves different parties across the service). No overflow to
     // another zone — if it doesn't fit, the host must pick a different zone.
     if (!found.preferredZoneId && form.preferredZoneId && isValidDateTime(dateTime)) {
-      const remaining = zoneRemainingSeats({
+      const zoneName = zones.find((z) => z.id === form.preferredZoneId)?.name ?? 'Zone'
+      // Physical-fit gate first: aggregate seats can say a zone "has room" while
+      // no real table or merge can seat the party (e.g. 8 guests, only 2-tops).
+      // A permanent constraint — no later time helps — so block outright.
+      const draftForFit = {
+        id: initial?.id ?? '__draft__',
+        partySize: form.partySize,
+        dateTime,
+        estimatedDuration: form.estimatedDuration,
+        preferredZoneId: form.preferredZoneId,
+        preferredTableId: form.preferredTableId.trim() || undefined,
+        status: 'confirmed',
+      } as Reservation
+      const physicallyFits = zoneHasFit(draftForFit, seatingFloor)
+
+      const gateParams = {
         zoneId: form.preferredZoneId,
         startISO: dateTime,
         durationMin: form.estimatedDuration,
@@ -170,13 +193,32 @@ export function ReservationForm({ initial, onSubmit, onCancel }: ReservationForm
         reservations,
         bufferMin,
         excludeId: initial?.id,
-      })
-      if (remaining < form.partySize) {
-        const zoneName = zones.find((z) => z.id === form.preferredZoneId)?.name ?? 'Zone'
-        found.preferredZoneId =
+      }
+      const remaining = zoneRemainingSeats(gateParams)
+      if (!physicallyFits) {
+        found.preferredZoneId = `No table or merge in ${zoneName} can seat a party of ${form.partySize} — choose another zone.`
+      } else if (remaining < form.partySize) {
+        const capacity = zoneSeatCapacity(form.preferredZoneId, tables, tableTypes)
+        const shortfall =
           remaining <= 0
-            ? `${zoneName} is full at that time — choose another zone.`
-            : `${zoneName} has ${remaining} seat${remaining === 1 ? '' : 's'} free then, need ${form.partySize} — choose another zone.`
+            ? `${zoneName} is full at that time.`
+            : `${zoneName} has ${remaining} seat${remaining === 1 ? '' : 's'} free then, need ${form.partySize}.`
+        if (form.partySize > capacity) {
+          // No time can ever hold this party — the zone is simply too small.
+          found.preferredZoneId = `${zoneName} seats at most ${capacity} — a party of ${form.partySize} won't fit here. Choose another zone.`
+        } else {
+          // Suggest the next start time a table frees up (a booking ends + buffer).
+          const nextFree = zoneNextFreeTime(gateParams, form.partySize)
+          if (nextFree) {
+            const sameDay = toDateKey(new Date(nextFree)) === toDateKey(new Date(dateTime))
+            const when = sameDay
+              ? formatTime(nextFree)
+              : `${formatDate(nextFree)}, ${formatTime(nextFree)}`
+            found.preferredZoneId = `${shortfall} Next opening for ${form.partySize}: ${when}.`
+          } else {
+            found.preferredZoneId = `${shortfall} No later opening today — choose another zone.`
+          }
+        }
       }
     }
 

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { motion } from 'framer-motion'
 import { Layer, Stage } from 'react-konva'
 import type Konva from 'konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
@@ -18,12 +19,12 @@ import {
   zoneDescendantIds,
   zonesById,
 } from '@/utils'
-import type { MergedGroup, Table } from '@/types'
+import type { MergedGroup, Reservation, Table } from '@/types'
 import { ZoneShape } from '@/features/editor/ZoneShape'
 import { ObstacleShape } from '@/features/editor/ObstacleShape'
 import { MergedHulls } from '@/features/editor/MergedHulls'
 import { useSeatingFloor } from '@/hooks/useSeatingFloor'
-import { summarizeFloor } from '@/services/floor'
+import { summarizeFloor, type EffectiveTable } from '@/services/floor'
 import { FloorTableNode } from './FloorTableNode'
 import { FloorControls } from './FloorControls'
 import { FloorTableMenu } from './FloorTableMenu'
@@ -104,15 +105,21 @@ export function FloorCanvas() {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const clearSelection = useCallback(() => setSelectedIds([]), [])
 
-  // Transient toast for a rejected reservation drop (e.g. not enough seats).
-  const [dropNotice, setDropNotice] = useState<string | null>(null)
-  const noticeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const flashDropNotice = useCallback((message: string) => {
-    setDropNotice(message)
-    clearTimeout(noticeTimer.current)
-    noticeTimer.current = setTimeout(() => setDropNotice(null), 3000)
+  // Transient top-center notice — a merge that couldn't be auto-placed, or a
+  // rejected reservation drop (not available / not enough seats).
+  const [notice, setNotice] = useState<string | null>(null)
+  const noticeTimer = useRef<number | null>(null)
+  const flashNotice = useCallback((msg: string) => {
+    setNotice(msg)
+    if (noticeTimer.current) window.clearTimeout(noticeTimer.current)
+    noticeTimer.current = window.setTimeout(() => setNotice(null), 2200)
   }, [])
-  useEffect(() => () => clearTimeout(noticeTimer.current), [])
+  useEffect(
+    () => () => {
+      if (noticeTimer.current) window.clearTimeout(noticeTimer.current)
+    },
+    [],
+  )
 
   // Konva node refs so a merged group (its members + hull) tracks the cursor live.
   const nodeRefs = useRef<Map<string, Konva.Group>>(new Map())
@@ -230,6 +237,19 @@ export function FloorCanvas() {
     [visibleEffective, visibleZones],
   )
 
+  // Merged-hull bodies are translated imperatively to track a live group drag.
+  // Once any move/merge/split commits to the store, snap every hull back to the
+  // origin so it re-renders from its members' absolute coordinates — mirrors the
+  // editor's overlay reset, so a split/drag can never leave a stray hull box.
+  useEffect(() => {
+    hullRefs.current.forEach((node) => node.position({ x: 0, y: 0 }))
+  }, [effective.tables, effective.runtimeMerges])
+
+  // Tables just dropped by a drag: they're already at the target, so their glide
+  // is suppressed for that one commit. The glide hook consumes (deletes) each id
+  // when it runs, so this needs no separate clear.
+  const dragIds = useRef<Set<string>>(new Set())
+
   // Frame the content on first render with a real size, and again whenever the
   // focused zone changes. Not on every table/resize change — the host's manual
   // pan/zoom is preserved between those events.
@@ -245,17 +265,68 @@ export function FloorCanvas() {
     }
   }, [size, bounds, focusedZoneId, fit])
 
-  // A single selection opens the per-table action menu (only while on screen);
-  // focusing a zone clears the selection (see onFocusZone) so nothing dangles.
+  // The merged group the selection exactly covers, if any — a merged table is one
+  // entity, so selecting all its members opens its card (not the merge pill).
+  const selectedGroup = useMemo(() => {
+    if (selectedIds.length < 2) return undefined
+    const sel = new Set(selectedIds)
+    return hullGroups.find((g) => g.tableIds.length === sel.size && g.tableIds.every((i) => sel.has(i)))
+  }, [selectedIds, hullGroups])
+  // Only a runtime merge can be split on the floor (base layout merges are fixed).
+  const selectedRuntimeMerge = selectedGroup
+    ? effective.runtimeMerges.find((m) => m.id === selectedGroup.id)
+    : undefined
+  // Merge is offered only for 2+ tables that aren't already one existing group.
+  const canMerge = selectedIds.length >= 2 && !selectedGroup
+
+  // The action card opens for one selected table OR one fully-selected merged
+  // group (a merged table is one entity). Members are ordered round-first so the
+  // label reads round + rect + rect…; the first is the card's representative.
   const visibleIds = new Set(visibleEffective.map((et) => et.base.id))
-  const single =
-    selectedIds.length === 1 && visibleIds.has(selectedIds[0])
-      ? effective.byId[selectedIds[0]]
+  const menuMembers = useMemo(() => {
+    const ids = selectedGroup
+      ? selectedGroup.tableIds
+      : selectedIds.length === 1
+        ? selectedIds
+        : []
+    const isRound = (et: EffectiveTable) => typeById.get(et.base.typeId)?.shape === 'round'
+    const members = ids
+      .map((id) => effective.byId[id])
+      .filter((et): et is EffectiveTable => !!et)
+    return [...members.filter(isRound), ...members.filter((et) => !isRound(et))]
+  }, [selectedGroup, selectedIds, effective.byId, typeById])
+  const menuTable = menuMembers[0]
+  const menuOnScreen = menuMembers.some((et) => visibleIds.has(et.base.id))
+  const menuLabel = menuMembers.map((et) => et.base.label).join(' + ')
+  const menuSeating =
+    menuTable?.status === 'occupied'
+      ? seatings.find((s) => menuMembers.some((et) => s.tableIds.includes(et.base.id)))
       : undefined
-  const selectedSeating =
-    single?.status === 'occupied'
-      ? seatings.find((s) => s.tableIds.includes(single.base.id))
-      : undefined
+  const menuRes = menuSeating ? reservationsById.get(menuSeating.reservationId) : undefined
+
+  // Occupied-card details: the party's time window, size, and the next booking
+  // assigned to any of these tables (who's coming and when).
+  const occupancy = useMemo(() => {
+    if (!menuRes) return undefined
+    const start = Date.parse(menuRes.dateTime)
+    const end = start + menuRes.estimatedDuration * 60_000
+    const memberSet = new Set(menuMembers.map((et) => et.base.id))
+    const upcoming: Reservation['status'][] = ['pending', 'confirmed', 'arrived']
+    const next = reservations
+      .filter(
+        (r) =>
+          r.id !== menuRes.id &&
+          upcoming.includes(r.status) &&
+          Date.parse(r.dateTime) >= end &&
+          (r.assignedTableIds ?? []).some((id) => memberSet.has(id)),
+      )
+      .sort((a, b) => Date.parse(a.dateTime) - Date.parse(b.dateTime))[0]
+    return {
+      timeRange: `${formatTime(menuRes.dateTime)} – ${formatTime(new Date(end).toISOString())}`,
+      partySize: menuRes.partySize,
+      next: next ? { name: next.guestName, time: formatTime(next.dateTime) } : undefined,
+    }
+  }, [menuRes, reservations, menuMembers])
 
   const handleStagePan = (e: KonvaEventObject<DragEvent>) => {
     if (e.target !== e.target.getStage()) return
@@ -315,13 +386,13 @@ export function FloorCanvas() {
 
     const allAvailable = targetIds.every((id) => effective.byId[id]?.status === 'available')
     if (!allAvailable) {
-      flashDropNotice('One of those tables isn’t free.')
+      flashNotice('One of those tables isn’t free.')
       return
     }
 
     const capacity = capacityOfTarget(targetIds)
     if (capacity < reservation.partySize) {
-      flashDropNotice(
+      flashNotice(
         `Party of ${reservation.partySize} needs ${reservation.partySize} seats — that's only ${capacity}.`,
       )
       return
@@ -390,6 +461,9 @@ export function FloorCanvas() {
       return
     }
 
+    // These tables are already at the dropped spot — suppress their glide so they
+    // don't jump back and re-slide when the store commit re-renders.
+    dragIds.current = new Set(movingIds)
     if (group) {
       moveTablesBy(group.tableIds, delta)
       // Store re-renders members at absolute coords; return the hull to origin.
@@ -409,16 +483,18 @@ export function FloorCanvas() {
     }
   }
 
-  // The one runtime merge the current selection exactly covers, if any — the only
-  // kind splittable on the floor (base layout merges aren't touched at runtime).
-  const selectedRuntimeMerge = useMemo(() => {
-    if (selectedIds.length < 2) return undefined
-    const gid = hullGroups.find(
-      (g) => g.tableIds.length === selectedIds.length && selectedIds.every((i) => g.tableIds.includes(i)),
-    )?.id
-    return gid ? effective.runtimeMerges.find((m) => m.id === gid) : undefined
-  }, [selectedIds, hullGroups, effective.runtimeMerges])
-  const canMerge = selectedIds.length >= 2 && !selectedRuntimeMerge
+  // Merge the current selection, then tell the host if the block couldn't be
+  // auto-placed (no clear spot) so they know to drag the tables together.
+  const mergeSelection = useCallback(() => {
+    const ids = selectedIds
+    mergeTables(ids)
+    const key = [...ids].sort().join('+')
+    const created = useFloorStore
+      .getState()
+      .runtimeMerges.find((m) => [...m.tableIds].sort().join('+') === key)
+    if (created?.needsArrange) flashNotice('Merged — drag the tables together to arrange')
+    clearSelection()
+  }, [selectedIds, mergeTables, flashNotice, clearSelection])
 
   // `r` rotates the selected table (or merged group) — a floor shortcut.
   useEffect(() => {
@@ -453,13 +529,12 @@ export function FloorCanvas() {
         clearSelection()
       } else if (canMerge) {
         e.preventDefault()
-        mergeTables(selectedIds)
-        clearSelection()
+        mergeSelection()
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [selectedIds, selectedRuntimeMerge, canMerge, mergeTables, splitRuntime, clearSelection])
+  }, [selectedRuntimeMerge, canMerge, mergeSelection, splitRuntime, clearSelection])
 
   return (
     <div className="flex h-full flex-col bg-surface">
@@ -551,6 +626,7 @@ export function FloorCanvas() {
                   colors={colors}
                   merged={!!et.mergedGroupId}
                   selected={selectedIds.includes(et.base.id)}
+                  dragIds={dragIds}
                   onSelect={selectTable}
                   onDragMove={handleTableDragMove}
                   onDragEnd={handleTableDragEnd}
@@ -581,62 +657,66 @@ export function FloorCanvas() {
           </Layer>
         </Stage>
 
-        {single && (
+        {menuTable && menuOnScreen && (
           <FloorTableMenu
-            table={single}
-            reservationName={
-              selectedSeating
-                ? reservationsById.get(selectedSeating.reservationId)?.guestName
-                : undefined
-            }
+            table={menuTable}
+            reservationName={menuRes?.guestName}
+            tablesLabel={menuMembers.length > 1 ? menuLabel : undefined}
+            occupancy={occupancy}
             canRotate
-            canSplit={single.isRuntimeMerge}
+            canSplit={!!selectedRuntimeMerge}
             onBlock={() => {
-              setTableStatus(single.base.id, 'blocked')
+              setTableStatus(menuTable.base.id, 'blocked')
               clearSelection()
             }}
             onUnblock={() => {
-              setTableStatus(single.base.id, undefined)
+              setTableStatus(menuTable.base.id, undefined)
               clearSelection()
             }}
             onFinishCleaning={() => {
-              finishCleaning(single.base.id)
+              finishCleaning(menuTable.base.id)
               clearSelection()
             }}
             onClear={() => {
-              if (selectedSeating) clearSeating(selectedSeating.id)
+              if (menuSeating) clearSeating(menuSeating.id)
               clearSelection()
             }}
-            onRotate={() => rotateOne(single)}
+            onRotate={() => rotateOne(menuTable)}
             onSplit={() => {
-              if (single.mergedGroupId) splitRuntime(single.mergedGroupId)
+              if (selectedRuntimeMerge) splitRuntime(selectedRuntimeMerge.id)
               clearSelection()
             }}
             onClose={clearSelection}
           />
         )}
 
-        {dropNotice && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink shadow-lg">
-            {dropNotice}
-          </div>
-        )}
-
-        {(canMerge || selectedRuntimeMerge) && (
-          <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full border border-line bg-surface px-2 py-1.5 shadow-lg">
+        {canMerge && (
+          <motion.div
+            initial={{ opacity: 0, y: 8, x: '-50%' }}
+            animate={{ opacity: 1, y: 0, x: '-50%' }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            className="absolute bottom-4 left-1/2 flex items-center gap-2 rounded-full border border-line bg-surface px-2 py-1.5 shadow-lg"
+          >
             <span className="pl-1.5 text-xs text-muted">{selectedIds.length} selected</span>
             <button
               className="rounded-full bg-ink px-3 py-1 text-xs font-medium text-surface transition-opacity hover:opacity-90"
-              onClick={() => {
-                if (selectedRuntimeMerge) splitRuntime(selectedRuntimeMerge.id)
-                else mergeTables(selectedIds)
-                clearSelection()
-              }}
+              onClick={mergeSelection}
             >
-              {selectedRuntimeMerge ? 'Split' : 'Merge'}
+              Merge
             </button>
             <kbd className="rounded border border-line px-1.5 py-0.5 text-[10px] text-muted">M</kbd>
-          </div>
+          </motion.div>
+        )}
+
+        {notice && (
+          <motion.div
+            initial={{ opacity: 0, y: -4, x: '-50%' }}
+            animate={{ opacity: 1, y: 0, x: '-50%' }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            className="pointer-events-none absolute left-1/2 top-4 rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink shadow-lg"
+          >
+            {notice}
+          </motion.div>
         )}
       </div>
     </div>
