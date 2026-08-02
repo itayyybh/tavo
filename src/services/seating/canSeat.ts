@@ -87,8 +87,13 @@ export function canSeat(
 
   if (candidate.seats < reservation.partySize) {
     reasons.push(`Seats ${candidate.seats}, party of ${reservation.partySize}`)
-  } else if (candidate.seats - reservation.partySize > floor.config.maxUnderfill) {
-    // Too big — wastes more than the allowed slack (e.g. a party of 3 at an 8-top).
+  } else if (
+    candidate.kind === 'single' &&
+    candidate.seats - reservation.partySize > floor.config.maxUnderfill
+  ) {
+    // Too big — wastes more than the allowed slack (e.g. a party of 3 at an
+    // 8-top). Only guards SINGLE tables: a merge must combine whatever's free,
+    // so its overshoot is unavoidable — the scorer ranks tighter merges higher.
     reasons.push(`Too large — seats ${candidate.seats} for ${reservation.partySize}`)
   }
   if (hasTimeConflict(reservation, candidate, floor, others)) {
