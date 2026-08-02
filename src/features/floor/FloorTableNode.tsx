@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { Circle, Group, Rect, Text } from 'react-konva'
 import type Konva from 'konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
@@ -5,6 +6,7 @@ import type { TableType, Vec2 } from '@/types'
 import { mixHex } from '@/utils'
 import type { EffectiveTable } from '@/services/floor'
 import type { FloorCanvasColors } from './hooks/useFloorColors'
+import { useNodeColorTween } from './hooks/useNodeColorTween'
 
 /** How far a table body is tinted toward its status color (0 = surface, 1 = full). */
 export const FLOOR_TINT = 0.22
@@ -67,8 +69,15 @@ export function FloorTableNode({
   const dotX = round ? w / 2 + (Math.min(w, h) / 2 - 7) * 0.707 : w - 9
   const dotY = round ? h / 2 - (Math.min(w, h) / 2 - 7) * 0.707 : 9
 
+  // Ease the body + status dot between status colors instead of snapping.
+  const bodyRef = useRef<Konva.Shape>(null)
+  const dotRef = useRef<Konva.Shape>(null)
+  useNodeColorTween(bodyRef, bodyFill, border)
+  useNodeColorTween(dotRef, statusColor)
+
   const body = round ? (
     <Circle
+      ref={(n) => void (bodyRef.current = n)}
       x={w / 2}
       y={h / 2}
       radius={Math.min(w, h) / 2}
@@ -84,6 +93,7 @@ export function FloorTableNode({
     />
   ) : (
     <Rect
+      ref={(n) => void (bodyRef.current = n)}
       width={w}
       height={h}
       cornerRadius={12}
@@ -178,6 +188,7 @@ export function FloorTableNode({
       )}
       {!merged && (
         <Circle
+          ref={(n) => void (dotRef.current = n)}
           x={dotX}
           y={dotY}
           radius={4}
