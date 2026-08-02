@@ -99,24 +99,27 @@ function mergeCandidates(reservation: Reservation, floor: SeatingFloor): SeatCan
   // Last resort: the proximity-seeded search above tries one nearest-neighbour
   // chain per seed and stops at its first fit, so it can miss a valid combo
   // whose members aren't mutually nearest (e.g. four tables scattered around a
-  // zone that together fit the party). Only kicks in when NOTHING above already
-  // reaches the party size — a good local merge always wins over one that
-  // gathers tables from all over the room.
-  if (
-    floor.config.merge.lastResortGatherZone !== false &&
-    !out.some((c) => c.seats >= reservation.partySize)
-  ) {
-    out.push(...gatherFromZone(reservation, floor, ctx, available, seen))
+  // zone that together fit the party). Only kicks in PER ZONE where nothing
+  // above already reaches the party size in THAT zone — checking globally was a
+  // bug: a big-enough candidate in some OTHER zone (destined to be dropped by
+  // the hard zone rule downstream, `restrictToPreferredZone`) would suppress
+  // gather in the reservation's actual preferred zone, where it was needed.
+  if (floor.config.merge.lastResortGatherZone !== false) {
+    const satisfiedZones = new Set(
+      out.filter((c) => c.seats >= reservation.partySize).map((c) => c.zoneId),
+    )
+    out.push(...gatherFromZone(reservation, floor, ctx, available, seen, satisfiedZones))
   }
 
   return out
 }
 
 /**
- * Last-resort merge: for each zone, gather its free tables (largest first,
- * ignoring physical proximity) and keep adding until the party fits or
- * `maxMergeSize` is hit. One attempt per zone — a broader net than the
- * per-seed nearest-neighbour search above, tried only once that's failed.
+ * Last-resort merge: for each zone (except one that already has a big-enough
+ * candidate — `skipZones`), gather its free tables (largest first, ignoring
+ * physical proximity) and keep adding until the party fits or `maxMergeSize`
+ * is hit. One attempt per zone — a broader net than the per-seed
+ * nearest-neighbour search above, tried only once that's failed.
  */
 function gatherFromZone(
   reservation: Reservation,
@@ -124,6 +127,7 @@ function gatherFromZone(
   ctx: MergeRuleContext,
   available: Table[],
   seen: Set<string>,
+  skipZones: Set<ID>,
 ): SeatCandidate[] {
   const maxSize = floor.config.merge.maxMergeSize ?? Infinity
   const capOf = (t: Table) =>
@@ -132,6 +136,7 @@ function gatherFromZone(
   const out: SeatCandidate[] = []
 
   for (const zoneId of zoneIds) {
+    if (skipZones.has(zoneId)) continue
     const pool = available
       .filter((t) => t.zoneId === zoneId)
       .sort((a, b) => capOf(b) - capOf(a))

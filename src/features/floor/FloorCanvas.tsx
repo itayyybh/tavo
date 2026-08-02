@@ -555,10 +555,10 @@ export function FloorCanvas() {
                   onDragMove={handleTableDragMove}
                   onDragEnd={handleTableDragEnd}
                   registerNode={registerNode}
-                  primary={showGuest && res ? res.guestName : et.base.label}
+                  primary={showGuest && res ? res.guestName : et.base.label || '?'}
                   secondary={
                     showGuest && res
-                      ? `${res.partySize}p · ${et.base.label}`
+                      ? `${res.partySize}p · ${et.base.label || '?'}`
                       : upcoming
                         ? `Free · ${formatTime(upcoming.dateTime)} booked`
                         : seats > 0
