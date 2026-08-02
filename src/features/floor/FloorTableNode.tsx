@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, type RefObject } from 'react'
 import { Circle, Group, Rect, Text } from 'react-konva'
 import type Konva from 'konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
@@ -7,6 +7,7 @@ import { mixHex } from '@/utils'
 import type { EffectiveTable } from '@/services/floor'
 import type { FloorCanvasColors } from './hooks/useFloorColors'
 import { useNodeColorTween } from './hooks/useNodeColorTween'
+import { useNodePositionGlide } from './hooks/useNodePositionGlide'
 
 /** How far a table body is tinted toward its status color (0 = surface, 1 = full). */
 export const FLOOR_TINT = 0.22
@@ -31,6 +32,8 @@ interface FloorTableNodeProps {
   registerNode?: (id: string, node: Konva.Group | null) => void
   /** Highlight this table (selected / its action menu is open). */
   selected?: boolean
+  /** Ids just dropped by a drag — such a table skips its glide (already placed). */
+  dragIds?: RefObject<Set<string>>
 }
 
 const FONT = 'Inter, ui-sans-serif, system-ui, sans-serif'
@@ -53,6 +56,7 @@ export function FloorTableNode({
   onDragEnd,
   registerNode,
   selected,
+  dragIds,
 }: FloorTableNodeProps) {
   const { base, status, position, rotation } = et
   const { x: w, y: h } = base.size
@@ -74,6 +78,12 @@ export function FloorTableNode({
   const dotRef = useRef<Konva.Shape>(null)
   useNodeColorTween(bodyRef, bodyFill, border)
   useNodeColorTween(dotRef, statusColor)
+
+  // Glide the whole table group to a new spot on store-committed moves (seat,
+  // merge, split, restore) — but not while it's being dragged.
+  const groupRef = useRef<Konva.Group>(null)
+  const noDrag = useRef<Set<string>>(new Set())
+  useNodePositionGlide(groupRef, position.x, position.y, dragIds ?? noDrag, base.id)
 
   const body = round ? (
     <Circle
@@ -111,7 +121,10 @@ export function FloorTableNode({
 
   return (
     <Group
-      ref={(node) => registerNode?.(base.id, node)}
+      ref={(node) => {
+        groupRef.current = node
+        registerNode?.(base.id, node)
+      }}
       x={position.x}
       y={position.y}
       offsetX={w / 2}
