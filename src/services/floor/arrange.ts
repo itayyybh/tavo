@@ -129,19 +129,85 @@ function arrangeCluster(
 
 const NO_IGNORE: Set<string> = new Set()
 
+/** Small slack (world units) so float edges / seam overlaps don't reject a fit. */
+const ZONE_TOL = 0.5
+
+type Rect = { minX: number; minY: number; maxX: number; maxY: number }
+
+/** A zone's axis-aligned bounds (its `position` is the CENTER). */
+function zoneBounds(zone: Zone): Rect {
+  return {
+    minX: zone.position.x - zone.size.x / 2,
+    minY: zone.position.y - zone.size.y / 2,
+    maxX: zone.position.x + zone.size.x / 2,
+    maxY: zone.position.y + zone.size.y / 2,
+  }
+}
+
+/** Union footprint box of every placement, shifted by `delta`. */
+function blockBounds(placed: Map<ID, Placement>, delta: Vec2): Rect {
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+  for (const p of placed.values()) {
+    const cx = p.position.x + delta.x
+    const cy = p.position.y + delta.y
+    minX = Math.min(minX, cx - p.footprint.x / 2)
+    minY = Math.min(minY, cy - p.footprint.y / 2)
+    maxX = Math.max(maxX, cx + p.footprint.x / 2)
+    maxY = Math.max(maxY, cy + p.footprint.y / 2)
+  }
+  return { minX, minY, maxX, maxY }
+}
+
+/** Is the whole block (at `delta`) inside the zone rect, within tolerance? */
+function insideZone(placed: Map<ID, Placement>, delta: Vec2, zone: Zone): boolean {
+  const b = blockBounds(placed, delta)
+  const z = zoneBounds(zone)
+  return (
+    b.minX >= z.minX - ZONE_TOL &&
+    b.minY >= z.minY - ZONE_TOL &&
+    b.maxX <= z.maxX + ZONE_TOL &&
+    b.maxY <= z.maxY + ZONE_TOL
+  )
+}
+
+/**
+ * Best-effort offset that pulls the block's bounding box inside the zone rect
+ * (minimum move per axis). If the block is larger than the zone on an axis it
+ * can't fully fit — it aligns to the zone's low edge, the least-bad spot. Used
+ * for the fallback so a merge is at least visually inside its zone even when no
+ * fully clear + contained spot was found.
+ */
+function clampInsideZone(placed: Map<ID, Placement>, zone: Zone): Vec2 {
+  const b = blockBounds(placed, { x: 0, y: 0 })
+  const z = zoneBounds(zone)
+  const axis = (min: number, max: number, zMin: number, zMax: number) => {
+    if (min < zMin) return zMin - min
+    if (max > zMax) return zMax - max
+    return 0
+  }
+  return { x: axis(b.minX, b.maxX, z.minX, z.maxX), y: axis(b.minY, b.maxY, z.minY, z.maxY) }
+}
+
 /**
  * Smallest offset that moves the whole line clear of other tables/obstacles and
  * out of foreign nested zones, keeping each member's chair-clearance. Uses the
  * shared `placementBlocked` gate — the same legality test the editor drag uses.
- * `ok` is false when no clear spot was found within the search rings.
+ * When `containZone` is set the block must also stay fully INSIDE that zone (a
+ * merge may never spill out of its own zone into empty space). `ok` is false
+ * when no such spot was found within the search rings.
  */
 function findClearOffset(
   placed: Map<ID, Placement>,
   ctx: PlacementContext,
   clearance: number,
+  containZone?: Zone,
 ): { offset: Vec2; ok: boolean } {
-  const blockedAt = (delta: Vec2) =>
-    [...placed.values()].some((p) =>
+  const blockedAt = (delta: Vec2) => {
+    if (containZone && !insideZone(placed, delta, containZone)) return true
+    return [...placed.values()].some((p) =>
       placementBlocked(
         { x: p.position.x + delta.x, y: p.position.y + delta.y },
         p.footprint,
@@ -150,6 +216,7 @@ function findClearOffset(
         clearance,
       ),
     )
+  }
 
   if (!blockedAt({ x: 0, y: 0 })) return { offset: { x: 0, y: 0 }, ok: true }
   for (let ring = 1; ring <= SEARCH_RINGS; ring++) {
@@ -193,14 +260,14 @@ export interface ClusterResult {
  * zones via the shared `placementBlocked` gate. `preferredDir` (zone rule) is
  * tried first, then the other direction (soft).
  *
- * When NO clear spot exists in either direction, still returns the correctly
- * ORDERED line (round member(s) pushed to an end — that invariant holds
- * regardless of placement, see `pushRoundsToEnds`) at its unshifted anchor
- * position, with `clear: false`. Never silently falls back to members' old,
- * possibly out-of-order positions — a round table sandwiched mid-line is worse
- * than one sitting in a not-perfectly-clear spot. `ctx.tables` is the OTHER
- * (non-member) tables to test against; members move together. `null` only for
- * a structurally invalid call (fewer than 2 members).
+ * When `containZone` is set the block must stay fully INSIDE that zone — a merge
+ * may never spill out of its own zone. When NO clear (+ contained) spot exists in
+ * either direction, returns the correctly ORDERED line (round member(s) at an
+ * end) CLAMPED inside the zone as best-effort, with `clear: false`. Never
+ * silently falls back to members' old, possibly out-of-order positions — a round
+ * table sandwiched mid-line is worse than one in a not-perfectly-clear spot.
+ * `ctx.tables` is the OTHER (non-member) tables to test against; members move
+ * together. `null` only for a structurally invalid call (fewer than 2 members).
  */
 export function placeMergedBlock(
   members: Table[],
@@ -208,6 +275,7 @@ export function placeMergedBlock(
   ctx: PlacementContext,
   preferredDir?: ArrangeDir,
   anchorId?: ID,
+  containZone?: Zone,
 ): ClusterResult | null {
   if (members.length < 2) return null
   const typeOf = (t: Table) => tableTypes.find((ty) => ty.id === t.typeId)
@@ -221,8 +289,12 @@ export function placeMergedBlock(
   for (const dir of order) {
     const arranged = arrangeCluster(members, isRound, dir, anchorId)
     if (!fallback) fallback = arranged
-    const { offset, ok } = findClearOffset(arranged, ctx, clearance)
+    const { offset, ok } = findClearOffset(arranged, ctx, clearance, containZone)
     if (ok) return { placements: withOffset(arranged, offset), clear: true }
   }
-  return { placements: fallback!, clear: false }
+  // Best-effort: at least pull the (correctly ordered) line inside the zone, so a
+  // merge that couldn't be placed cleanly is still visually in its zone — flagged
+  // clear:false so the host is asked to finish arranging it.
+  const clamped = containZone ? withOffset(fallback!, clampInsideZone(fallback!, containZone)) : fallback!
+  return { placements: clamped, clear: false }
 }

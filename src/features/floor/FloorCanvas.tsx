@@ -398,7 +398,9 @@ export function FloorCanvas() {
       return
     }
 
-    seatReservation(reservationId, targetIds)
+    // Drag-to-seat keeps the tables exactly where the host dropped them —
+    // `arrange: false` so a multi-table seat never re-lays-out / moves them.
+    seatReservation(reservationId, targetIds, false)
     clearSelection()
   }
 
