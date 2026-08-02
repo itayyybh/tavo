@@ -7,6 +7,7 @@ import { useContainerSize } from '@/hooks/useContainerSize'
 import {
   aabb,
   formatTime,
+  groupCapacity,
   overlapArea,
   placementBlocked,
   pointInRect,
@@ -102,6 +103,16 @@ export function FloorCanvas() {
   // once merged-group membership (`hullGroups`) is known.
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const clearSelection = useCallback(() => setSelectedIds([]), [])
+
+  // Transient toast for a rejected reservation drop (e.g. not enough seats).
+  const [dropNotice, setDropNotice] = useState<string | null>(null)
+  const noticeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const flashDropNotice = useCallback((message: string) => {
+    setDropNotice(message)
+    clearTimeout(noticeTimer.current)
+    noticeTimer.current = setTimeout(() => setDropNotice(null), 3000)
+  }, [])
+  useEffect(() => () => clearTimeout(noticeTimer.current), [])
 
   // Konva node refs so a merged group (its members + hull) tracks the cursor live.
   const nodeRefs = useRef<Map<string, Konva.Group>>(new Map())
@@ -252,19 +263,42 @@ export function FloorCanvas() {
     if (stage) commitPan({ x: stage.x(), y: stage.y() })
   }
 
+  // Real seat count for a candidate drop target: a single table's capacity, or
+  // a merge's (honoring a manual `MergedGroup.seats` override when the target IS
+  // an existing group — same number the hull badge shows), never a naive sum.
+  const capacityOfTarget = useCallback(
+    (ids: string[]): number => {
+      const members = ids
+        .map((id) => effective.byId[id]?.base)
+        .filter((t): t is Table => !!t)
+      if (members.length <= 1) {
+        const et = ids[0] ? effective.byId[ids[0]] : undefined
+        return et ? seatsForTable(et.base, typeById.get(et.base.typeId)) : 0
+      }
+      const group = hullGroups.find(
+        (g) => g.tableIds.length === ids.length && ids.every((id) => g.tableIds.includes(id)),
+      )
+      return groupCapacity(members, tableTypes, group)
+    },
+    [effective, typeById, hullGroups, tableTypes],
+  )
+
   /**
    * Drop a reservation card (dragged from the rail) onto the floor — a manual
    * seat that bypasses the suggestion engine entirely. Target tables: whatever
    * is currently selected (so the host can hand-pick an arbitrary combo the
    * engine's proximity-bounded merge search doesn't find), or, with nothing
-   * selected, whichever single table sits under the drop point. Refuses if any
-   * target isn't `available` (occupied/reserved/blocked/cleaning tables are
-   * never silently overwritten).
+   * selected, whichever single table (or its existing merged group) sits under
+   * the drop point. Refuses — with a toast, never a silent no-op — if any target
+   * isn't `available`, or if the target's real capacity is short of the party
+   * (dropping a party of 9 onto a 7-seat merge must not quietly under-seat them).
    */
   const handleReservationDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault()
     const reservationId = e.dataTransfer.getData(RESERVATION_DRAG_MIME)
     if (!reservationId) return
+    const reservation = reservationsById.get(reservationId)
+    if (!reservation) return
 
     let targetIds = selectedIds
     if (targetIds.length === 0) {
@@ -280,7 +314,18 @@ export function FloorCanvas() {
     }
 
     const allAvailable = targetIds.every((id) => effective.byId[id]?.status === 'available')
-    if (!allAvailable) return
+    if (!allAvailable) {
+      flashDropNotice('One of those tables isn’t free.')
+      return
+    }
+
+    const capacity = capacityOfTarget(targetIds)
+    if (capacity < reservation.partySize) {
+      flashDropNotice(
+        `Party of ${reservation.partySize} needs ${reservation.partySize} seats — that's only ${capacity}.`,
+      )
+      return
+    }
 
     seatReservation(reservationId, targetIds)
     clearSelection()
@@ -569,6 +614,12 @@ export function FloorCanvas() {
             }}
             onClose={clearSelection}
           />
+        )}
+
+        {dropNotice && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink shadow-lg">
+            {dropNotice}
+          </div>
         )}
 
         {(canMerge || selectedRuntimeMerge) && (
