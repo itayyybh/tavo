@@ -5,6 +5,8 @@ import type { Reservation } from '@/types'
 interface ServiceLoadChartProps {
   /** Reservations to bucket (pre-slot-filter, so bars stay stable on selection). */
   reservations: Reservation[]
+  /** Total floor seats — when set, bars scale against capacity (occupancy). */
+  capacity?: number
   /** Currently selected slot start (minutes), or null. */
   activeStart: number | null
   /** Toggle a slot filter. Passing the active slot again clears it. */
@@ -17,13 +19,15 @@ interface ServiceLoadChartProps {
  */
 export function ServiceLoadChart({
   reservations,
+  capacity,
   activeStart,
   onSelect,
 }: ServiceLoadChartProps) {
   const slots = useMemo(() => bucketByTimeSlot(reservations), [reservations])
-  const maxGuests = useMemo(
-    () => Math.max(1, ...slots.map((s) => s.guests)),
-    [slots],
+  // Scale bars against floor capacity when known (occupancy), else the busiest slot.
+  const scale = useMemo(
+    () => Math.max(1, capacity && capacity > 0 ? capacity : 0, ...slots.map((s) => s.guests)),
+    [slots, capacity],
   )
 
   if (slots.length === 0) return null
@@ -73,7 +77,7 @@ export function ServiceLoadChart({
                     'block h-full rounded-full transition-all duration-200',
                     active ? 'bg-ink' : 'bg-ink/60 group-hover:bg-ink/80',
                   )}
-                  style={{ width: `${(slot.guests / maxGuests) * 100}%` }}
+                  style={{ width: `${(slot.guests / scale) * 100}%` }}
                 />
               </span>
               <span className="w-4 shrink-0 text-right text-[11px] tabular-nums text-muted">

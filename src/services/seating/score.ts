@@ -42,10 +42,15 @@ export function scoreCandidate(
   if (waste === 0) reasons.push('Exact fit')
   else reasons.push(`Seats ${candidate.seats} for ${reservation.partySize}`)
 
-  // Preferred zone.
-  if (reservation.preferredZoneId && candidate.zoneId === reservation.preferredZoneId) {
+  // Zone tiers: in the preferred zone > bring a table INTO it > another zone.
+  const preferred = reservation.preferredZoneId
+  if (preferred && candidate.zoneId === preferred) {
     score += weights.zoneMatch
     reasons.push('Preferred zone')
+  } else if (preferred && candidate.relocateToZoneId === preferred) {
+    // Second choice: keep the preferred zone by bringing a free table over.
+    score += weights.zoneMatch * 0.6
+    reasons.push('Bring to preferred zone')
   }
 
   // Preferred table.

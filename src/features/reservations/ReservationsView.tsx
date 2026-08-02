@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Button, Heading, Input } from '@/components/ui'
-import { useLayoutStore } from '@/stores'
+import { useLayoutStore, useSettingsStore } from '@/stores'
 import type { ID, Reservation } from '@/types'
-import { cn, countTablesByZone, floorTotals } from '@/utils'
+import { cn, floorTotals } from '@/utils'
 import { useReservationPersistence } from './hooks/useReservationPersistence'
 import { useReservationFilters } from './hooks/useReservationFilters'
 import { ReservationFilters } from './ReservationFilters'
@@ -15,6 +15,7 @@ import { ReservationDialog } from './ReservationDialog'
 import { useReservationStore } from '@/stores'
 import { buildSampleReservations } from './sampleData'
 import { useReservationShortcuts } from './hooks/useReservationShortcuts'
+import { useAssignAll } from './hooks/useAssignAll'
 import { DeleteConfirmDialog } from './DeleteConfirmDialog'
 import { CommandPalettePlaceholder } from './CommandPalettePlaceholder'
 import { ShortcutsHelp } from './ShortcutsHelp'
@@ -36,21 +37,23 @@ export function ReservationsView() {
   const addReservation = useReservationStore((s) => s.addReservation)
   const replaceAll = useReservationStore((s) => s.replaceAll)
   const { state, patch, results, slotSource } = useReservationFilters()
+  const {
+    assignAll,
+    assignableCount,
+    clearAll: clearTableAssignments,
+    assignedCount,
+  } = useAssignAll()
 
-  const tableCounts = useMemo(() => countTablesByZone(tables), [tables])
   // Total floor seats — lets the load chart show occupancy against real capacity
   // (free space = the visible remainder). Read-only; no reservation↔table coupling.
   const floorCapacity = useMemo(
     () => floorTotals(tables, tableTypes, mergedGroups).seats,
     [tables, tableTypes, mergedGroups],
   )
+  const bufferMin = useSettingsStore((s) => s.seating.turnoverBufferMin)
 
   const seedSamples = () => {
-    const capacities = zones.map((z) => ({
-      id: z.id,
-      capacity: tableCounts.get(z.id) ?? 0,
-    }))
-    buildSampleReservations(capacities).forEach(addReservation)
+    buildSampleReservations({ zones, tables, tableTypes, bufferMin }).forEach(addReservation)
   }
   const clearAll = () => replaceAll([])
 
@@ -154,6 +157,16 @@ export function ReservationsView() {
           >
             ?
           </Button>
+          {assignableCount > 0 && (
+            <Button variant="secondary" onClick={assignAll}>
+              Assign all ({assignableCount})
+            </Button>
+          )}
+          {assignedCount > 0 && (
+            <Button variant="ghost" onClick={clearTableAssignments}>
+              Clear tables ({assignedCount})
+            </Button>
+          )}
           <Button onClick={openCreate}>New reservation</Button>
         </div>
       </div>

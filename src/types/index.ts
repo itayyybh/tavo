@@ -66,6 +66,12 @@ export interface Zone {
    * don't belong to it.
    */
   parentId?: ID
+  /**
+   * Smoking policy. Drives how merged tables build on the Live Floor: a
+   * non-smoking zone stacks them vertically, a smoking zone lays them
+   * horizontally (soft). Undefined = no rule (horizontal default).
+   */
+  smoking?: 'smoking' | 'non-smoking'
 }
 
 /**
@@ -216,6 +222,23 @@ export interface MergeConfig {
    * from anywhere in the zone).
    */
   proximityWeight: number
+  /**
+   * Zone + party-size restrictions: for a large party in a named zone, only the
+   * listed combinations are allowed (e.g. Inside, 13+ → only 7+10+11+12).
+   * Authored by table label / zone name (host-readable; resolved to the current
+   * layout at eval time) until the Phase 10 settings UI exists.
+   */
+  largePartyRules?: LargePartyRule[]
+}
+
+/** A large-party seating restriction for one zone (see `MergeConfig.largePartyRules`). */
+export interface LargePartyRule {
+  /** Zone this rule governs, by name (e.g. "Inside"). */
+  zoneName: string
+  /** Applies when the party size is at least this. */
+  minPartySize: number
+  /** The only merges allowed in the zone at/above the threshold — table labels. */
+  allowedCombos: string[][]
 }
 
 /**
@@ -238,6 +261,12 @@ export interface SeatingConfig {
   merge: MergeConfig
   /** Minutes reserved between two bookings on the same table (turnover). */
   turnoverBufferMin: number
+  /**
+   * Max seats a table/merge may exceed the party by and still be offered — caps
+   * wasted capacity. A party of 3 fits a 4- or 5-top (waste ≤ 2) but never an
+   * 8-top. Applies to singles and merges alike.
+   */
+  maxUnderfill: number
   weights: SeatingWeights
 }
 
@@ -263,6 +292,69 @@ export interface SeatingDecision {
   ranked: SeatingDecisionEntry[]
   /** Table ids the host accepted; undefined = suggested but not accepted. */
   chosen?: ID[]
+}
+
+/**
+ * Runtime table status on the Live Floor (Phase 8). Extends the design-time
+ * `TableStatus` with `cleaning` — the turnover state a table enters after a party
+ * leaves. Deliberately a SEPARATE type from `TableStatus`: the editor still edits
+ * only design-time statuses; `cleaning` exists only in the operational floor layer.
+ */
+export type FloorTableStatus = TableStatus | 'cleaning'
+
+/**
+ * A live seating (Phase 8) — a party physically occupying one or more tables for
+ * the current shift. Owns the runtime merge when it spans several tables. Created
+ * when the host seats a reservation; removed when the party is cleared.
+ */
+export interface Seating {
+  id: ID
+  /** The reservation being seated. */
+  reservationId: ID
+  /** Member table ids the party occupies (one, or several for a merge). */
+  tableIds: ID[]
+  /** ISO timestamp the party was seated. */
+  seatedAt: string
+}
+
+/**
+ * A merge that exists only for the current shift (Phase 8), not in the base
+ * layout. Its lifespan is the seating that owns it (`seatingId`); when the party
+ * leaves the tables stay pushed together but the merge is flagged unowned
+ * (`seatingId` cleared) until the host splits or reuses it.
+ */
+export interface RuntimeMergedGroup {
+  id: ID
+  /** Sorted member table ids. */
+  tableIds: ID[]
+  /** The seating that owns this merge, if any. Undefined = unowned (party left). */
+  seatingId?: ID
+}
+
+/**
+ * Serializable snapshot of the Live Floor's runtime override layer (Phase 8).
+ * Kept entirely separate from `LayoutSnapshot`: the base design stays read-only
+ * and versioned; the floor only records what THIS shift changed on top of it.
+ */
+export interface FloorSnapshot {
+  /** Active seatings (parties currently on the floor). */
+  seatings: Seating[]
+  /** Runtime merges (owned + unowned). */
+  runtimeMerges: RuntimeMergedGroup[]
+  /**
+   * Manual runtime status overrides keyed by table id — only `cleaning` and
+   * `blocked` (host-set). Occupancy is derived from `seatings`, never stored here.
+   */
+  statusOverrides: Record<ID, Extract<FloorTableStatus, 'cleaning' | 'blocked'>>
+  /**
+   * ISO timestamp a table entered `cleaning`, keyed by table id. Drives
+   * auto-turnover (a table clears itself once the turnover buffer elapses).
+   */
+  cleaningSince: Record<ID, string>
+  /** Runtime table-center positions when staff push furniture. Keyed by table id. */
+  positionOverrides: Record<ID, Vec2>
+  /** Runtime table rotations (degrees) when staff turn furniture. Keyed by table id. */
+  rotationOverrides: Record<ID, number>
 }
 
 export interface Restaurant {

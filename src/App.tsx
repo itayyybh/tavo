@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useUIStore } from '@/stores'
 import { useLayoutHydration } from '@/hooks/useLayoutHydration'
+import { useFloorPersistence } from '@/hooks/useFloorPersistence'
 import { ThemeToggle } from '@/components/ThemeToggle'
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -19,6 +20,9 @@ export default function App() {
 
   // Load the saved layout once, app-wide, so every surface sees real zones/tables.
   useLayoutHydration()
+
+  // Persist the current shift's runtime floor layer (seatings, merges, moves).
+  useFloorPersistence()
 
   // Apply the active theme to the document root so tokens flip globally.
   useEffect(() => {
