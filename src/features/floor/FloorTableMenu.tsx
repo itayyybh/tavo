@@ -1,10 +1,23 @@
 import type { EffectiveTable } from '@/services/floor'
 import { statusLabel } from './status'
 
+/** Occupied-table details for the card. */
+interface Occupancy {
+  /** The party's window, e.g. `17:00 – 19:00`. */
+  timeRange: string
+  partySize: number
+  /** The next booking on these tables (who's coming, and when). */
+  next?: { name: string; time: string }
+}
+
 interface FloorTableMenuProps {
   table: EffectiveTable
   /** Seated party's name, when occupied. */
   reservationName?: string
+  /** Member labels for a merged table, e.g. `7 + 10 + 11` (omit for a single). */
+  tablesLabel?: string
+  /** Time window / party size / next booking, when occupied. */
+  occupancy?: Occupancy
   /** Show the rotate action (hidden for a merged member). */
   canRotate: boolean
   /** Show the split action (a runtime-merged table). */
@@ -30,6 +43,8 @@ const action =
 export function FloorTableMenu({
   table,
   reservationName,
+  tablesLabel,
+  occupancy,
   canRotate,
   canSplit,
   onBlock,
@@ -41,14 +56,15 @@ export function FloorTableMenu({
   onClose,
 }: FloorTableMenuProps) {
   const { status } = table
+  // Header: the party's name when occupied, else the table(s) it names.
+  const heading =
+    reservationName ?? (tablesLabel ? `Tables ${tablesLabel}` : `Table ${table.base.label}`)
 
   return (
     <div className="absolute left-3 top-3 z-20">
-      <div className="min-w-44 rounded-xl border border-line bg-surface p-1.5 shadow-[var(--shadow-soft)]">
+      <div className="min-w-52 rounded-xl border border-line bg-surface p-1.5 shadow-[var(--shadow-soft)]">
         <div className="flex items-center justify-between gap-2 px-2 py-1">
-          <span className="truncate text-xs font-medium text-ink">
-            {reservationName ?? `Table ${table.base.label}`}
-          </span>
+          <span className="truncate text-xs font-medium text-ink">{heading}</span>
           <span
             className="flex items-center gap-1 text-xs text-muted"
             title={statusLabel[status]}
@@ -60,6 +76,28 @@ export function FloorTableMenu({
             {statusLabel[status]}
           </span>
         </div>
+
+        {/* The connected tables (when a name owns the header) + occupied details. */}
+        {(tablesLabel || occupancy) && (
+          <div className="mb-1 space-y-0.5 border-b border-line px-2 pb-1.5 pt-0.5">
+            {tablesLabel && reservationName && (
+              <div className="text-[11px] text-muted">Tables {tablesLabel}</div>
+            )}
+            {occupancy && (
+              <>
+                <div className="flex items-center justify-between gap-2 text-[11px]">
+                  <span className="tabular-nums text-ink">{occupancy.timeRange}</span>
+                  <span className="text-muted">{occupancy.partySize}p</span>
+                </div>
+                <div className="text-[11px] text-muted">
+                  {occupancy.next
+                    ? `Next: ${occupancy.next.name} · ${occupancy.next.time}`
+                    : 'No next booking'}
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         {status === 'occupied' && (
           <button className={action} onClick={onClear}>

@@ -79,3 +79,50 @@ export function zoneRemainingSeats({
     .reduce((sum, r) => sum + r.partySize, 0)
   return capacity - committed
 }
+
+/**
+ * Earliest start time (ISO) at/after the requested one when a zone has room for
+ * `partySize` — or null if it never fits (the party exceeds the zone's total
+ * capacity, so no time can ever hold it).
+ *
+ * The zone only gains seats when an overlapping reservation ends, so the sole
+ * candidate start times are those boundaries: each same-zone active
+ * reservation's end plus the turnover buffer. We test each in order and return
+ * the first that fits — the next realistic opening for that party.
+ */
+export function zoneNextFreeTime(
+  params: ZoneRemainingParams,
+  partySize: number,
+): string | null {
+  const { zoneId, tables, tableTypes, reservations, bufferMin, excludeId } = params
+  // No time can ever hold a party larger than the zone's whole capacity.
+  if (partySize > zoneSeatCapacity(zoneId, tables, tableTypes)) return null
+  const buffer = bufferMin * MINUTE
+  const requested = Date.parse(params.startISO)
+
+  // Candidate starts: every blocking reservation's (end + buffer) at/after the
+  // requested time — sorted ascending, de-duplicated. (The requested time itself
+  // is already known not to fit; the caller only asks when the zone is full.)
+  const candidates = [
+    ...new Set(
+      reservations
+        .filter(
+          (r) =>
+            (excludeId == null || r.id !== excludeId) &&
+            r.preferredZoneId === zoneId &&
+            isActiveStatus(r.status),
+        )
+        .map((r) => Date.parse(r.dateTime) + r.estimatedDuration * MINUTE + buffer)
+        .filter((t) => t > requested),
+    ),
+  ].sort((a, b) => a - b)
+
+  for (const start of candidates) {
+    const remaining = zoneRemainingSeats({
+      ...params,
+      startISO: new Date(start).toISOString(),
+    })
+    if (remaining >= partySize) return new Date(start).toISOString()
+  }
+  return null
+}
