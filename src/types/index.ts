@@ -209,6 +209,13 @@ export interface MergeConfig {
    * own, so {11,12} can be forbidden while {7,10,11,12} stays allowed.
    */
   forbiddenCombos: ID[][]
+  /**
+   * Same as `forbiddenCombos`, but authored by table LABEL — host-readable and
+   * stable across id changes (e.g. [["11","12"]]). Resolved against the current
+   * layout at eval time. The host-facing way to declare forbidden sets until the
+   * Phase 10 rules UI exists.
+   */
+  forbiddenLabelCombos?: string[][]
   /** Cap on tables per merged group. Undefined = no cap. */
   maxMergeSize?: number
   /**

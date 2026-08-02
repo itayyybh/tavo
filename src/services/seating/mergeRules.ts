@@ -64,16 +64,20 @@ const sameZone: MergeRule = {
   },
 }
 
-/** Reject a set that exactly matches a host-declared forbidden combination. */
+/** Reject a set that exactly matches a host-declared forbidden combination
+ * (by table id, or by label — whichever the host authored). */
 const notForbidden: MergeRule = {
   id: 'forbidden-combo',
   label: 'Not a forbidden combination',
   kind: 'membership',
   test: (members, ctx) => {
     const ids = new Set(members.map((t) => t.id))
-    const blocked = ctx.config.forbiddenCombos.some(
-      (combo) => combo.length === ids.size && combo.every((id) => ids.has(id)),
-    )
+    const labels = new Set(members.map((t) => t.label))
+    const exactMatch = (combo: string[], set: Set<string>) =>
+      combo.length === set.size && combo.every((v) => set.has(v))
+    const blocked =
+      ctx.config.forbiddenCombos.some((combo) => exactMatch(combo, ids)) ||
+      (ctx.config.forbiddenLabelCombos ?? []).some((combo) => exactMatch(combo, labels))
     return blocked ? 'This exact set of tables can’t be merged' : true
   },
 }
