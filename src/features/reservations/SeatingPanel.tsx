@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import { Button, Panel, Text } from '@/components/ui'
 import { useReservationStore, useDecisionLogStore } from '@/stores'
 import { useSeatingFloor } from '@/hooks/useSeatingFloor'
-import { suggestSeating, type Suggestion } from '@/services/seating'
+import { suggestSeating, explainNoFit, type Suggestion } from '@/services/seating'
 import type { ID, Reservation } from '@/types'
 import { cn } from '@/utils'
 
@@ -44,6 +44,10 @@ export function SeatingPanel({ reservation }: SeatingPanelProps) {
     () => suggestSeating(reservation, floor, others),
     [reservation, floor, others],
   )
+  const noFitReason = useMemo(
+    () => (suggestions.length === 0 ? explainNoFit(reservation, floor, others) : ''),
+    [suggestions.length, reservation, floor, others],
+  )
 
   const assigned = reservation.assignedTableIds ?? []
   const labelsFor = (ids: ID[]) => ids.map((id) => tableLabel.get(id) ?? id).join(' + ')
@@ -77,7 +81,7 @@ export function SeatingPanel({ reservation }: SeatingPanelProps) {
         <div className="rounded-lg border border-dashed border-line py-8 text-center">
           <Text className="font-medium text-ink">No table fits</Text>
           <Text muted className="mt-0.5 text-xs">
-            Party of {reservation.partySize} — no free table or merge available at this time.
+            {noFitReason}
           </Text>
         </div>
       ) : (

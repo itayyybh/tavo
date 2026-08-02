@@ -92,6 +92,8 @@ function clusterOverrides(
   tableIds: ID[],
   positionOverrides: Record<ID, Vec2>,
   rotationOverrides: Record<ID, number>,
+  /** The reservation's zone — the block is anchored on a table in it (bring-in). */
+  anchorZoneId?: ID,
 ): { positions: Record<ID, Vec2>; rotations: Record<ID, number> } {
   const empty = { positions: {}, rotations: {} }
   if (tableIds.length < 2) return empty
@@ -114,8 +116,11 @@ function clusterOverrides(
     }
     return tableTypes.find((ty) => ty.id === t.typeId)?.clearance ?? 0
   }
-  // Zone rule: non-smoking builds vertically, smoking horizontally (soft).
-  const zone = zones.find((z) => z.id === members[0].zoneId)
+  // Anchor on a table in the reservation's zone so a brought-in donor is pulled
+  // INTO that zone (the in-zone table keeps its place), not the other way round.
+  // The build direction follows the anchor's zone rule.
+  const anchor = (anchorZoneId && members.find((m) => m.zoneId === anchorZoneId)) || members[0]
+  const zone = zones.find((z) => z.id === anchor.zoneId)
   const dir = zoneArrangeDir(zone)
   const arranged = placeMergedBlock(members, tableTypes, {
     tables: others,
@@ -123,7 +128,7 @@ function clusterOverrides(
     zones,
     zonesIndex: zonesById(zones),
     clearanceOf,
-  }, dir)
+  }, dir, anchor.id)
   if (!arranged) return empty
   const positions: Record<ID, Vec2> = {}
   const rotations: Record<ID, number> = {}
@@ -151,10 +156,19 @@ export const useFloorStore = create<FloorState>((set, get) => ({
       seatedAt: now(),
     }
 
-    // A multi-table party physically joins into one merged table (editor geometry).
+    // A multi-table party physically joins into one merged table (editor geometry),
+    // anchored in the reservation's zone so a brought-in table is pulled to it.
+    const anchorZoneId = useReservationStore
+      .getState()
+      .reservations.find((r) => r.id === reservationId)?.preferredZoneId
     const cluster =
       seating.tableIds.length > 1
-        ? clusterOverrides(seating.tableIds, get().positionOverrides, get().rotationOverrides)
+        ? clusterOverrides(
+            seating.tableIds,
+            get().positionOverrides,
+            get().rotationOverrides,
+            anchorZoneId,
+          )
         : null
     // No clear spot for the block → merge stays logical, tables don't move, and
     // the host is asked to arrange them by hand.

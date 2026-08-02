@@ -70,11 +70,16 @@ function pushRoundsToEnds(sorted: Table[], isRound: (t: Table) => boolean): Tabl
  * Lay members out in one touching line along `dir`. Horizontal keeps each table's
  * orientation; vertical rotates rectangles 90° so they stand tall. The cross axis
  * is centered on the anchor (or edge-aligned when no round tables are present).
+ *
+ * `anchorId` pins which table starts the line — used for a cross-zone BRING so the
+ * in-zone table keeps its place and the donor is pulled to it (into the zone),
+ * rather than the line originating on the donor and dragging the in-zone table out.
  */
 function arrangeCluster(
   members: Table[],
   isRound: (t: Table) => boolean,
   dir: ArrangeDir,
+  anchorId?: ID,
 ): Map<ID, Placement> {
   const vertical = dir === 'vertical'
   // On-floor footprint + rotation: a vertical build stands rectangles upright.
@@ -93,6 +98,11 @@ function arrangeCluster(
     (a, b) => mainOf(a.position) - mainOf(b.position) || crossOf(a.position) - crossOf(b.position),
   )
   const sorted = pushRoundsToEnds(byPosition, isRound)
+  // Force the pinned anchor to the front so the line origins on it.
+  if (anchorId) {
+    const idx = sorted.findIndex((m) => m.id === anchorId)
+    if (idx > 0) sorted.unshift(sorted.splice(idx, 1)[0])
+  }
   const out = new Map<ID, Placement>()
   const anchor = sorted[0]
   const centered = members.some(isRound)
@@ -179,6 +189,7 @@ export function placeMergedBlock(
   tableTypes: TableType[],
   ctx: PlacementContext,
   preferredDir?: ArrangeDir,
+  anchorId?: ID,
 ): Map<ID, Placement> | null {
   if (members.length < 2) return null
   const typeOf = (t: Table) => tableTypes.find((ty) => ty.id === t.typeId)
@@ -189,7 +200,7 @@ export function placeMergedBlock(
     ? [preferredDir, preferredDir === 'horizontal' ? 'vertical' : 'horizontal']
     : ['horizontal']
   for (const dir of order) {
-    const arranged = arrangeCluster(members, isRound, dir)
+    const arranged = arrangeCluster(members, isRound, dir, anchorId)
     const { offset, ok } = findClearOffset(arranged, ctx, clearance)
     if (ok) return withOffset(arranged, offset)
   }
