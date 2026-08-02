@@ -32,6 +32,19 @@ export function groupCapacity(
   return members.length >= 3 ? Math.max(0, sum - (members.length - 1)) : sum
 }
 
+/**
+ * Seats a HYPOTHETICAL merge of these tables would provide — used by the seating
+ * engine to score merge candidates that aren't merged yet. Unlike `groupCapacity`
+ * (which reads each member's current merge state), this always treats members as
+ * connected, applying the same join penalty: every join past the first costs one
+ * seat for 3+ tables; a 2-table merge keeps the plain sum. 0 for fewer than 2.
+ */
+export function hypotheticalMergeCapacity(tables: Table[], types: TableType[]): number {
+  if (tables.length < 2) return 0
+  const sum = tables.reduce((total, t) => total + (typeOf(t, types)?.connectedCapacity ?? 0), 0)
+  return tables.length >= 3 ? Math.max(0, sum - (tables.length - 1)) : sum
+}
+
 export interface FloorTotals {
   tables: number
   seats: number

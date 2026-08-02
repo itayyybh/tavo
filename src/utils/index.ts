@@ -20,6 +20,56 @@ export {
   zoneDescendantIds,
   innermostZoneAt,
   deriveZoneParents,
+  countTablesByZone,
 } from './zones'
-export { seatsForTable, groupCapacity, floorTotals } from './capacity'
+export {
+  seatsForTable,
+  groupCapacity,
+  hypotheticalMergeCapacity,
+  floorTotals,
+} from './capacity'
 export type { FloorTotals } from './capacity'
+export {
+  toDateKey,
+  toTimeKey,
+  splitDateTime,
+  combineDateTime,
+  isValidDateTime,
+  formatTime,
+  formatDate,
+  formatClock,
+  minutesOfDay,
+  todayKey,
+  tomorrowKey,
+  isOnDay,
+} from './datetime'
+export {
+  statusLabel,
+  sourceLabel,
+  occasionLabel,
+  statusTransitions,
+  TERMINAL_STATUSES,
+  isActiveStatus,
+  canTransition,
+  matchesQuery,
+  filterReservations,
+  sortReservations,
+  findDuplicate,
+  summarizeReservations,
+  zoneReservationUsage,
+  bucketByTimeSlot,
+  isInSlot,
+  SLOT_MINUTES,
+} from './reservations'
+export type {
+  ReservationFilter,
+  ReservationSortKey,
+  ReservationSummaryData,
+  TimeSlot,
+} from './reservations'
+export { validateReservation, isValidDraft } from './reservationValidation'
+export type {
+  ReservationDraft,
+  ReservationErrors,
+  ReservationErrorField,
+} from './reservationValidation'
