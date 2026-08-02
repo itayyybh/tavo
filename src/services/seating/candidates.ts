@@ -96,6 +96,76 @@ function mergeCandidates(reservation: Reservation, floor: SeatingFloor): SeatCan
     }
   }
 
+  // Last resort: the proximity-seeded search above tries one nearest-neighbour
+  // chain per seed and stops at its first fit, so it can miss a valid combo
+  // whose members aren't mutually nearest (e.g. four tables scattered around a
+  // zone that together fit the party). Only kicks in PER ZONE where nothing
+  // above already reaches the party size in THAT zone — checking globally was a
+  // bug: a big-enough candidate in some OTHER zone (destined to be dropped by
+  // the hard zone rule downstream, `restrictToPreferredZone`) would suppress
+  // gather in the reservation's actual preferred zone, where it was needed.
+  if (floor.config.merge.lastResortGatherZone !== false) {
+    const satisfiedZones = new Set(
+      out.filter((c) => c.seats >= reservation.partySize).map((c) => c.zoneId),
+    )
+    out.push(...gatherFromZone(reservation, floor, ctx, available, seen, satisfiedZones))
+  }
+
+  return out
+}
+
+/**
+ * Last-resort merge: for each zone (except one that already has a big-enough
+ * candidate — `skipZones`), gather its free tables (largest first, ignoring
+ * physical proximity) and keep adding until the party fits or `maxMergeSize`
+ * is hit. One attempt per zone — a broader net than the per-seed
+ * nearest-neighbour search above, tried only once that's failed.
+ */
+function gatherFromZone(
+  reservation: Reservation,
+  floor: SeatingFloor,
+  ctx: MergeRuleContext,
+  available: Table[],
+  seen: Set<string>,
+  skipZones: Set<ID>,
+): SeatCandidate[] {
+  const maxSize = floor.config.merge.maxMergeSize ?? Infinity
+  const capOf = (t: Table) =>
+    floor.tableTypes.find((ty) => ty.id === t.typeId)?.connectedCapacity ?? 0
+  const zoneIds = new Set(available.map((t) => t.zoneId))
+  const out: SeatCandidate[] = []
+
+  for (const zoneId of zoneIds) {
+    if (skipZones.has(zoneId)) continue
+    const pool = available
+      .filter((t) => t.zoneId === zoneId)
+      .sort((a, b) => capOf(b) - capOf(a))
+
+    let members: Table[] = []
+    for (const cand of pool) {
+      if (members.length >= maxSize) break
+      const trial = [...members, cand]
+      if (trial.length >= 2 && !evaluateMerge(trial, ctx).ok) continue
+      members = trial
+      if (members.length < 2) continue
+      const seats = hypotheticalMergeCapacity(members, floor.tableTypes)
+      if (seats >= reservation.partySize) {
+        const key = comboKey(members.map((t) => t.id))
+        if (!seen.has(key)) {
+          seen.add(key)
+          out.push({
+            kind: 'merge',
+            tableIds: [...members.map((t) => t.id)].sort(),
+            tables: members,
+            seats,
+            zoneId,
+          })
+        }
+        break
+      }
+    }
+  }
+
   return out
 }
 

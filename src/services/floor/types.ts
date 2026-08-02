@@ -31,6 +31,12 @@ export interface EffectiveTable {
    * `occupied`, or the upcoming booking when `reserved`. Undefined otherwise.
    */
   reservationId?: ID
+  /**
+   * Set only while `status` is `available`: a booking further out than
+   * `reservedLookaheadMin` still holds this table later in the shift. Lets the
+   * UI hint "free now, booked at 7:30" instead of a bare seat count.
+   */
+  upcomingReservationId?: ID
   /** Effective merged-group id — a runtime merge overrides the base group. */
   mergedGroupId?: ID
   /** True when `mergedGroupId` refers to a runtime (this-shift) merge. */

@@ -84,9 +84,10 @@ function omit<V>(record: Record<ID, V>, key: ID): Record<ID, V> {
  * a floor merge looks identical. Arranges from the tables' CURRENT (effective)
  * placement.
  *
- * Returns EMPTY overrides when the block has no clear spot (`placeMergedBlock`
- * returns null): the party is still merged logically, but the tables stay put
- * rather than snapping into an overlapping pile. Empty too for < 2 members.
+ * `clear: false` when no fully clear spot was found — the tables still land in
+ * the correctly ORDERED line (a round member is always pushed to an end; see
+ * `placeMergedBlock`), just not guaranteed overlap-free. Empty overrides only
+ * for < 2 members (nothing to arrange).
  */
 function clusterOverrides(
   tableIds: ID[],
@@ -94,8 +95,8 @@ function clusterOverrides(
   rotationOverrides: Record<ID, number>,
   /** The reservation's zone — the block is anchored on a table in it (bring-in). */
   anchorZoneId?: ID,
-): { positions: Record<ID, Vec2>; rotations: Record<ID, number> } {
-  const empty = { positions: {}, rotations: {} }
+): { positions: Record<ID, Vec2>; rotations: Record<ID, number>; clear: boolean } {
+  const empty = { positions: {}, rotations: {}, clear: true }
   if (tableIds.length < 2) return empty
   const memberSet = new Set(tableIds)
   const { tables, tableTypes, obstacles, zones, mergedGroups } = useLayoutStore.getState()
@@ -132,11 +133,11 @@ function clusterOverrides(
   if (!arranged) return empty
   const positions: Record<ID, Vec2> = {}
   const rotations: Record<ID, number> = {}
-  for (const [id, p] of arranged) {
+  for (const [id, p] of arranged.placements) {
     positions[id] = p.position
     rotations[id] = p.rotation
   }
-  return { positions, rotations }
+  return { positions, rotations, clear: arranged.clear }
 }
 
 export const useFloorStore = create<FloorState>((set, get) => ({
@@ -170,10 +171,10 @@ export const useFloorStore = create<FloorState>((set, get) => ({
             anchorZoneId,
           )
         : null
-    // No clear spot for the block → merge stays logical, tables don't move, and
-    // the host is asked to arrange them by hand.
-    const needsArrange =
-      seating.tableIds.length > 1 && Object.keys(cluster?.positions ?? {}).length === 0
+    // No fully clear spot for the block → tables still land correctly ordered
+    // (round pushed to an end) but not guaranteed overlap-free; the host is
+    // asked to double-check/arrange by hand.
+    const needsArrange = seating.tableIds.length > 1 && cluster != null && !cluster.clear
 
     set((state) => {
       // Seating occupies the tables — drop any stale cleaning/blocked override.
@@ -333,7 +334,7 @@ export const useFloorStore = create<FloorState>((set, get) => ({
     const ids = [...new Set(tableIds)]
     if (ids.length < 2) return
     const cluster = clusterOverrides(ids, get().positionOverrides, get().rotationOverrides)
-    const needsArrange = Object.keys(cluster.positions).length === 0
+    const needsArrange = !cluster.clear
     set((state) => ({
       runtimeMerges: [
         ...state.runtimeMerges,

@@ -27,17 +27,29 @@ export interface DeriveFloorInput {
   reservations: Reservation[]
   /** The current shift's runtime override layer. */
   snapshot: FloorSnapshot
+  /**
+   * Minutes ahead of now a booking must be due before its table reads
+   * `reserved` (an `arrived` booking always counts, regardless of `dateTime`).
+   * A booking further out leaves the table `available` with `upcomingReservationId`
+   * set instead, so the host can still walk-in seat it. From
+   * `settingsStore.reservedLookaheadMin`.
+   */
+  reservedLookaheadMin: number
+  /** Injectable for tests; defaults to the real clock. */
+  now?: number
 }
 
 /**
  * Resolve the effective floor. Status precedence, highest wins:
  * `occupied` (in a seating) → `blocked` → `cleaning` (host overrides) →
- * `reserved` (assigned by an upcoming booking) → `available`.
+ * `reserved` (booking due within the lookahead window) → `available`.
  */
 export function deriveFloorState({
   tables,
   reservations,
   snapshot,
+  reservedLookaheadMin,
+  now = Date.now(),
 }: DeriveFloorInput): EffectiveFloor {
   const { seatings, runtimeMerges, statusOverrides, positionOverrides, rotationOverrides } =
     snapshot
@@ -56,12 +68,17 @@ export function deriveFloorState({
     for (const tableId of m.tableIds) runtimeMergeByTable.set(tableId, m.id)
   }
 
-  // table id → an upcoming reservation that has reserved it.
+  // table id → the reservation holding it, split by how soon it's due.
+  // `arrived` is always "due now" regardless of dateTime (the guest is here).
+  const lookaheadMs = reservedLookaheadMin * 60_000
   const reservedByTable = new Map<ID, ID>()
+  const upcomingByTable = new Map<ID, ID>()
   for (const r of reservations) {
     if (!RESERVING_STATUSES.includes(r.status)) continue
+    const dueSoon = r.status === 'arrived' || Date.parse(r.dateTime) - now <= lookaheadMs
+    const target = dueSoon ? reservedByTable : upcomingByTable
     for (const tableId of r.assignedTableIds ?? []) {
-      if (!reservedByTable.has(tableId)) reservedByTable.set(tableId, r.id)
+      if (!target.has(tableId)) target.set(tableId, r.id)
     }
   }
 
@@ -96,6 +113,9 @@ export function deriveFloorState({
       status,
       seatingId,
       reservationId,
+      // Only meaningful while available — a further-out booking still on the
+      // books, so the host can seat a walk-in here without being blindsided.
+      upcomingReservationId: status === 'available' ? upcomingByTable.get(base.id) : undefined,
       mergedGroupId: runtimeMergeId ?? base.mergedGroupId,
       isRuntimeMerge: runtimeMergeId != null,
     }

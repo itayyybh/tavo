@@ -8,8 +8,11 @@ import { useContainerSize } from '@/hooks/useContainerSize'
 import {
   aabb,
   formatTime,
+  groupCapacity,
   overlapArea,
   placementBlocked,
+  pointInRect,
+  screenToWorld,
   seatsForTable,
   snapPoint,
   zoneDepth,
@@ -25,6 +28,7 @@ import { summarizeFloor, type EffectiveTable } from '@/services/floor'
 import { FloorTableNode } from './FloorTableNode'
 import { FloorControls } from './FloorControls'
 import { FloorTableMenu } from './FloorTableMenu'
+import { RESERVATION_DRAG_MIME } from './FloorReservationRail'
 import { useEffectiveFloor } from './hooks/useEffectiveFloor'
 import { useFloorColors } from './hooks/useFloorColors'
 import { useFloorCamera, type Bounds } from './hooks/useFloorCamera'
@@ -76,6 +80,7 @@ export function FloorCanvas() {
   const setFocusedZone = useUIStore((s) => s.setFocusedZone)
 
   const seatings = useFloorStore((s) => s.seatings)
+  const seatReservation = useFloorStore((s) => s.seat)
   const setTableStatus = useFloorStore((s) => s.setTableStatus)
   const finishCleaning = useFloorStore((s) => s.finishCleaning)
   const finishAllCleaning = useFloorStore((s) => s.finishAllCleaning)
@@ -100,7 +105,8 @@ export function FloorCanvas() {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const clearSelection = useCallback(() => setSelectedIds([]), [])
 
-  // Transient top-center notice (e.g. a merge that couldn't be auto-placed).
+  // Transient top-center notice — a merge that couldn't be auto-placed, or a
+  // rejected reservation drop (not available / not enough seats).
   const [notice, setNotice] = useState<string | null>(null)
   const noticeTimer = useRef<number | null>(null)
   const flashNotice = useCallback((msg: string) => {
@@ -328,6 +334,74 @@ export function FloorCanvas() {
     if (stage) commitPan({ x: stage.x(), y: stage.y() })
   }
 
+  // Real seat count for a candidate drop target: a single table's capacity, or
+  // a merge's (honoring a manual `MergedGroup.seats` override when the target IS
+  // an existing group — same number the hull badge shows), never a naive sum.
+  const capacityOfTarget = useCallback(
+    (ids: string[]): number => {
+      const members = ids
+        .map((id) => effective.byId[id]?.base)
+        .filter((t): t is Table => !!t)
+      if (members.length <= 1) {
+        const et = ids[0] ? effective.byId[ids[0]] : undefined
+        return et ? seatsForTable(et.base, typeById.get(et.base.typeId)) : 0
+      }
+      const group = hullGroups.find(
+        (g) => g.tableIds.length === ids.length && ids.every((id) => g.tableIds.includes(id)),
+      )
+      return groupCapacity(members, tableTypes, group)
+    },
+    [effective, typeById, hullGroups, tableTypes],
+  )
+
+  /**
+   * Drop a reservation card (dragged from the rail) onto the floor — a manual
+   * seat that bypasses the suggestion engine entirely. Target tables: whatever
+   * is currently selected (so the host can hand-pick an arbitrary combo the
+   * engine's proximity-bounded merge search doesn't find), or, with nothing
+   * selected, whichever single table (or its existing merged group) sits under
+   * the drop point. Refuses — with a toast, never a silent no-op — if any target
+   * isn't `available`, or if the target's real capacity is short of the party
+   * (dropping a party of 9 onto a 7-seat merge must not quietly under-seat them).
+   */
+  const handleReservationDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    const reservationId = e.dataTransfer.getData(RESERVATION_DRAG_MIME)
+    if (!reservationId) return
+    const reservation = reservationsById.get(reservationId)
+    if (!reservation) return
+
+    let targetIds = selectedIds
+    if (targetIds.length === 0) {
+      const rect = containerRef.current?.getBoundingClientRect()
+      if (!rect) return
+      const world = screenToWorld(
+        { x: e.clientX - rect.left, y: e.clientY - rect.top },
+        viewport,
+      )
+      const hit = visibleEffective.find((et) => pointInRect(world, aabb(et.position, et.base.size)))
+      if (!hit) return
+      targetIds = expandGroups(hit.base.id)
+    }
+
+    const allAvailable = targetIds.every((id) => effective.byId[id]?.status === 'available')
+    if (!allAvailable) {
+      flashNotice('One of those tables isn’t free.')
+      return
+    }
+
+    const capacity = capacityOfTarget(targetIds)
+    if (capacity < reservation.partySize) {
+      flashNotice(
+        `Party of ${reservation.partySize} needs ${reservation.partySize} seats — that's only ${capacity}.`,
+      )
+      return
+    }
+
+    seatReservation(reservationId, targetIds)
+    clearSelection()
+  }
+
   // While dragging a merged member, move its siblings + the hull body live so the
   // whole group travels as one (not a lone shadow with a lagging body).
   const handleTableDragMove = (id: string) => {
@@ -485,6 +559,11 @@ export function FloorCanvas() {
         ref={containerRef}
         className="relative min-h-0 flex-1 bg-[#ececeb] dark:bg-[#141414]"
         style={{ touchAction: 'none' }}
+        onDragOver={(e) => {
+          e.preventDefault()
+          e.dataTransfer.dropEffect = 'move'
+        }}
+        onDrop={handleReservationDrop}
       >
         <Stage
           ref={stageRef}
@@ -536,6 +615,9 @@ export function FloorCanvas() {
               const res = et.reservationId ? reservationsById.get(et.reservationId) : undefined
               const showGuest =
                 !!res && (et.status === 'occupied' || et.status === 'reserved')
+              const upcoming = et.upcomingReservationId
+                ? reservationsById.get(et.upcomingReservationId)
+                : undefined
               return (
                 <FloorTableNode
                   key={et.base.id}
@@ -549,13 +631,15 @@ export function FloorCanvas() {
                   onDragMove={handleTableDragMove}
                   onDragEnd={handleTableDragEnd}
                   registerNode={registerNode}
-                  primary={showGuest && res ? res.guestName : et.base.label}
+                  primary={showGuest && res ? res.guestName : et.base.label || '?'}
                   secondary={
                     showGuest && res
-                      ? `${res.partySize}p · ${et.base.label}`
-                      : seats > 0
-                        ? `${seats} seats`
-                        : undefined
+                      ? `${res.partySize}p · ${et.base.label || '?'}`
+                      : upcoming
+                        ? `Free · ${formatTime(upcoming.dateTime)} booked`
+                        : seats > 0
+                          ? `${seats} seats`
+                          : undefined
                   }
                 />
               )

@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { useFloorStore, useReservationStore } from '@/stores'
+import { useFloorStore, useReservationStore, useSettingsStore } from '@/stores'
 import { useSeatingFloor } from '@/hooks/useSeatingFloor'
 import { deriveFloorState, type EffectiveFloor } from '@/services/floor'
 
@@ -19,6 +19,7 @@ export function useEffectiveFloor(): EffectiveFloor {
   const cleaningSince = useFloorStore((s) => s.cleaningSince)
   const positionOverrides = useFloorStore((s) => s.positionOverrides)
   const rotationOverrides = useFloorStore((s) => s.rotationOverrides)
+  const reservedLookaheadMin = useSettingsStore((s) => s.reservedLookaheadMin)
 
   return useMemo(
     () =>
@@ -33,6 +34,7 @@ export function useEffectiveFloor(): EffectiveFloor {
           positionOverrides,
           rotationOverrides,
         },
+        reservedLookaheadMin,
       }),
     [
       tables,
@@ -43,6 +45,7 @@ export function useEffectiveFloor(): EffectiveFloor {
       cleaningSince,
       positionOverrides,
       rotationOverrides,
+      reservedLookaheadMin,
     ],
   )
 }
