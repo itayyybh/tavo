@@ -37,6 +37,25 @@ export function suggestSeating(
 }
 
 /**
+ * Can the reservation's preferred zone EVER physically seat the party — a single
+ * table or a rule-valid merge that reaches the party size, ignoring current
+ * occupancy and time? Used by the create gate: aggregate seat capacity can say a
+ * zone "has room" while no actual table or merge fits (e.g. a party of 8 in a
+ * zone of 2-tops that can't merge that large). Reuses the real candidate + fit
+ * logic on an all-available snapshot, so it honours merge/forbidden/large-party
+ * and cross-zone bring rules exactly as the live engine would.
+ */
+export function zoneHasFit(reservation: Reservation, floor: SeatingFloor): boolean {
+  const openFloor: SeatingFloor = {
+    ...floor,
+    tables: floor.tables.map((t) => ({ ...t, status: 'available' as const })),
+  }
+  return generateCandidates(reservation, openFloor, []).some(
+    (candidate) => canSeat(reservation, candidate, openFloor, []).ok,
+  )
+}
+
+/**
  * Why no option fits, for the empty state — so "No table fits" is actionable
  * instead of mysterious. Distinguishes the real reasons: nothing free in the
  * zone, the free tables can't reach the party size (capacity ceiling, bounded by
