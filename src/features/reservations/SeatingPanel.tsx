@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import { Button, Panel, Text } from '@/components/ui'
 import { useReservationStore, useDecisionLogStore } from '@/stores'
 import { useSeatingFloor } from '@/hooks/useSeatingFloor'
-import { suggestSeating, type Suggestion } from '@/services/seating'
+import { suggestSeating, explainNoFit, type Suggestion } from '@/services/seating'
 import type { ID, Reservation } from '@/types'
 import { cn } from '@/utils'
 
@@ -44,6 +44,10 @@ export function SeatingPanel({ reservation }: SeatingPanelProps) {
     () => suggestSeating(reservation, floor, others),
     [reservation, floor, others],
   )
+  const noFitReason = useMemo(
+    () => (suggestions.length === 0 ? explainNoFit(reservation, floor, others) : ''),
+    [suggestions.length, reservation, floor, others],
+  )
 
   const assigned = reservation.assignedTableIds ?? []
   const labelsFor = (ids: ID[]) => ids.map((id) => tableLabel.get(id) ?? id).join(' + ')
@@ -63,7 +67,7 @@ export function SeatingPanel({ reservation }: SeatingPanelProps) {
             <Text className="text-[10px] font-semibold uppercase tracking-wide text-muted">
               Reserved
             </Text>
-            <Text className="truncate text-sm font-medium text-ink">
+            <Text className="break-words text-sm font-medium text-ink">
               {labelsFor(assigned)}
             </Text>
           </div>
@@ -77,7 +81,7 @@ export function SeatingPanel({ reservation }: SeatingPanelProps) {
         <div className="rounded-lg border border-dashed border-line py-8 text-center">
           <Text className="font-medium text-ink">No table fits</Text>
           <Text muted className="mt-0.5 text-xs">
-            Party of {reservation.partySize} — no free table or merge available at this time.
+            {noFitReason}
           </Text>
         </div>
       ) : (
@@ -86,7 +90,7 @@ export function SeatingPanel({ reservation }: SeatingPanelProps) {
             const chosen = assigned.length > 0 && labelsFor(assigned) === labelsFor(s.candidate.tableIds)
             return (
               <motion.div
-                key={s.candidate.tableIds.join('+')}
+                key={s.candidate.tableIds.join('+') + (s.candidate.relocateToZoneId ? ':bring' : '')}
                 initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.18, ease: 'easeOut', delay: i * 0.03 }}
@@ -97,8 +101,8 @@ export function SeatingPanel({ reservation }: SeatingPanelProps) {
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate text-sm font-semibold text-ink">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="break-words text-sm font-semibold text-ink">
                         {labelsFor(s.candidate.tableIds)}
                       </span>
                       {i === 0 && (
@@ -115,6 +119,13 @@ export function SeatingPanel({ reservation }: SeatingPanelProps) {
                         <span> · {zoneName.get(s.candidate.zoneId)}</span>
                       )}
                     </div>
+                    {s.candidate.relocateToZoneId && (
+                      <div className="mt-1 text-[11px] font-medium text-ink">
+                        {s.candidate.zoneId === s.candidate.relocateToZoneId
+                          ? `Bring a table into ${zoneName.get(s.candidate.relocateToZoneId)}`
+                          : `Bring from ${zoneName.get(s.candidate.zoneId)} → ${zoneName.get(s.candidate.relocateToZoneId)}`}
+                      </div>
+                    )}
                   </div>
                   <Button
                     size="sm"

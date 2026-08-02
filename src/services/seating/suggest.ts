@@ -29,9 +29,32 @@ export function suggestSeating(
   others: Reservation[] = [],
   limit: number = DEFAULT_SUGGESTION_LIMIT,
 ): Suggestion[] {
-  return generateCandidates(reservation, floor)
+  return generateCandidates(reservation, floor, others)
     .filter((candidate) => canSeat(reservation, candidate, floor, others).ok)
     .map((candidate) => scoreCandidate(reservation, candidate, floor))
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)
+}
+
+/**
+ * Why no option fits, for the empty state — so "No table fits" is actionable
+ * instead of mysterious. Distinguishes the real reasons: nothing free in the
+ * zone, the free tables can't reach the party size (capacity ceiling, bounded by
+ * `maxMergeSize`), or tables that WOULD fit are booked in this window.
+ */
+export function explainNoFit(
+  reservation: Reservation,
+  floor: SeatingFloor,
+  others: Reservation[] = [],
+): string {
+  const candidates = generateCandidates(reservation, floor, others)
+  if (candidates.length === 0) return 'No free tables in the preferred zone right now.'
+
+  const bigEnough = candidates.filter((c) => c.seats >= reservation.partySize)
+  if (bigEnough.length === 0) {
+    const max = Math.max(...candidates.map((c) => c.seats))
+    return `The largest available table or merge seats ${max} — a party of ${reservation.partySize} needs more. Free up tables, or raise the merge limit (now ${floor.config.merge.maxMergeSize}).`
+  }
+  // Something is large enough but every such option was rejected → time conflict.
+  return 'Every table big enough is booked at this time.'
 }

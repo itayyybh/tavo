@@ -49,6 +49,7 @@ export function ZonesPanel({ onClosePanel }: ZonesPanelProps) {
   const countFor = (zoneId: string) => tables.filter((t) => t.zoneId === zoneId).length
   const unassigned = tables.filter((t) => !t.zoneId).length
   const selectedCount = selectedTableIds.length
+  const selectedZone = zones.find((z) => z.id === selectedZoneId)
 
   const startRename = (id: string, name: string) => {
     setRenamingId(id)
@@ -259,6 +260,57 @@ export function ZonesPanel({ onClosePanel }: ZonesPanelProps) {
           {dragId ? 'Drop on a zone to nest · drop here to unnest' : `Unassigned: ${unassigned}`}
         </p>
       </div>
+
+      {selectedZone && (
+        <div className="space-y-2 border-t border-line p-3">
+          <p className="text-xs font-medium text-ink">Smoking policy</p>
+          <div className="flex flex-wrap gap-1.5">
+            {(
+              [
+                ['None', undefined],
+                ['Smoking', 'smoking'],
+                ['Non-smoking', 'non-smoking'],
+              ] as const
+            ).map(([label, value]) => (
+              <Button
+                key={label}
+                size="sm"
+                variant={(selectedZone.smoking ?? undefined) === value ? 'primary' : 'secondary'}
+                onClick={() => updateZone(selectedZone.id, { smoking: value })}
+              >
+                {label}
+              </Button>
+            ))}
+          </div>
+          <p className="text-[11px] text-muted">
+            Non-smoking merges build vertically; smoking horizontally.
+          </p>
+
+          <p className="pt-2 text-xs font-medium text-ink">Table relocation</p>
+          <div className="flex flex-wrap gap-1.5">
+            {(
+              [
+                ['Auto', undefined],
+                ['Allowed', true],
+                ['Blocked', false],
+              ] as const
+            ).map(([label, value]) => (
+              <Button
+                key={label}
+                size="sm"
+                variant={selectedZone.allowTableRelocation === value ? 'primary' : 'secondary'}
+                onClick={() => updateZone(selectedZone.id, { allowTableRelocation: value })}
+              >
+                {label}
+              </Button>
+            ))}
+          </div>
+          <p className="text-[11px] text-muted">
+            Whether tables may be brought in/out for a cross-zone merge. Auto:
+            only smoking / non-smoking zones relocate; indoor zones stay put.
+          </p>
+        </div>
+      )}
 
       {selectedCount > 0 && (
         <div className="space-y-2 border-t border-line p-3">

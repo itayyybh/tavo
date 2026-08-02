@@ -1,5 +1,6 @@
 export { cn } from './cn'
 export { createId } from './id'
+export { mixHex } from './color'
 export {
   clamp,
   snap,
@@ -15,6 +16,7 @@ export {
 } from './geometry'
 export {
   zonesById,
+  zoneAllowsRelocation,
   zoneDepth,
   zoneAncestorIds,
   zoneDescendantIds,
@@ -22,6 +24,7 @@ export {
   deriveZoneParents,
   countTablesByZone,
 } from './zones'
+export { placementBlocked, type PlacementContext } from './placement'
 export {
   seatsForTable,
   groupCapacity,
@@ -29,6 +32,7 @@ export {
   floorTotals,
 } from './capacity'
 export type { FloorTotals } from './capacity'
+export { zoneSeatCapacity, zoneRemainingSeats, type ZoneRemainingParams } from './zoneCapacity'
 export {
   toDateKey,
   toTimeKey,
