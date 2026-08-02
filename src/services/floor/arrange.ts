@@ -14,8 +14,8 @@
  * connect on their width edge — otherwise a wide table would sit sideways and break
  * the column. Round tables are orientation-neutral and never rotated.
  */
-import type { ID, Obstacle, Table, TableType, Vec2, Zone } from '@/types'
-import { aabb, boxBlocked } from '@/utils'
+import type { ID, Table, TableType, Vec2, Zone } from '@/types'
+import { placementBlocked, type PlacementContext } from '@/utils'
 
 /** Overlap (world units) between touching members so borders merge seamlessly. */
 const SEAM_OVERLAP = 1
@@ -110,22 +110,29 @@ function arrangeCluster(
   return out
 }
 
+const NO_IGNORE: Set<string> = new Set()
+
 /**
- * Smallest offset that moves the whole line clear of other tables/obstacles,
- * keeping each member's chair-clearance. `ok` is false when no clear spot was
- * found within the search rings (the offset then falls back to origin).
+ * Smallest offset that moves the whole line clear of other tables/obstacles and
+ * out of foreign nested zones, keeping each member's chair-clearance. Uses the
+ * shared `placementBlocked` gate — the same legality test the editor drag uses.
+ * `ok` is false when no clear spot was found within the search rings.
  */
 function findClearOffset(
   placed: Map<ID, Placement>,
-  otherTables: Table[],
-  obstacles: Obstacle[],
+  ctx: PlacementContext,
   clearance: number,
 ): { offset: Vec2; ok: boolean } {
   const blockedAt = (delta: Vec2) =>
-    [...placed.values()].some((p) => {
-      const box = aabb({ x: p.position.x + delta.x, y: p.position.y + delta.y }, p.footprint)
-      return boxBlocked(box, otherTables, obstacles, new Set(), undefined, clearance)
-    })
+    [...placed.values()].some((p) =>
+      placementBlocked(
+        { x: p.position.x + delta.x, y: p.position.y + delta.y },
+        p.footprint,
+        NO_IGNORE,
+        ctx,
+        clearance,
+      ),
+    )
 
   if (!blockedAt({ x: 0, y: 0 })) return { offset: { x: 0, y: 0 }, ok: true }
   for (let ring = 1; ring <= SEARCH_RINGS; ring++) {
@@ -156,35 +163,35 @@ function withOffset(placed: Map<ID, Placement>, offset: Vec2): Map<ID, Placement
 
 /**
  * Cluster `members` into one touching line and return each member's placement
- * (center + rotation), nudged clear of `otherTables`/`obstacles`. `preferredDir`
- * (zone rule) is tried first and kept unless it can't fit clear, in which case the
- * other direction is used (soft). Defaults to horizontal when no rule applies.
- * Returns an empty map for fewer than two members.
+ * (center + rotation), nudged to a spot clear of other tables/obstacles/foreign
+ * zones via the shared `placementBlocked` gate. `preferredDir` (zone rule) is
+ * tried first, then the other direction (soft).
+ *
+ * Returns `null` when NO clear spot exists in either direction — the caller then
+ * leaves the tables where they are (a logical merge without a physical move)
+ * rather than snapping them into an overlapping pile. This is the deliberate
+ * break from the old auto-arrange, which returned a blocked layout and caused
+ * tables to sit on top of each other. `ctx.tables` is the OTHER (non-member)
+ * tables to test against; members move together.
  */
-export function arrangeSeatingCluster(
+export function placeMergedBlock(
   members: Table[],
   tableTypes: TableType[],
-  otherTables: Table[],
-  obstacles: Obstacle[],
+  ctx: PlacementContext,
   preferredDir?: ArrangeDir,
-): Map<ID, Placement> {
-  if (members.length < 2) return new Map()
+): Map<ID, Placement> | null {
+  if (members.length < 2) return null
   const typeOf = (t: Table) => tableTypes.find((ty) => ty.id === t.typeId)
   const isRound = (t: Table) => typeOf(t)?.shape === 'round'
   const clearance = Math.max(0, ...members.map((m) => typeOf(m)?.clearance ?? 0))
 
-  // Try the preferred direction first, then the other; a clear fit wins, else the
-  // preferred (blocked) layout is kept.
   const order: ArrangeDir[] = preferredDir
     ? [preferredDir, preferredDir === 'horizontal' ? 'vertical' : 'horizontal']
     : ['horizontal']
-  let fallback: Map<ID, Placement> | null = null
   for (const dir of order) {
     const arranged = arrangeCluster(members, isRound, dir)
-    const { offset, ok } = findClearOffset(arranged, otherTables, obstacles, clearance)
-    const positioned = withOffset(arranged, offset)
-    if (ok) return positioned
-    if (!fallback) fallback = positioned
+    const { offset, ok } = findClearOffset(arranged, ctx, clearance)
+    if (ok) return withOffset(arranged, offset)
   }
-  return fallback ?? new Map()
+  return null
 }

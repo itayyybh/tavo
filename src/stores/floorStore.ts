@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { FloorSnapshot, ID, Seating, Table, Vec2 } from '@/types'
-import { createId } from '@/utils'
-import { arrangeSeatingCluster, zoneArrangeDir } from '@/services/floor'
+import { createId, zonesById } from '@/utils'
+import { placeMergedBlock, zoneArrangeDir } from '@/services/floor'
 import { useLayoutStore } from './layoutStore'
 import { useReservationStore } from './reservationStore'
 
@@ -80,30 +80,51 @@ function omit<V>(record: Record<ID, V>, key: ID): Record<ID, V> {
 
 /**
  * Compute position + rotation overrides that snap `tableIds` into one touching
- * cluster — the same arrangement the editor's merge uses, so a floor merge looks
- * identical. Arranges from the tables' CURRENT (effective) placement and zeroes
- * their rotation. Empty for fewer than two members.
+ * cluster — the same arrangement (and legality gate) the editor's merge uses, so
+ * a floor merge looks identical. Arranges from the tables' CURRENT (effective)
+ * placement.
+ *
+ * Returns EMPTY overrides when the block has no clear spot (`placeMergedBlock`
+ * returns null): the party is still merged logically, but the tables stay put
+ * rather than snapping into an overlapping pile. Empty too for < 2 members.
  */
 function clusterOverrides(
   tableIds: ID[],
   positionOverrides: Record<ID, Vec2>,
   rotationOverrides: Record<ID, number>,
 ): { positions: Record<ID, Vec2>; rotations: Record<ID, number> } {
-  if (tableIds.length < 2) return { positions: {}, rotations: {} }
+  const empty = { positions: {}, rotations: {} }
+  if (tableIds.length < 2) return empty
   const memberSet = new Set(tableIds)
-  const { tables, tableTypes, obstacles, zones } = useLayoutStore.getState()
+  const { tables, tableTypes, obstacles, zones, mergedGroups } = useLayoutStore.getState()
   const effective = (t: Table): Table => ({
     ...t,
     position: positionOverrides[t.id] ?? t.position,
     rotation: rotationOverrides[t.id] ?? t.rotation,
   })
   const members = tables.filter((t) => memberSet.has(t.id)).map(effective)
-  if (members.length < 2) return { positions: {}, rotations: {} }
+  if (members.length < 2) return empty
   const others = tables.filter((t) => !memberSet.has(t.id)).map(effective)
+  // A merged group's manual clearance override wins for all its members (mirrors
+  // the editor); otherwise fall back to the table type's clearance.
+  const clearanceOf = (t: Table) => {
+    if (t.mergedGroupId) {
+      const g = mergedGroups.find((mg) => mg.id === t.mergedGroupId)
+      if (g?.clearance != null) return g.clearance
+    }
+    return tableTypes.find((ty) => ty.id === t.typeId)?.clearance ?? 0
+  }
   // Zone rule: non-smoking builds vertically, smoking horizontally (soft).
   const zone = zones.find((z) => z.id === members[0].zoneId)
   const dir = zoneArrangeDir(zone)
-  const arranged = arrangeSeatingCluster(members, tableTypes, others, obstacles, dir)
+  const arranged = placeMergedBlock(members, tableTypes, {
+    tables: others,
+    obstacles,
+    zones,
+    zonesIndex: zonesById(zones),
+    clearanceOf,
+  }, dir)
+  if (!arranged) return empty
   const positions: Record<ID, Vec2> = {}
   const rotations: Record<ID, number> = {}
   for (const [id, p] of arranged) {
