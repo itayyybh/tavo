@@ -1,5 +1,13 @@
 import { useMemo } from 'react'
-import { useFloorStore, useLayoutStore, useReservationStore, useUIStore } from '@/stores'
+import {
+  useFloorStore,
+  useLayoutStore,
+  useReservationStore,
+  useSettingsStore,
+  useUIStore,
+} from '@/stores'
+import { useSeatingFloor } from '@/hooks/useSeatingFloor'
+import { explainNoFit, suggestSeating, type Suggestion } from '@/services/seating'
 import { formatTime, isOnDay, todayKey } from '@/utils'
 import type { Reservation, Zone } from '@/types'
 
@@ -27,6 +35,8 @@ export function FloorReservationRail() {
   const seat = useFloorStore((s) => s.seat)
   const clear = useFloorStore((s) => s.clear)
   const focusedZoneId = useUIStore((s) => s.focusedZoneId)
+  const waitlistEnabled = useSettingsStore((s) => s.waitlistEnabled)
+  const seatingFloor = useSeatingFloor()
 
   const zoneById = useMemo(() => new Map(zones.map((z) => [z.id, z])), [zones])
   const tableZone = useMemo(
@@ -79,6 +89,31 @@ export function FloorReservationRail() {
     [seatings, focusedZoneId, tableZone],
   )
 
+  // Walk-ins with no table yet — no `assignedTableIds`, so each row asks the
+  // engine for its own best-fit suggestion (no reservation form step for these).
+  const waitlist = useMemo(
+    () =>
+      waitlistEnabled
+        ? reservations
+            .filter(
+              (r) =>
+                r.status === 'waitlist' &&
+                isOnDay(r.dateTime, day) &&
+                (!focusedZoneId || r.preferredZoneId === focusedZoneId),
+            )
+            .sort((a, b) => a.dateTime.localeCompare(b.dateTime))
+        : [],
+    [waitlistEnabled, reservations, day, focusedZoneId],
+  )
+  const waitlistSuggestion = useMemo(() => {
+    const map = new Map<string, Suggestion | undefined>()
+    for (const r of waitlist) {
+      const others = reservations.filter((o) => o.id !== r.id)
+      map.set(r.id, suggestSeating(r, seatingFloor, others)[0])
+    }
+    return map
+  }, [waitlist, reservations, seatingFloor])
+
   return (
     <aside className="flex w-72 flex-col border-l border-line bg-surface-2">
       <Section title="Upcoming" count={upcoming.length}>
@@ -121,6 +156,52 @@ export function FloorReservationRail() {
           )
         })}
       </Section>
+
+      {waitlistEnabled && (
+        <Section title="Waitlist" count={waitlist.length}>
+          {waitlist.length === 0 && <Empty>Nobody waiting.</Empty>}
+          {waitlist.map((r) => {
+            const suggestion = waitlistSuggestion.get(r.id)
+            return (
+              <li key={r.id} className="rounded-xl border border-line bg-surface p-2.5">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="truncate text-sm font-medium text-ink">
+                    {r.guestName}
+                  </span>
+                  <span className="shrink-0 text-xs text-muted">
+                    Since {formatTime(r.dateTime)}
+                  </span>
+                </div>
+                <div className="mt-1 flex items-center gap-2">
+                  <ZoneTag zone={zoneById.get(r.preferredZoneId ?? '')} />
+                  <span className="text-xs text-muted">
+                    {r.partySize}p ·{' '}
+                    {suggestion ? (
+                      <span className="text-ink">{labelOf(suggestion.candidate.tableIds)}</span>
+                    ) : (
+                      'no table'
+                    )}
+                  </span>
+                </div>
+                <div className="mt-2 flex justify-end">
+                  <button
+                    className={seatBtn}
+                    disabled={!suggestion}
+                    title={
+                      suggestion
+                        ? undefined
+                        : explainNoFit(r, seatingFloor, reservations.filter((o) => o.id !== r.id))
+                    }
+                    onClick={() => suggestion && seat(r.id, suggestion.candidate.tableIds)}
+                  >
+                    Seat
+                  </button>
+                </div>
+              </li>
+            )
+          })}
+        </Section>
+      )}
 
       <Section title="Seated" count={seated.length} accentVar="--color-status-occupied">
         {seated.length === 0 && <Empty>Nobody seated yet.</Empty>}

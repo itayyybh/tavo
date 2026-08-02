@@ -53,7 +53,7 @@ export const occasionLabel: Record<ReservationOccasion, string> = {
 export const statusTransitions: Record<ReservationStatus, ReservationStatus[]> = {
   pending: ['confirmed', 'waitlist', 'arrived', 'cancelled', 'no_show'],
   confirmed: ['arrived', 'seated', 'waitlist', 'cancelled', 'no_show'],
-  waitlist: ['confirmed', 'arrived', 'cancelled', 'no_show'],
+  waitlist: ['confirmed', 'arrived', 'seated', 'cancelled', 'no_show'],
   arrived: ['seated', 'completed', 'cancelled', 'no_show'],
   seated: ['completed', 'cancelled'],
   completed: ['pending'],

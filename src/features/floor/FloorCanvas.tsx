@@ -6,6 +6,7 @@ import { useFloorStore, useReservationStore, useSettingsStore, useUIStore } from
 import { useContainerSize } from '@/hooks/useContainerSize'
 import {
   aabb,
+  formatTime,
   overlapArea,
   placementBlocked,
   seatsForTable,
@@ -451,6 +452,9 @@ export function FloorCanvas() {
               const res = et.reservationId ? reservationsById.get(et.reservationId) : undefined
               const showGuest =
                 !!res && (et.status === 'occupied' || et.status === 'reserved')
+              const upcoming = et.upcomingReservationId
+                ? reservationsById.get(et.upcomingReservationId)
+                : undefined
               return (
                 <FloorTableNode
                   key={et.base.id}
@@ -467,9 +471,11 @@ export function FloorCanvas() {
                   secondary={
                     showGuest && res
                       ? `${res.partySize}p · ${et.base.label}`
-                      : seats > 0
-                        ? `${seats} seats`
-                        : undefined
+                      : upcoming
+                        ? `Free · ${formatTime(upcoming.dateTime)} booked`
+                        : seats > 0
+                          ? `${seats} seats`
+                          : undefined
                   }
                 />
               )
