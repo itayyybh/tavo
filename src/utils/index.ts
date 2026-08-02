@@ -16,6 +16,7 @@ export {
 } from './geometry'
 export {
   zonesById,
+  zoneAllowsRelocation,
   zoneDepth,
   zoneAncestorIds,
   zoneDescendantIds,

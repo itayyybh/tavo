@@ -72,6 +72,15 @@ export interface Zone {
    * horizontally (soft). Undefined = no rule (horizontal default).
    */
   smoking?: 'smoking' | 'non-smoking'
+  /**
+   * May tables be brought INTO or taken OUT of this zone for a cross-zone merge?
+   * A tight indoor zone (e.g. Inside) sets this false — if it's full a party is
+   * turned away rather than borrowing furniture; the outdoor smoking/non-smoking
+   * areas set it true and may swap tables with each other (space permitting).
+   * Undefined falls back to a heuristic (see `zoneAllowsRelocation`): only zones
+   * with a smoking policy are relocatable by default.
+   */
+  allowTableRelocation?: boolean
 }
 
 /**

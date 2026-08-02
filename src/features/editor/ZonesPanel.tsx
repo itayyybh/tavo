@@ -285,6 +285,30 @@ export function ZonesPanel({ onClosePanel }: ZonesPanelProps) {
           <p className="text-[11px] text-muted">
             Non-smoking merges build vertically; smoking horizontally.
           </p>
+
+          <p className="pt-2 text-xs font-medium text-ink">Table relocation</p>
+          <div className="flex flex-wrap gap-1.5">
+            {(
+              [
+                ['Auto', undefined],
+                ['Allowed', true],
+                ['Blocked', false],
+              ] as const
+            ).map(([label, value]) => (
+              <Button
+                key={label}
+                size="sm"
+                variant={selectedZone.allowTableRelocation === value ? 'primary' : 'secondary'}
+                onClick={() => updateZone(selectedZone.id, { allowTableRelocation: value })}
+              >
+                {label}
+              </Button>
+            ))}
+          </div>
+          <p className="text-[11px] text-muted">
+            Whether tables may be brought in/out for a cross-zone merge. Auto:
+            only smoking / non-smoking zones relocate; indoor zones stay put.
+          </p>
         </div>
       )}
 

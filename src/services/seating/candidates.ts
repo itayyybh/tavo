@@ -15,7 +15,7 @@
  * always preferable and the scorer ranks across all seeds' results.
  */
 import type { ID, Reservation, Table } from '@/types'
-import { hypotheticalMergeCapacity, isActiveStatus, seatsForTable } from '@/utils'
+import { hypotheticalMergeCapacity, isActiveStatus, seatsForTable, zoneAllowsRelocation } from '@/utils'
 import { busyTableIds } from './canSeat'
 import { centerDistance } from './geometry'
 import { evaluateMerge, type MergeRuleContext } from './mergeRules'
@@ -192,12 +192,21 @@ export function generateCandidates(
   }
 
   // Bring options: a free single table from another zone, and cross-zone merges
-  // that complete an in-zone table with a brought one. Then the HARD zone rule
-  // (always applied) drops anything not in / brought into the preferred zone.
-  const withBrings = [
-    ...withBringOptions(reservation, result),
-    ...bringToMergeCandidates(reservation, floor, others),
-  ]
+  // that complete an in-zone table with a brought one. Only when the preferred
+  // zone permits relocation, and only from donor zones that also permit it — so a
+  // tight indoor zone (Inside) never borrows or lends furniture; the outdoor
+  // smoking/non-smoking areas may swap. Then the HARD zone rule (always applied)
+  // drops anything not in / brought into the preferred zone.
+  const zoneById = new Map(floor.zones.map((z) => [z.id, z]))
+  const donorOk = (zoneId: ID) => zoneAllowsRelocation(zoneById.get(zoneId))
+  const preferredId = reservation.preferredZoneId
+  const bringAllowed = !!preferredId && donorOk(preferredId)
+  const withBrings = bringAllowed
+    ? [
+        ...withBringOptions(reservation, result, donorOk),
+        ...bringToMergeCandidates(reservation, floor, others, donorOk),
+      ]
+    : result
   return dedupeCandidates(restrictToPreferredZone(reservation, withBrings))
 }
 
@@ -226,13 +235,15 @@ function bringToMergeCandidates(
   reservation: Reservation,
   floor: SeatingFloor,
   others: Reservation[],
+  donorOk: (zoneId: ID) => boolean,
 ): SeatCandidate[] {
   const preferred = reservation.preferredZoneId
   if (!preferred) return []
   const busy = busyTableIds(reservation, floor, others)
   const free = floor.tables.filter((t) => t.status === 'available' && !busy.has(t.id))
   const inZone = free.filter((t) => t.zoneId === preferred)
-  const otherZone = free.filter((t) => t.zoneId !== preferred)
+  // Donors: free tables in OTHER zones that themselves permit relocation.
+  const otherZone = free.filter((t) => t.zoneId !== preferred && donorOk(t.zoneId))
   if (inZone.length === 0 || otherZone.length === 0) return []
 
   const typeOf = (t: Table) => floor.tableTypes.find((ty) => ty.id === t.typeId)
@@ -312,11 +323,12 @@ function restrictToPreferredZone(
 function withBringOptions(
   reservation: Reservation,
   candidates: SeatCandidate[],
+  donorOk: (zoneId: ID) => boolean,
 ): SeatCandidate[] {
   const preferred = reservation.preferredZoneId
   if (!preferred) return candidates
   const brings = candidates
-    .filter((c) => c.kind === 'single' && c.zoneId !== preferred)
+    .filter((c) => c.kind === 'single' && c.zoneId !== preferred && donorOk(c.zoneId))
     .map<SeatCandidate>((c) => ({ ...c, relocateToZoneId: preferred }))
   return [...candidates, ...brings]
 }

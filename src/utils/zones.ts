@@ -11,6 +11,17 @@ export function zonesById(zones: Zone[]): Map<ID, Zone> {
   return new Map(zones.map((z) => [z.id, z]))
 }
 
+/**
+ * May tables be brought into / taken out of this zone for a cross-zone merge?
+ * The explicit `allowTableRelocation` flag wins; otherwise inferred — only zones
+ * with a smoking policy (the outdoor smoking/non-smoking areas) are relocatable,
+ * so a tight indoor zone like Inside never lends or borrows furniture.
+ */
+export function zoneAllowsRelocation(zone: Zone | undefined): boolean {
+  if (!zone) return false
+  return zone.allowTableRelocation ?? zone.smoking != null
+}
+
 /** Count tables assigned to each zone id. Used as a zone's reservation capacity. */
 export function countTablesByZone(tables: Table[]): Map<ID, number> {
   const counts = new Map<ID, number>()
