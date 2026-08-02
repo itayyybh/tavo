@@ -98,6 +98,21 @@ export function FloorCanvas() {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const clearSelection = useCallback(() => setSelectedIds([]), [])
 
+  // Transient top-center notice (e.g. a merge that couldn't be auto-placed).
+  const [notice, setNotice] = useState<string | null>(null)
+  const noticeTimer = useRef<number | null>(null)
+  const flashNotice = useCallback((msg: string) => {
+    setNotice(msg)
+    if (noticeTimer.current) window.clearTimeout(noticeTimer.current)
+    noticeTimer.current = window.setTimeout(() => setNotice(null), 2200)
+  }, [])
+  useEffect(
+    () => () => {
+      if (noticeTimer.current) window.clearTimeout(noticeTimer.current)
+    },
+    [],
+  )
+
   // Konva node refs so a merged group (its members + hull) tracks the cursor live.
   const nodeRefs = useRef<Map<string, Konva.Group>>(new Map())
   const hullRefs = useRef<Map<string, Konva.Group>>(new Map())
@@ -213,6 +228,14 @@ export function FloorCanvas() {
     () => contentBounds(visibleEffective, visibleZones),
     [visibleEffective, visibleZones],
   )
+
+  // Merged-hull bodies are translated imperatively to track a live group drag.
+  // Once any move/merge/split commits to the store, snap every hull back to the
+  // origin so it re-renders from its members' absolute coordinates — mirrors the
+  // editor's overlay reset, so a split/drag can never leave a stray hull box.
+  useEffect(() => {
+    hullRefs.current.forEach((node) => node.position({ x: 0, y: 0 }))
+  }, [effective.tables, effective.runtimeMerges])
 
   // Frame the content on first render with a real size, and again whenever the
   // focused zone changes. Not on every table/resize change — the host's manual
@@ -336,6 +359,19 @@ export function FloorCanvas() {
   }, [selectedIds, hullGroups, effective.runtimeMerges])
   const canMerge = selectedIds.length >= 2 && !selectedRuntimeMerge
 
+  // Merge the current selection, then tell the host if the block couldn't be
+  // auto-placed (no clear spot) so they know to drag the tables together.
+  const mergeSelection = useCallback(() => {
+    const ids = selectedIds
+    mergeTables(ids)
+    const key = [...ids].sort().join('+')
+    const created = useFloorStore
+      .getState()
+      .runtimeMerges.find((m) => [...m.tableIds].sort().join('+') === key)
+    if (created?.needsArrange) flashNotice('Merged — drag the tables together to arrange')
+    clearSelection()
+  }, [selectedIds, mergeTables, flashNotice, clearSelection])
+
   // `r` rotates the selected table (or merged group) — a floor shortcut.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -369,13 +405,12 @@ export function FloorCanvas() {
         clearSelection()
       } else if (canMerge) {
         e.preventDefault()
-        mergeTables(selectedIds)
-        clearSelection()
+        mergeSelection()
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [selectedIds, selectedRuntimeMerge, canMerge, mergeTables, splitRuntime, clearSelection])
+  }, [selectedRuntimeMerge, canMerge, mergeSelection, splitRuntime, clearSelection])
 
   return (
     <div className="flex h-full flex-col bg-surface">
@@ -528,14 +563,23 @@ export function FloorCanvas() {
             <button
               className="rounded-full bg-ink px-3 py-1 text-xs font-medium text-surface transition-opacity hover:opacity-90"
               onClick={() => {
-                if (selectedRuntimeMerge) splitRuntime(selectedRuntimeMerge.id)
-                else mergeTables(selectedIds)
-                clearSelection()
+                if (selectedRuntimeMerge) {
+                  splitRuntime(selectedRuntimeMerge.id)
+                  clearSelection()
+                } else {
+                  mergeSelection()
+                }
               }}
             >
               {selectedRuntimeMerge ? 'Split' : 'Merge'}
             </button>
             <kbd className="rounded border border-line px-1.5 py-0.5 text-[10px] text-muted">M</kbd>
+          </div>
+        )}
+
+        {notice && (
+          <div className="pointer-events-none absolute left-1/2 top-4 -translate-x-1/2 rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink shadow-lg">
+            {notice}
           </div>
         )}
       </div>
