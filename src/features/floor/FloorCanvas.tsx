@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { motion } from 'framer-motion'
 import { Layer, Stage } from 'react-konva'
 import type Konva from 'konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
@@ -238,6 +239,11 @@ export function FloorCanvas() {
     hullRefs.current.forEach((node) => node.position({ x: 0, y: 0 }))
   }, [effective.tables, effective.runtimeMerges])
 
+  // Tables just dropped by a drag: they're already at the target, so their glide
+  // is suppressed for that one commit. The glide hook consumes (deletes) each id
+  // when it runs, so this needs no separate clear.
+  const dragIds = useRef<Set<string>>(new Set())
+
   // Frame the content on first render with a real size, and again whenever the
   // focused zone changes. Not on every table/resize change — the host's manual
   // pan/zoom is preserved between those events.
@@ -381,6 +387,9 @@ export function FloorCanvas() {
       return
     }
 
+    // These tables are already at the dropped spot — suppress their glide so they
+    // don't jump back and re-slide when the store commit re-renders.
+    dragIds.current = new Set(movingIds)
     if (group) {
       moveTablesBy(group.tableIds, delta)
       // Store re-renders members at absolute coords; return the hull to origin.
@@ -535,6 +544,7 @@ export function FloorCanvas() {
                   colors={colors}
                   merged={!!et.mergedGroupId}
                   selected={selectedIds.includes(et.base.id)}
+                  dragIds={dragIds}
                   onSelect={selectTable}
                   onDragMove={handleTableDragMove}
                   onDragEnd={handleTableDragEnd}
@@ -597,7 +607,12 @@ export function FloorCanvas() {
         )}
 
         {canMerge && (
-          <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full border border-line bg-surface px-2 py-1.5 shadow-lg">
+          <motion.div
+            initial={{ opacity: 0, y: 8, x: '-50%' }}
+            animate={{ opacity: 1, y: 0, x: '-50%' }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            className="absolute bottom-4 left-1/2 flex items-center gap-2 rounded-full border border-line bg-surface px-2 py-1.5 shadow-lg"
+          >
             <span className="pl-1.5 text-xs text-muted">{selectedIds.length} selected</span>
             <button
               className="rounded-full bg-ink px-3 py-1 text-xs font-medium text-surface transition-opacity hover:opacity-90"
@@ -606,13 +621,18 @@ export function FloorCanvas() {
               Merge
             </button>
             <kbd className="rounded border border-line px-1.5 py-0.5 text-[10px] text-muted">M</kbd>
-          </div>
+          </motion.div>
         )}
 
         {notice && (
-          <div className="pointer-events-none absolute left-1/2 top-4 -translate-x-1/2 rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink shadow-lg">
+          <motion.div
+            initial={{ opacity: 0, y: -4, x: '-50%' }}
+            animate={{ opacity: 1, y: 0, x: '-50%' }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            className="pointer-events-none absolute left-1/2 top-4 rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink shadow-lg"
+          >
             {notice}
-          </div>
+          </motion.div>
         )}
       </div>
     </div>

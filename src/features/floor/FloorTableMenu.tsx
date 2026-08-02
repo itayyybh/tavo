@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion'
 import type { EffectiveTable } from '@/services/floor'
 import { statusLabel } from './status'
 
@@ -62,7 +63,13 @@ export function FloorTableMenu({
 
   return (
     <div className="absolute left-3 top-3 z-20">
-      <div className="min-w-52 rounded-xl border border-line bg-surface p-1.5 shadow-[var(--shadow-soft)]">
+      <motion.div
+        initial={{ opacity: 0, y: -4 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -4 }}
+        transition={{ duration: 0.18, ease: 'easeOut' }}
+        className="min-w-52 rounded-xl border border-line bg-surface p-1.5 shadow-[var(--shadow-soft)]"
+      >
         <div className="flex items-center justify-between gap-2 px-2 py-1">
           <span className="truncate text-xs font-medium text-ink">{heading}</span>
           <span
@@ -133,7 +140,7 @@ export function FloorTableMenu({
         <button className={`${action} text-muted`} onClick={onClose}>
           Close
         </button>
-      </div>
+      </motion.div>
     </div>
   )
 }
