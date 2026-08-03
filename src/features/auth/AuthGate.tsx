@@ -1,5 +1,7 @@
 import { useEffect, type ReactNode } from 'react'
 import { useSessionStore } from '@/stores'
+import { useLayoutSync } from '@/hooks/useLayoutSync'
+import { useReservationSync } from '@/hooks/useReservationSync'
 import { AuthScreen } from './AuthScreen'
 import { OnboardingScreen } from './OnboardingScreen'
 
@@ -12,6 +14,12 @@ import { OnboardingScreen } from './OnboardingScreen'
 export function AuthGate({ children }: { children: ReactNode }) {
   const status = useSessionStore((s) => s.status)
   const init = useSessionStore((s) => s.init)
+
+  // Tenant data sync lives here, ABOVE the router, so both the desktop shell and
+  // the standalone mobile route (/m, outside <App>) hydrate the restaurant's
+  // layout + reservations from the database. Both hooks no-op until ready.
+  useLayoutSync()
+  useReservationSync()
 
   useEffect(() => {
     init()
