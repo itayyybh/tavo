@@ -222,8 +222,8 @@ export function MobileReservationPage() {
           </div>
         </section>
 
-        {/* Date + time */}
-        <section ref={timeRef} className="grid grid-cols-2 gap-3">
+        {/* Date + time — stacked full-width; native iOS pickers overflow when paired. */}
+        <section ref={timeRef} className="space-y-3">
           <div>
             <FieldLabel>Date</FieldLabel>
             <input
@@ -233,7 +233,7 @@ export function MobileReservationPage() {
                 setDate(e.target.value)
                 invalidate()
               }}
-              className="h-12 w-full rounded-xl border border-line bg-surface px-3 text-base text-ink"
+              className="h-12 w-full min-w-0 rounded-xl border border-line bg-surface px-3 text-base text-ink"
             />
           </div>
           <div>
@@ -245,7 +245,7 @@ export function MobileReservationPage() {
                 setTime(e.target.value)
                 invalidate()
               }}
-              className="h-12 w-full rounded-xl border border-line bg-surface px-3 text-base text-ink"
+              className="h-12 w-full min-w-0 rounded-xl border border-line bg-surface px-3 text-base text-ink"
             />
           </div>
         </section>
@@ -376,7 +376,7 @@ function MobileShell({
   onSignOut: () => void
 }) {
   return (
-    <div className="mx-auto flex h-full max-w-md flex-col bg-surface-2">
+    <div className="mx-auto flex h-full w-full max-w-md flex-col overflow-x-hidden bg-surface-2">
       <header className="flex items-center justify-between border-b border-line bg-surface px-5 py-3">
         <Heading className="text-base">New reservation</Heading>
         <button
