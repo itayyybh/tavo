@@ -3,7 +3,6 @@ import { Button, Heading, Input } from '@/components/ui'
 import { useLayoutStore, useSettingsStore } from '@/stores'
 import type { ID, Reservation } from '@/types'
 import { cn, floorTotals } from '@/utils'
-import { useReservationPersistence } from './hooks/useReservationPersistence'
 import { useReservationFilters } from './hooks/useReservationFilters'
 import { ReservationFilters } from './ReservationFilters'
 import { ReservationList, type ZoneMeta } from './ReservationList'
@@ -27,8 +26,7 @@ type ViewMode = 'list' | 'timeline'
  * Reads the reservation store (+ zones as read-only config); no table coupling.
  */
 export function ReservationsView() {
-  useReservationPersistence()
-
+  // Reservation hydration + realtime is lifted app-wide (see App -> useReservationSync).
   const zones = useLayoutStore((s) => s.zones)
   const tables = useLayoutStore((s) => s.tables)
   const tableTypes = useLayoutStore((s) => s.tableTypes)

@@ -1,7 +1,8 @@
 import { useEffect } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useUIStore } from '@/stores'
 import { useLayoutSync } from '@/hooks/useLayoutSync'
+import { useReservationSync } from '@/hooks/useReservationSync'
 import { useFloorPersistence } from '@/hooks/useFloorPersistence'
 import { ThemeToggle } from '@/components/ThemeToggle'
 
@@ -17,9 +18,22 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
  */
 export default function App() {
   const theme = useUIStore((s) => s.theme)
+  const navigate = useNavigate()
+  const location = useLocation()
+
+  // Phones landing on the app root go straight to the focused mobile flow.
+  // Only from '/' so desktop deep-links (editor, reservations) are never hijacked.
+  useEffect(() => {
+    if (location.pathname === '/' && window.innerWidth <= 640) {
+      navigate('/m', { replace: true })
+    }
+  }, [location.pathname, navigate])
 
   // Load + autosave the active restaurant's layout, app-wide (DB-backed).
   useLayoutSync()
+
+  // Hydrate reservations + stream realtime changes, app-wide (DB-backed).
+  useReservationSync()
 
   // Persist the current shift's runtime floor layer (seatings, merges, moves).
   useFloorPersistence()
