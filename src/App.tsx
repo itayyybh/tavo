@@ -3,7 +3,6 @@ import { NavLink, Outlet } from 'react-router-dom'
 import { useUIStore } from '@/stores'
 import { useLayoutHydration } from '@/hooks/useLayoutHydration'
 import { useFloorPersistence } from '@/hooks/useFloorPersistence'
-import { ThemeToggle } from '@/components/ThemeToggle'
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   [
@@ -45,11 +44,6 @@ export default function App() {
           <NavLink to="/reservations" className={navLinkClass}>
             Reservations
           </NavLink>
-          <NavLink to="/design" className={navLinkClass}>
-            Design
-          </NavLink>
-          <span className="mx-1 h-4 w-px bg-line" />
-          <ThemeToggle />
         </nav>
       </header>
       <main className="min-h-0 flex-1 overflow-auto bg-surface-2">
