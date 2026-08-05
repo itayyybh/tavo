@@ -14,6 +14,7 @@ export type MembershipRole = 'owner' | 'manager'
 export interface Membership {
   restaurantId: ID
   role: MembershipRole
+  restaurantName: string
 }
 
 export async function signUp(
@@ -59,12 +60,19 @@ export async function getSession(): Promise<Session | null> {
 export async function getMembership(): Promise<Membership | null> {
   const { data, error } = await supabase
     .from('memberships')
-    .select('restaurant_id, role')
+    .select('restaurant_id, role, restaurants(name)')
     .limit(1)
     .maybeSingle()
   if (error) throw error
   if (!data) return null
-  return { restaurantId: data.restaurant_id, role: data.role as MembershipRole }
+  // PostgREST types an embedded to-one as an array; normalize it.
+  const restaurant = data.restaurants as unknown as { name: string } | { name: string }[] | null
+  const name = Array.isArray(restaurant) ? restaurant[0]?.name : restaurant?.name
+  return {
+    restaurantId: data.restaurant_id,
+    role: data.role as MembershipRole,
+    restaurantName: name ?? 'Restaurant',
+  }
 }
 
 /** Create the caller's restaurant + owner membership. Returns the restaurant id. */

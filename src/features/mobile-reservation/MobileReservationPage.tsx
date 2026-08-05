@@ -10,7 +10,7 @@ import { useSeatingFloor } from '@/hooks/useSeatingFloor'
 import { checkAvailability } from '@/services/availability'
 import { insertReservation } from '@/services/supabase/reservationsRepo'
 import { createId } from '@/utils'
-import type { Reservation } from '@/types'
+import type { Reservation, ReservationPreferences } from '@/types'
 import {
   durationLabel,
   durationOptions,
@@ -34,6 +34,7 @@ export function MobileReservationPage() {
   const others = useReservationStore((s) => s.reservations)
   const upsertLocal = useReservationStore((s) => s.upsertLocal)
   const restaurantId = useSessionStore((s) => s.restaurantId)
+  const restaurantName = useSessionStore((s) => s.restaurantName)
   const signOut = useSessionStore((s) => s.signOut)
 
   const durations = useMemo(() => durationOptions(defaultStay), [defaultStay])
@@ -48,6 +49,7 @@ export function MobileReservationPage() {
   const [time, setTime] = useState(nextHourTime())
   const [duration, setDuration] = useState(defaultStay)
   const [zoneId, setZoneId] = useState('')
+  const [prefs, setPrefs] = useState<ReservationPreferences>({})
   const [notes, setNotes] = useState('')
 
   const [availability, setAvailability] = useState<Availability>('idle')
@@ -64,6 +66,12 @@ export function MobileReservationPage() {
     }
   }
 
+  const togglePref = (key: 'vip' | 'highChair' | 'wheelchair' | 'smoking') => {
+    setPrefs((p) => ({ ...p, [key]: !p[key] }))
+    invalidate()
+  }
+  const hasPrefs = Object.values(prefs).some(Boolean)
+
   const canCheck =
     guestName.trim() !== '' && partySize >= 1 && !!zoneId && !!date && !!time
 
@@ -78,6 +86,7 @@ export function MobileReservationPage() {
           dateTime: toISODateTime(date, time),
           estimatedDuration: duration,
           zoneId,
+          preferences: hasPrefs ? prefs : undefined,
         },
         floor,
         others,
@@ -110,6 +119,7 @@ export function MobileReservationPage() {
       preferredZoneId: zoneId,
       status: 'confirmed',
       source: 'phone',
+      preferences: hasPrefs ? prefs : undefined,
       notes: notes.trim() || undefined,
       createdAt: stamp,
       updatedAt: stamp,
@@ -136,6 +146,7 @@ export function MobileReservationPage() {
     setTime(nextHourTime())
     setDuration(defaultStay)
     setZoneId('')
+    setPrefs({})
     setNotes('')
     setAvailability('idle')
     setMessage(null)
@@ -146,15 +157,18 @@ export function MobileReservationPage() {
 
   if (phase === 'created' && created) {
     return (
-      <MobileShell onSignOut={signOut}>
+      <MobileShell subtitle={restaurantName} onSignOut={signOut}>
         <div className="flex flex-1 flex-col items-center justify-center gap-6 px-6 text-center">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-status-available/15 text-3xl">
             ✓
           </div>
           <div>
             <Heading className="text-xl">Reservation created</Heading>
-            <Text className="mt-2 text-muted">
-              {created.guestName} · {created.partySize} guests · {zoneName}
+            <Text className="mt-2 text-base font-medium text-ink">
+              {created.guestName}
+            </Text>
+            <Text className="mt-0.5 text-muted">
+              {created.partySize} guests · {zoneName}
             </Text>
             <Text className="mt-0.5 text-muted">
               {new Date(created.dateTime).toLocaleString([], {
@@ -164,6 +178,21 @@ export function MobileReservationPage() {
               })}{' '}
               · {durationLabel(created.estimatedDuration)}
             </Text>
+            {created.phone && (
+              <Text className="mt-0.5 text-muted">{created.phone}</Text>
+            )}
+            {created.preferences && (
+              <div className="mt-3 flex flex-wrap justify-center gap-1.5">
+                {created.preferences.vip && <PrefBadge>VIP</PrefBadge>}
+                {created.preferences.highChair && (
+                  <PrefBadge>High chair</PrefBadge>
+                )}
+                {created.preferences.wheelchair && (
+                  <PrefBadge>Wheelchair</PrefBadge>
+                )}
+                {created.preferences.smoking && <PrefBadge>Smoking</PrefBadge>}
+              </div>
+            )}
           </div>
           <Button className="w-full max-w-xs" onClick={reset}>
             New reservation
@@ -174,7 +203,7 @@ export function MobileReservationPage() {
   }
 
   return (
-    <MobileShell onSignOut={signOut}>
+    <MobileShell subtitle={restaurantName} onSignOut={signOut}>
       <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5">
         {/* Guest */}
         <section className="space-y-3">
@@ -294,6 +323,31 @@ export function MobileReservationPage() {
           )}
         </section>
 
+        {/* Preferences */}
+        <section>
+          <FieldLabel>Preferences (optional)</FieldLabel>
+          <ChipRow>
+            <Chip active={!!prefs.vip} onClick={() => togglePref('vip')}>
+              VIP
+            </Chip>
+            <Chip
+              active={!!prefs.highChair}
+              onClick={() => togglePref('highChair')}
+            >
+              High chair
+            </Chip>
+            <Chip
+              active={!!prefs.wheelchair}
+              onClick={() => togglePref('wheelchair')}
+            >
+              Wheelchair
+            </Chip>
+            <Chip active={!!prefs.smoking} onClick={() => togglePref('smoking')}>
+              Smoking
+            </Chip>
+          </ChipRow>
+        </section>
+
         {/* Notes */}
         <section>
           <FieldLabel>Notes (optional)</FieldLabel>
@@ -370,18 +424,27 @@ export function MobileReservationPage() {
 
 function MobileShell({
   children,
+  subtitle,
   onSignOut,
 }: {
   children: React.ReactNode
+  subtitle?: string | null
   onSignOut: () => void
 }) {
   return (
     <div className="mx-auto flex h-full w-full max-w-md flex-col overflow-x-hidden bg-surface-2">
       <header className="flex items-center justify-between border-b border-line bg-surface px-5 py-3">
-        <Heading className="text-base">New reservation</Heading>
+        <div className="min-w-0">
+          {subtitle && (
+            <div className="truncate text-xs font-medium text-muted">
+              {subtitle}
+            </div>
+          )}
+          <Heading className="text-base">New reservation</Heading>
+        </div>
         <button
           onClick={onSignOut}
-          className="text-sm text-muted transition-colors hover:text-ink"
+          className="shrink-0 text-sm text-muted transition-colors hover:text-ink"
         >
           Sign out
         </button>
@@ -393,6 +456,14 @@ function MobileShell({
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return <div className="mb-1.5 text-sm font-medium text-ink">{children}</div>
+}
+
+function PrefBadge({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="rounded-full border border-line bg-surface-2 px-2.5 py-1 text-xs font-medium text-ink">
+      {children}
+    </span>
+  )
 }
 
 function StepBtn({ label, onClick }: { label: string; onClick: () => void }) {
