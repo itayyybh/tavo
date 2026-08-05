@@ -1,8 +1,8 @@
 import { useEffect } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useUIStore } from '@/stores'
-import { useLayoutHydration } from '@/hooks/useLayoutHydration'
 import { useFloorPersistence } from '@/hooks/useFloorPersistence'
+import { InviteManager } from '@/features/auth'
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   [
@@ -16,11 +16,19 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
  */
 export default function App() {
   const theme = useUIStore((s) => s.theme)
+  const navigate = useNavigate()
+  const location = useLocation()
 
-  // Load the saved layout once, app-wide, so every surface sees real zones/tables.
-  useLayoutHydration()
+  // Phones landing on the app root go straight to the focused mobile flow.
+  // Only from '/' so desktop deep-links (editor, reservations) are never hijacked.
+  useEffect(() => {
+    if (location.pathname === '/' && window.innerWidth <= 640) {
+      navigate('/m', { replace: true })
+    }
+  }, [location.pathname, navigate])
 
-  // Persist the current shift's runtime floor layer (seatings, merges, moves).
+  // Layout + reservation sync now live in AuthGate (above the router) so the
+  // mobile route hydrates too. Only the desktop-only floor layer stays here.
   useFloorPersistence()
 
   // Apply the active theme to the document root so tokens flip globally.
@@ -44,6 +52,8 @@ export default function App() {
           <NavLink to="/reservations" className={navLinkClass}>
             Reservations
           </NavLink>
+          <span className="mx-1 h-4 w-px bg-line" />
+          <InviteManager />
         </nav>
       </header>
       <main className="min-h-0 flex-1 overflow-auto bg-surface-2">

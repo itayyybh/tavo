@@ -12,6 +12,7 @@
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\""
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.111.0",
     "framer-motion": "^12.42.2",
     "gh": "^2.8.9",
     "konva": "^10.3.0",
