@@ -28,11 +28,19 @@ export type SessionStatus =
   | 'loading' // resolving the persisted session on boot
   | 'signed_out' // no session
   | 'no_restaurant' // authenticated but not yet a member of any restaurant
+  | 'recovery' // arrived via a password-reset link — must set a new password
   | 'ready' // authenticated + has a restaurant
+
+/** The signed-in user's display name, from auth metadata. */
+function nameFromUser(user: User | null): string | null {
+  const name = user?.user_metadata?.name
+  return typeof name === 'string' && name ? name : null
+}
 
 interface SessionState {
   status: SessionStatus
   user: User | null
+  userName: string | null
   restaurantId: ID | null
   restaurantName: string | null
   role: MembershipRole | null
@@ -71,6 +79,7 @@ async function resolveMembershipWithInvite(): Promise<Membership | null> {
 export const useSessionStore = create<SessionState>((set, get) => ({
   status: 'loading',
   user: null,
+  userName: null,
   restaurantId: null,
   restaurantName: null,
   role: null,
@@ -82,6 +91,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         set({
           status: 'signed_out',
           user: null,
+          userName: null,
           restaurantId: null,
           restaurantName: null,
           role: null,
@@ -107,13 +117,18 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     }
 
     getSession().then((session) => {
-      set({ user: session?.user ?? null })
+      set({ user: session?.user ?? null, userName: nameFromUser(session?.user ?? null) })
       resolve(!!session).catch(() => set({ status: 'signed_out' }))
     })
 
     unsubscribe?.()
-    unsubscribe = onAuthChange((session) => {
-      set({ user: session?.user ?? null })
+    unsubscribe = onAuthChange((event, session) => {
+      set({ user: session?.user ?? null, userName: nameFromUser(session?.user ?? null) })
+      // A reset-link session must set a new password before entering the app.
+      if (event === 'PASSWORD_RECOVERY') {
+        set({ status: 'recovery' })
+        return
+      }
       resolve(!!session).catch(() => set({ status: 'signed_out' }))
     })
   },
@@ -137,6 +152,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     set({
       status: 'signed_out',
       user: null,
+      userName: null,
       restaurantId: null,
       restaurantName: null,
       role: null,
