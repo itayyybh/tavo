@@ -1,21 +1,12 @@
-import {
-  RESERVATION_OCCASIONS,
-  RESERVATION_SOURCES,
-  RESERVATION_STATUSES,
-} from '@/types'
+import { RESERVATION_OCCASIONS, RESERVATION_SOURCES } from '@/types'
 import type { ReservationStatus } from '@/types'
 import type { SelectOption } from '@/components/ui'
-import { occasionLabel, sourceLabel, statusLabel } from '@/utils'
+import { occasionLabel, sourceLabel } from '@/utils'
 
 /**
  * Static option lists for reservation form/filter selects. Derived from the
  * type unions + label maps so they never drift out of sync.
  */
-
-export const statusOptions: SelectOption[] = RESERVATION_STATUSES.map((s) => ({
-  value: s,
-  label: statusLabel[s],
-}))
 
 /**
  * Statuses surfaced in the UI right now. The data model keeps all 8 for Phase 7,
@@ -42,5 +33,4 @@ export const durationOptions: SelectOption[] = [
   { value: '180', label: '3 hr' },
 ]
 
-export const DEFAULT_DURATION = 90
 export const DEFAULT_PARTY_SIZE = 2
