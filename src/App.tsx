@@ -1,8 +1,12 @@
 import { useEffect } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
-import { useUIStore } from '@/stores'
+import { useTranslation } from 'react-i18next'
+import i18n from '@/i18n'
+import { dirForLocale } from '@/i18n/config'
+import { useSettingsStore, useUIStore } from '@/stores'
 import { useLayoutHydration } from '@/hooks/useLayoutHydration'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import { LanguageToggle } from '@/components/LanguageToggle'
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   [
@@ -15,7 +19,9 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
  * Individual surfaces render into <Outlet /> via the router.
  */
 export default function App() {
+  const { t } = useTranslation('common')
   const theme = useUIStore((s) => s.theme)
+  const locale = useSettingsStore((s) => s.locale)
 
   // Load the saved layout once, app-wide, so every surface sees real zones/tables.
   useLayoutHydration()
@@ -25,26 +31,33 @@ export default function App() {
     document.documentElement.classList.toggle('dark', theme === 'dark')
   }, [theme])
 
+  // Apply the active language + text direction globally. `dir="rtl"` mirrors the
+  // whole shell for Hebrew; the canvas opts back out in a later phase.
+  useEffect(() => {
+    void i18n.changeLanguage(locale)
+    document.documentElement.lang = locale
+    document.documentElement.dir = dirForLocale(locale)
+  }, [locale])
+
   return (
     <div className="flex h-full flex-col">
       <header className="flex items-center justify-between border-b border-line px-6 py-3">
-        <span className="text-sm font-semibold tracking-tight text-ink">
-          Restaurant Floor Manager
-        </span>
+        <span className="text-sm font-semibold tracking-tight text-ink">{t('appName')}</span>
         <nav className="flex items-center gap-1">
           <NavLink to="/" end className={navLinkClass}>
-            Floor
+            {t('nav.floor')}
           </NavLink>
           <NavLink to="/editor" className={navLinkClass}>
-            Editor
+            {t('nav.editor')}
           </NavLink>
           <NavLink to="/reservations" className={navLinkClass}>
-            Reservations
+            {t('nav.reservations')}
           </NavLink>
           <NavLink to="/design" className={navLinkClass}>
-            Design
+            {t('nav.design')}
           </NavLink>
           <span className="mx-1 h-4 w-px bg-line" />
+          <LanguageToggle />
           <ThemeToggle />
         </nav>
       </header>

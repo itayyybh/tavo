@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button, Heading, Input } from '@/components/ui'
 import { useLayoutStore } from '@/stores'
 import type { ID, Reservation } from '@/types'
@@ -27,6 +28,7 @@ type ViewMode = 'list' | 'timeline'
  */
 export function ReservationsView() {
   useReservationPersistence()
+  const { t } = useTranslation('reservations')
 
   const zones = useLayoutStore((s) => s.zones)
   const tables = useLayoutStore((s) => s.tables)
@@ -134,27 +136,27 @@ export function ReservationsView() {
     <div className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
       {/* Header. */}
       <div className="flex items-end justify-between">
-        <Heading level={1}>Reservations</Heading>
+        <Heading level={1}>{t('title')}</Heading>
         <div className="flex items-center gap-2">
           {import.meta.env.DEV && (
             <>
               <Button variant="secondary" onClick={seedSamples}>
-                Seed 20
+                {t('seed20')}
               </Button>
               <Button variant="ghost" onClick={clearAll}>
-                Clear all
+                {t('clearAll')}
               </Button>
             </>
           )}
           <Button
             variant="ghost"
-            aria-label="Keyboard shortcuts"
-            title="Keyboard shortcuts (?)"
+            aria-label={t('shortcutsAria')}
+            title={t('shortcutsTitle')}
             onClick={() => setHelpOpen(true)}
           >
             ?
           </Button>
-          <Button onClick={openCreate}>New reservation</Button>
+          <Button onClick={openCreate}>{t('new')}</Button>
         </div>
       </div>
 
@@ -168,7 +170,7 @@ export function ReservationsView() {
             id="reservation-search"
             value={state.query}
             onChange={(e) => patch({ query: e.target.value })}
-            placeholder="Search name, phone, or ID    ( / )"
+            placeholder={t('searchPlaceholder')}
           />
         </div>
         <div className="inline-flex rounded-lg border border-line p-0.5">
@@ -178,11 +180,11 @@ export function ReservationsView() {
               type="button"
               onClick={() => setView(mode)}
               className={cn(
-                'rounded-md px-3 py-1.5 text-xs font-medium capitalize transition-colors duration-200',
+                'rounded-md px-3 py-1.5 text-xs font-medium transition-colors duration-200',
                 view === mode ? 'bg-ink text-surface' : 'text-muted hover:text-ink',
               )}
             >
-              {mode}
+              {t(`view.${mode}`)}
             </button>
           ))}
         </div>

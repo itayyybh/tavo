@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button, Input, Select } from '@/components/ui'
 import { useLayoutStore, useReservationStore } from '@/stores'
 import {
@@ -24,13 +25,8 @@ import type {
 } from '@/types'
 import type { NewReservation } from '@/stores/reservationStore'
 import { cn } from '@/utils'
-import {
-  DEFAULT_DURATION,
-  DEFAULT_PARTY_SIZE,
-  durationOptions,
-  occasionOptions,
-  sourceOptions,
-} from './constants'
+import { DEFAULT_DURATION, DEFAULT_PARTY_SIZE } from './constants'
+import { useReservationLabels } from './hooks/useReservationLabels'
 
 interface FormState {
   guestName: string
@@ -49,12 +45,13 @@ interface FormState {
   prefs: ReservationPreferences
 }
 
-const PREF_TOGGLES: { key: keyof ReservationPreferences; label: string }[] = [
-  { key: 'vip', label: 'VIP' },
-  { key: 'wheelchair', label: 'Wheelchair' },
-  { key: 'highChair', label: 'High Chair' },
-  { key: 'windowSeat', label: 'Window Seat' },
-  { key: 'smoking', label: 'Smoking' },
+/** Preference toggles shown as chips; labels resolve from `pref.<key>`. */
+const PREF_KEYS: (keyof ReservationPreferences)[] = [
+  'vip',
+  'wheelchair',
+  'highChair',
+  'windowSeat',
+  'smoking',
 ]
 
 function buildInitialState(initial?: Reservation): FormState {
@@ -104,6 +101,8 @@ interface ReservationFormProps {
 
 /** Fast create/edit form. Required fields first; everything else is optional. */
 export function ReservationForm({ initial, onSubmit, onCancel }: ReservationFormProps) {
+  const { t } = useTranslation('reservations')
+  const { durationOptions, occasionOptions, sourceOptions } = useReservationLabels()
   const zones = useLayoutStore((s) => s.zones)
   const tables = useLayoutStore((s) => s.tables)
   const reservations = useReservationStore((s) => s.reservations)
@@ -124,9 +123,9 @@ export function ReservationForm({ initial, onSubmit, onCancel }: ReservationForm
     () =>
       zones.map((z) => ({
         value: z.id,
-        label: `${z.name} (${tableCounts.get(z.id) ?? 0} tables)`,
+        label: t('form.zoneOption', { name: z.name, count: tableCounts.get(z.id) ?? 0 }),
       })),
-    [zones, tableCounts],
+    [zones, tableCounts, t],
   )
 
   const dateTime = combineDateTime(form.date, form.time)
@@ -167,11 +166,12 @@ export function ReservationForm({ initial, onSubmit, onCancel }: ReservationForm
         initial?.id,
       )
       if (used >= capacity) {
-        const zoneName = zones.find((z) => z.id === form.preferredZoneId)?.name ?? 'Zone'
+        const zoneName =
+          zones.find((z) => z.id === form.preferredZoneId)?.name ?? t('form.zone')
         found.preferredZoneId =
           capacity === 0
-            ? `${zoneName} has no tables.`
-            : `${zoneName} is full for that day (${used}/${capacity} tables).`
+            ? t('form.zoneNoTables', { zone: zoneName })
+            : t('form.zoneFull', { zone: zoneName, used, capacity })
       }
     }
 
@@ -212,16 +212,16 @@ export function ReservationForm({ initial, onSubmit, onCancel }: ReservationForm
       <div className="grid grid-cols-2 gap-3">
         <div className="col-span-2">
           <Input
-            label="Guest name"
+            label={t('form.guestName')}
             value={form.guestName}
             onChange={(e) => set('guestName', e.target.value)}
             error={errors.guestName}
-            placeholder="e.g. Dana Levi"
+            placeholder={t('form.guestNamePlaceholder')}
             autoFocus
           />
         </div>
         <Input
-          label="Party size"
+          label={t('form.partySize')}
           type="number"
           min={1}
           value={form.partySize}
@@ -229,35 +229,43 @@ export function ReservationForm({ initial, onSubmit, onCancel }: ReservationForm
           error={errors.partySize}
         />
         <Select
-          label="Duration"
+          label={t('form.duration')}
           options={durationOptions}
           value={String(form.estimatedDuration)}
           onChange={(e) => set('estimatedDuration', Number(e.target.value))}
           error={errors.estimatedDuration}
         />
         <Input
-          label="Date"
+          label={t('form.date')}
           type="date"
+          // Date/time/phone/email are LTR data; keep them LTR so digits and
+          // segments don't reverse when the form mirrors to RTL.
+          dir="ltr"
+          className="text-end"
           value={form.date}
           onChange={(e) => set('date', e.target.value)}
           error={errors.dateTime}
         />
         <Input
-          label="Arrival time"
+          label={t('form.arrivalTime')}
           type="time"
+          dir="ltr"
+          className="text-end"
           value={form.time}
           onChange={(e) => set('time', e.target.value)}
         />
         <Input
-          label="Phone"
+          label={t('form.phone')}
+          dir="ltr"
+          className="text-end"
           value={form.phone}
           onChange={(e) => set('phone', e.target.value)}
           error={errors.phone}
         />
         <Select
-          label="Zone"
+          label={t('form.zone')}
           options={zoneOptions}
-          placeholder="Select zone"
+          placeholder={t('form.selectZone')}
           value={form.preferredZoneId}
           onChange={(e) => set('preferredZoneId', e.target.value)}
           error={errors.preferredZoneId}
@@ -266,8 +274,11 @@ export function ReservationForm({ initial, onSubmit, onCancel }: ReservationForm
 
       {duplicate && (
         <div className="rounded-xl border border-reservation-pending/40 bg-reservation-pending/5 px-3 py-2 text-xs text-ink-soft">
-          Possible duplicate — {duplicate.guestName}, party of {duplicate.partySize}{' '}
-          at {formatTime(duplicate.dateTime)}. You can still save.
+          {t('form.duplicate', {
+            name: duplicate.guestName,
+            size: duplicate.partySize,
+            time: formatTime(duplicate.dateTime),
+          })}
         </div>
       )}
 
@@ -275,39 +286,41 @@ export function ReservationForm({ initial, onSubmit, onCancel }: ReservationForm
       <div className="border-t border-line pt-4">
         <div className="grid grid-cols-2 gap-3">
           <Input
-            label="Email"
+            label={t('form.email')}
             type="email"
+            dir="ltr"
+            className="text-end"
             value={form.email}
             onChange={(e) => set('email', e.target.value)}
             error={errors.email}
-            placeholder="Optional"
+            placeholder={t('form.optional')}
           />
           <Select
-            label="Occasion"
+            label={t('form.occasion')}
             options={occasionOptions}
-            placeholder="None"
+            placeholder={t('form.none')}
             value={form.occasion}
             onChange={(e) => set('occasion', e.target.value)}
           />
           <Select
-            label="Source"
+            label={t('form.source')}
             options={sourceOptions}
             value={form.source}
             onChange={(e) => set('source', e.target.value as ReservationSource)}
           />
           <Input
-            label="Notes"
+            label={t('form.notes')}
             value={form.notes}
             onChange={(e) => set('notes', e.target.value)}
-            placeholder="Optional"
+            placeholder={t('form.optional')}
           />
         </div>
 
         {/* Preferences as compact toggle chips — kept simple. */}
         <div className="mt-4 flex flex-col gap-2">
-          <span className="text-sm font-medium text-ink">Preferences</span>
+          <span className="text-sm font-medium text-ink">{t('form.preferences')}</span>
           <div className="flex flex-wrap gap-2">
-            {PREF_TOGGLES.map(({ key, label }) => {
+            {PREF_KEYS.map((key) => {
               const active = !!form.prefs[key]
               return (
                 <button
@@ -322,7 +335,7 @@ export function ReservationForm({ initial, onSubmit, onCancel }: ReservationForm
                       : 'border-line bg-surface text-muted hover:text-ink',
                   )}
                 >
-                  {label}
+                  {t(`pref.${key}`)}
                 </button>
               )
             })}
@@ -335,16 +348,18 @@ export function ReservationForm({ initial, onSubmit, onCancel }: ReservationForm
                 prefs: { ...f.prefs, allergies: e.target.value },
               }))
             }
-            placeholder="Allergies (optional)"
+            placeholder={t('form.allergiesPlaceholder')}
           />
         </div>
       </div>
 
       <div className="flex justify-end gap-2">
         <Button type="button" variant="secondary" onClick={onCancel}>
-          Cancel
+          {t('form.cancel')}
         </Button>
-        <Button type="submit">{initial ? 'Save changes' : 'Create reservation'}</Button>
+        <Button type="submit">
+          {initial ? t('form.saveChanges') : t('form.create')}
+        </Button>
       </div>
     </form>
   )

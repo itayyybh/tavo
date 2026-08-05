@@ -20,3 +20,7 @@ pnpm-debug.log*
 
 # TS build cache
 *.tsbuildinfo
+
+# CodeGraph index + local agent worktrees
+.codegraph/
+.claude/worktrees/

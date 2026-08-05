@@ -1,9 +1,11 @@
+import { useTranslation } from 'react-i18next'
 import { useLayoutStore } from '@/stores'
 import type { TableShape } from '@/types'
 import { Field, NumField, TextField } from './fields'
 
 /** Manage configurable table types — capacities/geometry are never hardcoded. */
 export function TableTypesPanel() {
+  const { t } = useTranslation('editor')
   const tableTypes = useLayoutStore((s) => s.tableTypes)
   const tables = useLayoutStore((s) => s.tables)
   const addTableType = useLayoutStore((s) => s.addTableType)
@@ -19,15 +21,13 @@ export function TableTypesPanel() {
           onClick={addTableType}
           className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-muted transition-colors hover:bg-surface-2 hover:text-ink"
         >
-          <span className="text-base leading-none">+</span> New type
+          <span className="text-base leading-none">+</span> {t('types.newType')}
         </button>
       </div>
 
       <div className="min-h-0 flex-1 space-y-2 overflow-auto p-2">
         {tableTypes.length === 0 && (
-          <p className="px-2 py-2 text-xs text-muted">
-            No table types — add one with the + above.
-          </p>
+          <p className="px-2 py-2 text-xs text-muted">{t('types.emptyHint')}</p>
         )}
         {tableTypes.map((type) => {
           const used = countFor(type.id)
@@ -40,8 +40,8 @@ export function TableTypesPanel() {
                   className="min-w-0 flex-1 font-medium"
                 />
                 <button
-                  aria-label={`Delete ${type.name}`}
-                  title={used > 0 ? `In use by ${used} table${used === 1 ? '' : 's'}` : 'Delete type'}
+                  aria-label={t('types.deleteAria', { name: type.name })}
+                  title={used > 0 ? t('types.inUse', { count: used }) : t('types.deleteType')}
                   disabled={used > 0}
                   onClick={() => removeTableType(type.id)}
                   className="shrink-0 text-muted transition-colors hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
@@ -51,7 +51,7 @@ export function TableTypesPanel() {
               </div>
 
               <label className="flex items-center justify-between text-[11px] text-muted">
-                Shape
+                {t('types.shape')}
                 <select
                   value={type.shape}
                   onChange={(e) =>
@@ -59,14 +59,14 @@ export function TableTypesPanel() {
                   }
                   className="rounded border border-line bg-surface px-1.5 py-1 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
                 >
-                  <option value="square">Square</option>
-                  <option value="round">Round</option>
-                  <option value="rectangle">Rectangle</option>
+                  <option value="square">{t('types.square')}</option>
+                  <option value="round">{t('types.round')}</option>
+                  <option value="rectangle">{t('types.rectangle')}</option>
                 </select>
               </label>
 
               <div className="grid grid-cols-2 gap-2">
-                <Field label="Width">
+                <Field label={t('types.width')}>
                   <NumField
                     value={type.defaultSize.x}
                     min={20}
@@ -75,7 +75,7 @@ export function TableTypesPanel() {
                     }
                   />
                 </Field>
-                <Field label="Height">
+                <Field label={t('types.height')}>
                   <NumField
                     value={type.defaultSize.y}
                     min={20}
@@ -84,20 +84,20 @@ export function TableTypesPanel() {
                     }
                   />
                 </Field>
-                <Field label="Clearance">
+                <Field label={t('types.clearance')}>
                   <NumField
                     value={type.clearance}
                     onCommit={(clearance) => updateTableType(type.id, { clearance })}
                   />
                 </Field>
                 <div />
-                <Field label="Solo seats">
+                <Field label={t('types.soloSeats')}>
                   <NumField
                     value={type.soloCapacity}
                     onCommit={(soloCapacity) => updateTableType(type.id, { soloCapacity })}
                   />
                 </Field>
-                <Field label="Connected seats">
+                <Field label={t('types.connectedSeats')}>
                   <NumField
                     value={type.connectedCapacity}
                     onCommit={(connectedCapacity) =>
@@ -107,16 +107,14 @@ export function TableTypesPanel() {
                 </Field>
               </div>
 
-              <p className="text-[11px] text-muted">
-                Used by {used} table{used === 1 ? '' : 's'}
-              </p>
+              <p className="text-[11px] text-muted">{t('types.usedBy', { count: used })}</p>
             </div>
           )
         })}
       </div>
 
       <p className="border-t border-line px-3 py-2 text-[11px] text-muted">
-        Size applies to new tables; existing tables keep their current size.
+        {t('types.sizeNote')}
       </p>
     </div>
   )

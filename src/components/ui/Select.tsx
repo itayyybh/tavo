@@ -15,7 +15,7 @@ interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
 }
 
 const fieldClass =
-  'h-10 w-full appearance-none rounded-xl border border-line bg-surface pl-3 pr-9 text-sm text-ink transition-colors duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/20 disabled:opacity-40'
+  'h-10 w-full appearance-none rounded-xl border border-line bg-surface ps-3 pe-9 text-sm text-ink transition-colors duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/20 disabled:opacity-40'
 
 /** Labeled native select, styled to match Input. Native for accessibility + speed. */
 export function Select({
@@ -52,7 +52,7 @@ export function Select({
           ))}
         </select>
         <svg
-          className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+          className="pointer-events-none absolute end-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
           viewBox="0 0 16 16"
           fill="none"
           aria-hidden="true"

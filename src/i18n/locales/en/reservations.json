@@ -1,0 +1,173 @@
+{
+  "title": "Reservations",
+  "new": "New reservation",
+  "seed20": "Seed 20",
+  "clearAll": "Clear all",
+  "searchPlaceholder": "Search name, phone, or ID    ( / )",
+  "shortcutsAria": "Keyboard shortcuts",
+  "shortcutsTitle": "Keyboard shortcuts (?)",
+  "view": {
+    "list": "List",
+    "timeline": "Timeline"
+  },
+  "status": {
+    "pending": "Pending",
+    "confirmed": "Confirmed",
+    "arrived": "Arrived",
+    "seated": "Seated",
+    "completed": "Completed",
+    "cancelled": "Cancelled",
+    "no_show": "No Show",
+    "waitlist": "Waitlist"
+  },
+  "source": {
+    "manual": "Manual",
+    "phone": "Phone",
+    "walk_in": "Walk-In",
+    "website": "Website",
+    "google": "Google"
+  },
+  "occasion": {
+    "birthday": "Birthday",
+    "anniversary": "Anniversary",
+    "business": "Business",
+    "date": "Date",
+    "celebration": "Celebration",
+    "other": "Other"
+  },
+  "duration": {
+    "60": "1 hr",
+    "90": "1.5 hr",
+    "120": "2 hr",
+    "150": "2.5 hr",
+    "180": "3 hr"
+  },
+  "filters": {
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "all": "All",
+    "custom": "Custom",
+    "anySize": "Any size",
+    "allZones": "All zones"
+  },
+  "pref": {
+    "vip": "VIP",
+    "wheelchair": "Wheelchair",
+    "highChair": "High Chair",
+    "windowSeat": "Window Seat",
+    "smoking": "Smoking"
+  },
+  "form": {
+    "guestName": "Guest name",
+    "guestNamePlaceholder": "e.g. Dana Levi",
+    "partySize": "Party size",
+    "duration": "Duration",
+    "date": "Date",
+    "arrivalTime": "Arrival time",
+    "phone": "Phone",
+    "zone": "Zone",
+    "selectZone": "Select zone",
+    "email": "Email",
+    "optional": "Optional",
+    "occasion": "Occasion",
+    "none": "None",
+    "source": "Source",
+    "notes": "Notes",
+    "preferences": "Preferences",
+    "allergiesPlaceholder": "Allergies (optional)",
+    "cancel": "Cancel",
+    "saveChanges": "Save changes",
+    "create": "Create reservation",
+    "zoneOption": "{{name}} ({{count}} tables)",
+    "duplicate": "Possible duplicate — {{name}}, party of {{size}} at {{time}}. You can still save.",
+    "zoneNoTables": "{{zone}} has no tables.",
+    "zoneFull": "{{zone}} is full for that day ({{used}}/{{capacity}} tables)."
+  },
+  "list": {
+    "emptyTitle": "No reservations",
+    "emptyBody": "Adjust filters or create a reservation to get started."
+  },
+  "timeline": {
+    "emptyTitle": "Nothing scheduled",
+    "emptyBody": "Reservations for the selected day appear here on a timeline."
+  },
+  "card": {
+    "guest_one": "{{count}} guest",
+    "guest_other": "{{count}} guests",
+    "edit": "Edit",
+    "delete": "Delete"
+  },
+  "summary": {
+    "reservations": "Reservations",
+    "guests": "Guests",
+    "confirmed": "Confirmed",
+    "arrived": "Arrived",
+    "vip": "VIP",
+    "avgParty": "Avg party"
+  },
+  "statusControl": {
+    "aria": "Change status"
+  },
+  "seating": {
+    "title": "Seating",
+    "reserved": "Reserved",
+    "clear": "Clear",
+    "noFitTitle": "No table fits",
+    "noFitBody": "Party of {{size}} — no free table or merge available at this time.",
+    "best": "Best",
+    "reserve": "Reserve",
+    "reservedBtn": "Reserved",
+    "seatsParty": "Seats {{seats}} · party {{party}}"
+  },
+  "reason": {
+    "exactFit": "Exact fit",
+    "seatsFor": "Seats {{seats}} for {{party}}",
+    "preferredZone": "Preferred zone",
+    "requestedTable": "Requested table",
+    "singleTable": "Single table",
+    "mergeOf": "Merge of {{count}}",
+    "bookedAtTime": "Booked at this time",
+    "seatsPartyOf": "Seats {{seats}}, party of {{party}}"
+  },
+  "loadChart": {
+    "title": "Service load",
+    "seats": "{{count}} seats",
+    "clear": "Clear",
+    "tooltip_one": "{{count}} reservation · {{guests}} guests",
+    "tooltip_other": "{{count}} reservations · {{guests}} guests",
+    "over": " · {{count}} over capacity",
+    "free": " · {{count}} seats free"
+  },
+  "delete": {
+    "title": "Delete reservation",
+    "body": "Permanently delete the reservation for <name>{{name}}</name> (party of {{size}})? This can't be undone.",
+    "keep": "Keep",
+    "delete": "Delete"
+  },
+  "palette": {
+    "title": "Command palette",
+    "body": "Quick actions and navigation are coming in a later phase.",
+    "escHint": "Press <kbd>Esc</kbd> to close."
+  },
+  "dialog": {
+    "edit": "Edit reservation",
+    "new": "New reservation"
+  },
+  "shortcuts": {
+    "title": "Keyboard shortcuts",
+    "nav": "Navigation",
+    "navigate": "Navigate reservations",
+    "openSelected": "Open selected reservation",
+    "search": "Search",
+    "focusSearch": "Focus search",
+    "actions": "Actions",
+    "new": "New reservation",
+    "editSelected": "Edit selected reservation",
+    "deleteSelected": "Delete selected reservation",
+    "general": "General",
+    "clearClose": "Clear search / close dialogs",
+    "commandPalette": "Command palette",
+    "shortcutsRef": "Keyboard shortcuts",
+    "footnote": "⌘ is Cmd on macOS, Ctrl on Windows/Linux."
+  }
+}

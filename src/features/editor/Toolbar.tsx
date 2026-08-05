@@ -1,4 +1,5 @@
 import { useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui'
 import { useHistoryStore, useLayoutStore, useSettingsStore, useUIStore } from '@/stores'
 import { clamp, screenToWorld, snapPoint } from '@/utils'
@@ -14,6 +15,7 @@ interface ToolbarProps {
 
 /** Editor toolbar — add tables, delete, undo/redo, zoom, snap. */
 export function Toolbar({ onToggleZones }: ToolbarProps) {
+  const { t } = useTranslation('editor')
   const tableTypes = useLayoutStore((s) => s.tableTypes)
   const addTable = useLayoutStore((s) => s.addTable)
   const addObstacle = useLayoutStore((s) => s.addObstacle)
@@ -92,7 +94,7 @@ export function Toolbar({ onToggleZones }: ToolbarProps) {
     if (!file) return
     const snapshot = parseLayoutFile(await file.text())
     if (snapshot) loadSnapshot(snapshot)
-    else alert('Could not read that layout file.')
+    else alert(t('loadError'))
   }
 
   const zoomBy = (factor: number) => {
@@ -115,13 +117,13 @@ export function Toolbar({ onToggleZones }: ToolbarProps) {
             className="md:hidden"
             onClick={onToggleZones}
           >
-            Zones
+            {t('zonesMobile')}
           </Button>
           <span className="mx-1 h-5 w-px bg-line md:hidden" />
         </>
       )}
 
-      <span className="mr-1 text-xs font-medium text-muted">Add</span>
+      <span className="me-1 text-xs font-medium text-muted">{t('add')}</span>
       {tableTypes.map((type) => (
         <Button
           key={type.id}
@@ -135,32 +137,32 @@ export function Toolbar({ onToggleZones }: ToolbarProps) {
 
       <span className="mx-1 h-5 w-px bg-line" />
 
-      <span className="mr-1 text-xs font-medium text-muted">Barrier</span>
+      <span className="me-1 text-xs font-medium text-muted">{t('barrier')}</span>
       <Button
         size="sm"
         variant="secondary"
         onClick={() => addObstacle('wall', viewCenterWorld())}
       >
-        Wall
+        {t('wall')}
       </Button>
       <Button
         size="sm"
         variant="secondary"
         onClick={() => addObstacle('object', viewCenterWorld())}
       >
-        Object
+        {t('object')}
       </Button>
       <Button
         size="sm"
         variant={tool === 'path' ? 'primary' : 'secondary'}
         onClick={togglePathTool}
-        title="Draw a keep-clear lane freely — tables can't be placed on it (kitchen path, exit)"
+        title={t('pathTitle')}
       >
-        Path
+        {t('path')}
       </Button>
       {tool === 'path' && (
         <label className="flex items-center gap-1.5 text-xs text-muted">
-          Width
+          {t('width')}
           <input
             type="range"
             min={12}
@@ -177,31 +179,31 @@ export function Toolbar({ onToggleZones }: ToolbarProps) {
       <span className="mx-1 h-5 w-px bg-line" />
 
       <Button size="sm" variant="ghost" onClick={handleDelete} disabled={!hasSelection}>
-        Delete
+        {t('delete')}
       </Button>
       <Button
         size="sm"
         variant="ghost"
         onClick={() => mergeTables(selectedIds)}
         disabled={!canMerge}
-        title="Merge selected tables into one (M)"
+        title={t('mergeTitle')}
       >
-        Merge
+        {t('merge')}
       </Button>
       <Button
         size="sm"
         variant="ghost"
         onClick={() => groupId && splitGroup(groupId)}
         disabled={!canSplit}
-        title="Split the merged group (M)"
+        title={t('splitTitle')}
       >
-        Split
+        {t('split')}
       </Button>
       <Button size="sm" variant="ghost" onClick={undo} disabled={!canUndo}>
-        Undo
+        {t('undo')}
       </Button>
       <Button size="sm" variant="ghost" onClick={redo} disabled={!canRedo}>
-        Redo
+        {t('redo')}
       </Button>
 
       <span className="mx-1 h-5 w-px bg-line" />
@@ -212,7 +214,7 @@ export function Toolbar({ onToggleZones }: ToolbarProps) {
       <button
         className="min-w-14 rounded-lg px-2 py-1 text-xs tabular-nums text-muted hover:text-ink"
         onClick={() => setViewport({ zoom: 1, pan: { x: 0, y: 0 } })}
-        title="Reset view"
+        title={t('resetView')}
       >
         {Math.round(viewport.zoom * 100)}%
       </button>
@@ -228,16 +230,16 @@ export function Toolbar({ onToggleZones }: ToolbarProps) {
           checked={snapToGrid}
           onChange={(e) => setSnapToGrid(e.target.checked)}
         />
-        Snap
+        {t('snap')}
       </label>
 
       <span className="mx-1 h-5 w-px bg-line" />
 
       <Button size="sm" variant="ghost" onClick={handleSave}>
-        Save
+        {t('save')}
       </Button>
       <Button size="sm" variant="ghost" onClick={() => fileInputRef.current?.click()}>
-        Load
+        {t('load')}
       </Button>
       <input
         ref={fileInputRef}

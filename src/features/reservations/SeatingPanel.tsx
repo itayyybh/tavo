@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
 import { Button, Panel, Text } from '@/components/ui'
 import { useReservationStore, useDecisionLogStore } from '@/stores'
@@ -18,6 +19,7 @@ interface SeatingPanelProps {
  * is logged on accept for the decision history / future AI.
  */
 export function SeatingPanel({ reservation }: SeatingPanelProps) {
+  const { t } = useTranslation('reservations')
   const floor = useSeatingFloor()
   const reservations = useReservationStore((s) => s.reservations)
   const assignTable = useReservationStore((s) => s.assignTable)
@@ -56,28 +58,28 @@ export function SeatingPanel({ reservation }: SeatingPanelProps) {
   }
 
   return (
-    <Panel title="Seating">
+    <Panel title={t('seating.title')}>
       {assigned.length > 0 && (
         <div className="mb-3 flex items-center justify-between rounded-lg bg-surface-2 px-3 py-2">
           <div className="min-w-0">
             <Text className="text-[10px] font-semibold uppercase tracking-wide text-muted">
-              Reserved
+              {t('seating.reserved')}
             </Text>
             <Text className="truncate text-sm font-medium text-ink">
               {labelsFor(assigned)}
             </Text>
           </div>
           <Button size="sm" variant="ghost" onClick={() => clearAssignment(reservation.id)}>
-            Clear
+            {t('seating.clear')}
           </Button>
         </div>
       )}
 
       {suggestions.length === 0 ? (
         <div className="rounded-lg border border-dashed border-line py-8 text-center">
-          <Text className="font-medium text-ink">No table fits</Text>
+          <Text className="font-medium text-ink">{t('seating.noFitTitle')}</Text>
           <Text muted className="mt-0.5 text-xs">
-            Party of {reservation.partySize} — no free table or merge available at this time.
+            {t('seating.noFitBody', { size: reservation.partySize })}
           </Text>
         </div>
       ) : (
@@ -103,13 +105,16 @@ export function SeatingPanel({ reservation }: SeatingPanelProps) {
                       </span>
                       {i === 0 && (
                         <span className="rounded-full bg-ink px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-surface">
-                          Best
+                          {t('seating.best')}
                         </span>
                       )}
                     </div>
                     <div className="mt-0.5 text-xs text-muted">
                       <span className="tabular-nums">
-                        Seats {s.candidate.seats} · party {reservation.partySize}
+                        {t('seating.seatsParty', {
+                          seats: s.candidate.seats,
+                          party: reservation.partySize,
+                        })}
                       </span>
                       {zoneName.get(s.candidate.zoneId) && (
                         <span> · {zoneName.get(s.candidate.zoneId)}</span>
@@ -122,17 +127,17 @@ export function SeatingPanel({ reservation }: SeatingPanelProps) {
                     disabled={chosen}
                     onClick={() => accept(s)}
                   >
-                    {chosen ? 'Reserved' : 'Reserve'}
+                    {chosen ? t('seating.reservedBtn') : t('seating.reserve')}
                   </Button>
                 </div>
 
                 <div className="mt-2 flex flex-wrap gap-1">
                   {s.reasons.map((reason) => (
                     <span
-                      key={reason}
+                      key={reason.key}
                       className="rounded-full border border-line px-2 py-0.5 text-[10px] font-medium text-muted"
                     >
-                      {reason}
+                      {t(reason.key, reason.params)}
                     </span>
                   ))}
                 </div>

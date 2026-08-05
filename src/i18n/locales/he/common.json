@@ -1,0 +1,30 @@
+{
+  "appName": "מנהל אולם מסעדה",
+  "language": "שפה",
+  "languageName": {
+    "en": "English",
+    "he": "עברית"
+  },
+  "languageToggleAria": "החלפת שפה",
+  "nav": {
+    "floor": "פלור",
+    "editor": "עורך",
+    "reservations": "הזמנות",
+    "design": "עיצוב"
+  },
+  "theme": {
+    "toggleAria": "החלפת ערכת נושא",
+    "dark": "כהה",
+    "light": "בהיר"
+  },
+  "tableStatus": {
+    "available": "פנוי",
+    "reserved": "שמור",
+    "occupied": "תפוס",
+    "blocked": "חסום"
+  },
+  "floor": {
+    "title": "פלור חי",
+    "body": "מפת פלור בזמן אמת עם מצבי שולחנות והושבה. יגיע בשלב מאוחר יותר."
+  }
+}

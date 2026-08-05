@@ -15,7 +15,7 @@
  */
 import type { Reservation } from '@/types'
 import { boundingBoxOf } from './geometry'
-import type { SeatCandidate, SeatingFloor, Suggestion } from './types'
+import type { SeatCandidate, SeatingFloor, SeatingReason, Suggestion } from './types'
 
 /** Diagonal span (world units) of a candidate's tables; 0 for a single. */
 function span(candidate: SeatCandidate): number {
@@ -33,19 +33,23 @@ export function scoreCandidate(
   floor: SeatingFloor,
 ): Suggestion {
   const { weights, merge } = floor.config
-  const reasons: string[] = []
+  const reasons: SeatingReason[] = []
   let score = 0
 
   // Capacity fit — reward the least wasted seats.
   const waste = candidate.seats - reservation.partySize
   score += weights.capacityFit / (1 + Math.max(0, waste))
-  if (waste === 0) reasons.push('Exact fit')
-  else reasons.push(`Seats ${candidate.seats} for ${reservation.partySize}`)
+  if (waste === 0) reasons.push({ key: 'reason.exactFit' })
+  else
+    reasons.push({
+      key: 'reason.seatsFor',
+      params: { seats: candidate.seats, party: reservation.partySize },
+    })
 
   // Preferred zone.
   if (reservation.preferredZoneId && candidate.zoneId === reservation.preferredZoneId) {
     score += weights.zoneMatch
-    reasons.push('Preferred zone')
+    reasons.push({ key: 'reason.preferredZone' })
   }
 
   // Preferred table.
@@ -54,16 +58,16 @@ export function scoreCandidate(
     candidate.tableIds.includes(reservation.preferredTableId)
   ) {
     score += weights.preferredTable
-    reasons.push('Requested table')
+    reasons.push({ key: 'reason.requestedTable' })
   }
 
   if (candidate.kind === 'single') {
     score += weights.singleTable
-    reasons.push('Single table')
+    reasons.push({ key: 'reason.singleTable' })
   } else {
     // Proximity — a tighter merge (smaller span) scores higher.
     score += (merge.proximityWeight * 100) / (100 + span(candidate))
-    reasons.push(`Merge of ${candidate.tables.length}`)
+    reasons.push({ key: 'reason.mergeOf', params: { count: candidate.tables.length } })
   }
 
   return { candidate, score, reasons }

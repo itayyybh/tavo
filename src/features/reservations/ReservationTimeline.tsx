@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Text } from '@/components/ui'
 import { bucketByTimeSlot, formatClock, cn } from '@/utils'
 import type { Reservation, ReservationStatus } from '@/types'
@@ -25,6 +26,7 @@ const dotClass: Record<ReservationStatus, string> = {
  * load bar per slot so the host can see where service is heavy. No tables (Phase 7).
  */
 export function ReservationTimeline({ reservations, onEdit }: ReservationTimelineProps) {
+  const { t } = useTranslation('reservations')
   const slots = useMemo(() => bucketByTimeSlot(reservations), [reservations])
 
   const maxGuests = useMemo(
@@ -35,8 +37,8 @@ export function ReservationTimeline({ reservations, onEdit }: ReservationTimelin
   if (slots.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-line py-16">
-        <Text className="font-medium text-ink">Nothing scheduled</Text>
-        <Text muted>Reservations for the selected day appear here on a timeline.</Text>
+        <Text className="font-medium text-ink">{t('timeline.emptyTitle')}</Text>
+        <Text muted>{t('timeline.emptyBody')}</Text>
       </div>
     )
   }

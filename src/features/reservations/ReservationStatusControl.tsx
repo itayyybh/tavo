@@ -1,7 +1,9 @@
+import { useTranslation } from 'react-i18next'
 import { useReservationStore } from '@/stores'
-import { statusLabel, cn } from '@/utils'
+import { cn } from '@/utils'
 import type { ID, ReservationStatus } from '@/types'
 import { ACTIVE_UI_STATUSES } from './constants'
+import { useReservationLabels } from './hooks/useReservationLabels'
 
 interface ReservationStatusControlProps {
   id: ID
@@ -18,6 +20,8 @@ export function ReservationStatusControl({
   status,
   className,
 }: ReservationStatusControlProps) {
+  const { t } = useTranslation('reservations')
+  const labels = useReservationLabels()
   const setStatus = useReservationStore((s) => s.setStatus)
   // Current status first (covers legacy data), then the two UI statuses.
   const choices: ReservationStatus[] = Array.from(
@@ -26,7 +30,7 @@ export function ReservationStatusControl({
 
   return (
     <select
-      aria-label="Change status"
+      aria-label={t('statusControl.aria')}
       value={status}
       onChange={(e) => {
         const next = e.target.value as ReservationStatus
@@ -40,7 +44,7 @@ export function ReservationStatusControl({
     >
       {choices.map((s) => (
         <option key={s} value={s}>
-          {statusLabel[s]}
+          {labels.status(s)}
         </option>
       ))}
     </select>

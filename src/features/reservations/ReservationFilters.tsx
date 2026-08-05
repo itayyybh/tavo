@@ -1,9 +1,11 @@
+import { useTranslation } from 'react-i18next'
 import { Select } from '@/components/ui'
-import { statusLabel, cn } from '@/utils'
+import { cn } from '@/utils'
 import type { ReservationStatus } from '@/types'
 import type { SelectOption } from '@/components/ui'
 import type { DatePreset, ReservationFilterState } from './hooks/useReservationFilters'
 import { ACTIVE_UI_STATUSES } from './constants'
+import { useReservationLabels } from './hooks/useReservationLabels'
 
 export interface ZoneChoice {
   id: string
@@ -17,12 +19,7 @@ interface ReservationFiltersProps {
   zones: ZoneChoice[]
 }
 
-const DATE_PRESETS: { value: DatePreset; label: string }[] = [
-  { value: 'today', label: 'Today' },
-  { value: 'tomorrow', label: 'Tomorrow' },
-  { value: 'all', label: 'All' },
-  { value: 'custom', label: 'Custom' },
-]
+const DATE_PRESETS: DatePreset[] = ['today', 'tomorrow', 'all', 'custom']
 
 const partyOptions: SelectOption[] = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({
   value: String(n),
@@ -31,6 +28,8 @@ const partyOptions: SelectOption[] = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({
 
 /** Filter bar — date presets, status chips, party size, zone. Presentational. */
 export function ReservationFilters({ state, patch, zones }: ReservationFiltersProps) {
+  const { t } = useTranslation('reservations')
+  const labels = useReservationLabels()
   const toggleStatus = (status: ReservationStatus) => {
     const has = state.statuses.includes(status)
     patch({
@@ -45,7 +44,7 @@ export function ReservationFilters({ state, patch, zones }: ReservationFiltersPr
       {/* Date presets + optional custom day. */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="inline-flex rounded-lg border border-line p-0.5">
-          {DATE_PRESETS.map(({ value, label }) => (
+          {DATE_PRESETS.map((value) => (
             <button
               key={value}
               type="button"
@@ -57,7 +56,7 @@ export function ReservationFilters({ state, patch, zones }: ReservationFiltersPr
                   : 'text-muted hover:text-ink',
               )}
             >
-              {label}
+              {t(`filters.${value}`)}
             </button>
           ))}
         </div>
@@ -75,7 +74,7 @@ export function ReservationFilters({ state, patch, zones }: ReservationFiltersPr
         <div className="w-32">
           <Select
             options={partyOptions}
-            placeholder="Any size"
+            placeholder={t('filters.anySize')}
             value={state.partySize == null ? '' : String(state.partySize)}
             onChange={(e) =>
               patch({ partySize: e.target.value ? Number(e.target.value) : null })
@@ -98,7 +97,7 @@ export function ReservationFilters({ state, patch, zones }: ReservationFiltersPr
                 : 'border-line bg-surface text-muted hover:text-ink',
             )}
           >
-            All zones
+            {t('filters.allZones')}
           </button>
           {zones.map((z) => {
             const active = state.preferredZoneId === z.id
@@ -140,7 +139,7 @@ export function ReservationFilters({ state, patch, zones }: ReservationFiltersPr
                   : 'border-line bg-surface text-muted hover:text-ink',
               )}
             >
-              {statusLabel[status]}
+              {labels.status(status)}
             </button>
           )
         })}

@@ -1,9 +1,11 @@
 import { memo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button, ReservationStatusBadge } from '@/components/ui'
-import { formatTime, occasionLabel, cn } from '@/utils'
+import { formatTime, cn } from '@/utils'
 import type { Reservation } from '@/types'
 import { ReservationStatusControl } from './ReservationStatusControl'
 import { Countdown } from './Countdown'
+import { useReservationLabels } from './hooks/useReservationLabels'
 
 interface ReservationCardProps {
   reservation: Reservation
@@ -30,6 +32,8 @@ function ReservationCardBase({
   onEdit,
   onDelete,
 }: ReservationCardProps) {
+  const { t } = useTranslation('reservations')
+  const labels = useReservationLabels()
   const { guestName, partySize, dateTime, status, occasion, preferences } = reservation
   const vip = preferences?.vip
 
@@ -62,9 +66,7 @@ function ReservationCardBase({
           )}
         </div>
         <div className="mt-0.5 flex items-center gap-2 text-xs text-muted">
-          <span className="tabular-nums">
-            {partySize} {partySize === 1 ? 'guest' : 'guests'}
-          </span>
+          <span className="tabular-nums">{t('card.guest', { count: partySize })}</span>
           {zoneName && (
             <span
               className="rounded-full border border-black/5 px-2 py-0.5 text-[10px] font-medium text-neutral-900"
@@ -76,7 +78,7 @@ function ReservationCardBase({
           {occasion && (
             <>
               <span className="text-line">·</span>
-              <span>{occasionLabel[occasion]}</span>
+              <span>{labels.occasion(occasion)}</span>
             </>
           )}
           {assignedLabel && (
@@ -93,10 +95,10 @@ function ReservationCardBase({
         <ReservationStatusControl id={reservation.id} status={status} />
         <div className="flex items-center gap-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
           <Button size="sm" variant="ghost" onClick={() => onEdit(reservation)}>
-            Edit
+            {t('card.edit')}
           </Button>
           <Button size="sm" variant="ghost" onClick={() => onDelete(reservation.id)}>
-            Delete
+            {t('card.delete')}
           </Button>
         </div>
       </div>

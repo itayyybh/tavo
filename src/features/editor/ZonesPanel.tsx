@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { Zone } from '@/types'
 import { Button } from '@/components/ui'
 import { useLayoutStore, useSettingsStore, useUIStore } from '@/stores'
@@ -16,6 +17,7 @@ interface ZonesPanelProps {
 
 /** Sidebar for managing zones (nested folder tree) and assigning selected tables. */
 export function ZonesPanel({ onClosePanel }: ZonesPanelProps) {
+  const { t } = useTranslation('editor')
   const zones = useLayoutStore((s) => s.zones)
   const tables = useLayoutStore((s) => s.tables)
   const addZone = useLayoutStore((s) => s.addZone)
@@ -69,7 +71,7 @@ export function ZonesPanel({ onClosePanel }: ZonesPanelProps) {
     )
     const id = addZone(snapToGrid ? snapPoint(center, gridSize) : center)
     selectZone(id)
-    startRename(id, `Zone ${zones.length + 1}`)
+    startRename(id, t('zones.defaultName', { n: zones.length + 1 }))
   }
 
   // Fit the canvas to a zone (+ padding) and isolate it for easier editing.
@@ -140,7 +142,7 @@ export function ZonesPanel({ onClosePanel }: ZonesPanelProps) {
           onClick={() => selectZone(zone.id)}
           style={{ paddingLeft: 12 + depth * 14 }}
           className={cn(
-            'group flex cursor-pointer items-center justify-between rounded-lg py-2 pr-3 text-sm transition-colors',
+            'group flex cursor-pointer items-center justify-between rounded-lg py-2 pe-3 text-sm transition-colors',
             isDropTarget
               ? 'ring-1 ring-inset ring-ink bg-surface-2'
               : selectedZoneId === zone.id
@@ -187,8 +189,8 @@ export function ZonesPanel({ onClosePanel }: ZonesPanelProps) {
           <span className="flex items-center gap-1.5">
             <span className="tabular-nums text-xs text-muted">{countFor(zone.id)}</span>
             <button
-              aria-label={`Focus ${zone.name}`}
-              title="Focus zone"
+              aria-label={t('zones.focusAria', { name: zone.name })}
+              title={t('zones.focusZone')}
               onClick={(e) => {
                 e.stopPropagation()
                 focusZone(zone)
@@ -203,7 +205,7 @@ export function ZonesPanel({ onClosePanel }: ZonesPanelProps) {
               ⤢
             </button>
             <button
-              aria-label={`Delete ${zone.name}`}
+              aria-label={t('zones.deleteAria', { name: zone.name })}
               onClick={(e) => {
                 e.stopPropagation()
                 handleDelete(zone.id)
@@ -227,7 +229,7 @@ export function ZonesPanel({ onClosePanel }: ZonesPanelProps) {
           onClick={handleAdd}
           className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-muted transition-colors hover:bg-surface-2 hover:text-ink"
         >
-          <span className="text-base leading-none">+</span> New zone
+          <span className="text-base leading-none">+</span> {t('zones.newZone')}
         </button>
       </div>
 
@@ -250,20 +252,18 @@ export function ZonesPanel({ onClosePanel }: ZonesPanelProps) {
         )}
       >
         {zones.length === 0 && (
-          <p className="px-2 py-2 text-xs text-muted">
-            No zones yet — add one with the + above.
-          </p>
+          <p className="px-2 py-2 text-xs text-muted">{t('zones.emptyHint')}</p>
         )}
         {rootZones.map((zone) => renderZone(zone, 0))}
         <p className="px-3 pt-2 text-xs text-muted">
-          {dragId ? 'Drop on a zone to nest · drop here to unnest' : `Unassigned: ${unassigned}`}
+          {dragId ? t('zones.dragHint') : t('zones.unassigned', { count: unassigned })}
         </p>
       </div>
 
       {selectedCount > 0 && (
         <div className="space-y-2 border-t border-line p-3">
           <p className="text-xs font-medium text-ink">
-            Assign {selectedCount} table{selectedCount > 1 ? 's' : ''} to
+            {t('zones.assignTo', { count: selectedCount })}
           </p>
           <div className="flex flex-wrap gap-1.5">
             <Button
@@ -271,7 +271,7 @@ export function ZonesPanel({ onClosePanel }: ZonesPanelProps) {
               variant="secondary"
               onClick={() => setTablesZone(selectedTableIds, null)}
             >
-              Auto
+              {t('zones.auto')}
             </Button>
             {zones.map((zone) => (
               <Button
