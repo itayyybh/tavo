@@ -3,9 +3,8 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import i18n from '@/i18n'
 import { dirForLocale } from '@/i18n/config'
-import { useSettingsStore, useUIStore } from '@/stores'
-import { useFloorPersistence } from '@/hooks/useFloorPersistence'
-import { InviteManager } from '@/features/auth'
+import { useSessionStore, useSettingsStore, useUIStore } from '@/stores'
+import { AccountMenu, InviteManager } from '@/features/auth'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { LanguageToggle } from '@/components/LanguageToggle'
 
@@ -22,6 +21,7 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
 export default function App() {
   const { t } = useTranslation('common')
   const theme = useUIStore((s) => s.theme)
+  const restaurantName = useSessionStore((s) => s.restaurantName)
   const navigate = useNavigate()
   const location = useLocation()
   const locale = useSettingsStore((s) => s.locale)
@@ -34,9 +34,7 @@ export default function App() {
     }
   }, [location.pathname, navigate])
 
-  // Layout + reservation sync now live in AuthGate (above the router) so the
-  // mobile route hydrates too. Only the desktop-only floor layer stays here.
-  useFloorPersistence()
+  // Layout, reservation, and floor sync all live in AuthGate (above the router).
 
   // Apply the active theme to the document root so tokens flip globally.
   useEffect(() => {
@@ -54,7 +52,14 @@ export default function App() {
   return (
     <div className="flex h-full flex-col">
       <header className="flex items-center justify-between border-b border-line px-6 py-3">
-        <span className="text-sm font-semibold tracking-tight text-ink">{t('appName')}</span>
+        <div className="flex min-w-0 flex-col leading-tight">
+          <span className="truncate text-sm font-semibold tracking-tight text-ink">
+            {restaurantName ?? t('appName')}
+          </span>
+          {restaurantName && (
+            <span className="text-[11px] text-muted">{t('appName')}</span>
+          )}
+        </div>
         <nav className="flex items-center gap-1">
           <NavLink to="/" end className={navLinkClass}>
             {t('nav.floor')}
@@ -72,6 +77,8 @@ export default function App() {
           <InviteManager />
           <LanguageToggle />
           <ThemeToggle />
+          <span className="mx-1 h-4 w-px bg-line" />
+          <AccountMenu />
         </nav>
       </header>
       <main className="min-h-0 flex-1 overflow-auto bg-surface-2">

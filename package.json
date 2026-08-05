@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:edge": "npx esbuild src/services/seating/availabilityServer.ts --bundle --format=esm --platform=neutral --tsconfig=tsconfig.app.json --outfile=supabase/functions/check-availability/_engine.mjs",
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",

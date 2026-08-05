@@ -2,8 +2,10 @@ import { useEffect, type ReactNode } from 'react'
 import { useSessionStore } from '@/stores'
 import { useLayoutSync } from '@/hooks/useLayoutSync'
 import { useReservationSync } from '@/hooks/useReservationSync'
+import { useFloorSync } from '@/hooks/useFloorSync'
 import { AuthScreen } from './AuthScreen'
 import { OnboardingScreen } from './OnboardingScreen'
+import { UpdatePasswordScreen } from './UpdatePasswordScreen'
 
 /**
  * The single access gate (Phase 9). Wraps the whole app: nothing renders until
@@ -20,6 +22,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   // layout + reservations from the database. Both hooks no-op until ready.
   useLayoutSync()
   useReservationSync()
+  useFloorSync()
 
   useEffect(() => {
     init()
@@ -33,6 +36,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
     )
   }
 
+  if (status === 'recovery') return <UpdatePasswordScreen />
   if (status === 'signed_out') return <AuthScreen />
   if (status === 'no_restaurant') return <OnboardingScreen />
 
