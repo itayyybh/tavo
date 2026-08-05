@@ -86,11 +86,15 @@ function arrangeCluster(
 
   const mainOf = (v: Vec2) => (vertical ? v.y : v.x)
   const crossOf = (v: Vec2) => (vertical ? v.x : v.y)
-  const mainSize = (m: Table) => (vertical ? fp.get(m.id)!.footprint.y : fp.get(m.id)!.footprint.x)
-  const crossSize = (m: Table) => (vertical ? fp.get(m.id)!.footprint.x : fp.get(m.id)!.footprint.y)
+  const mainSize = (m: Table) =>
+    vertical ? fp.get(m.id)!.footprint.y : fp.get(m.id)!.footprint.x
+  const crossSize = (m: Table) =>
+    vertical ? fp.get(m.id)!.footprint.x : fp.get(m.id)!.footprint.y
 
   const byPosition = [...members].sort(
-    (a, b) => mainOf(a.position) - mainOf(b.position) || crossOf(a.position) - crossOf(b.position),
+    (a, b) =>
+      mainOf(a.position) - mainOf(b.position) ||
+      crossOf(a.position) - crossOf(b.position),
   )
   let sorted = roundsFirst(byPosition, isRound)
   // Force the pinned anchor to the front so the line origins on it.
@@ -121,7 +125,11 @@ function arrangeCluster(
     const main = edge + mainSize(m) / 2
     const cross = centered ? crossLine : crossLine + crossSize(m) / 2
     const position = vertical ? { x: cross, y: main } : { x: main, y: cross }
-    out.set(m.id, { position, rotation: fp.get(m.id)!.rotation, footprint: fp.get(m.id)!.footprint })
+    out.set(m.id, {
+      position,
+      rotation: fp.get(m.id)!.rotation,
+      footprint: fp.get(m.id)!.footprint,
+    })
     edge += mainSize(m) - SEAM_OVERLAP
   }
   return out
@@ -188,7 +196,10 @@ function clampInsideZone(placed: Map<ID, Placement>, zone: Zone): Vec2 {
     if (max > zMax) return zMax - max
     return 0
   }
-  return { x: axis(b.minX, b.maxX, z.minX, z.maxX), y: axis(b.minY, b.maxY, z.minY, z.maxY) }
+  return {
+    x: axis(b.minX, b.maxX, z.minX, z.maxX),
+    y: axis(b.minY, b.maxY, z.minY, z.maxY),
+  }
 }
 
 /**
@@ -240,7 +251,10 @@ function findClearOffset(
 function withOffset(placed: Map<ID, Placement>, offset: Vec2): Map<ID, Placement> {
   const out = new Map<ID, Placement>()
   for (const [id, p] of placed) {
-    out.set(id, { ...p, position: { x: p.position.x + offset.x, y: p.position.y + offset.y } })
+    out.set(id, {
+      ...p,
+      position: { x: p.position.x + offset.x, y: p.position.y + offset.y },
+    })
   }
   return out
 }
@@ -295,6 +309,8 @@ export function placeMergedBlock(
   // Best-effort: at least pull the (correctly ordered) line inside the zone, so a
   // merge that couldn't be placed cleanly is still visually in its zone — flagged
   // clear:false so the host is asked to finish arranging it.
-  const clamped = containZone ? withOffset(fallback!, clampInsideZone(fallback!, containZone)) : fallback!
+  const clamped = containZone
+    ? withOffset(fallback!, clampInsideZone(fallback!, containZone))
+    : fallback!
   return { placements: clamped, clear: false }
 }

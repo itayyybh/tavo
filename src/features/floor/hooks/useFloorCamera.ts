@@ -46,7 +46,10 @@ export function useFloorCamera(
         const factor = e.evt.deltaY > 0 ? 1 / ZOOM_STEP : ZOOM_STEP
         const zoom = clamp(prev.zoom * factor, MIN_ZOOM, MAX_ZOOM)
         const world = screenToWorld(pointer, prev)
-        return { zoom, pan: { x: pointer.x - world.x * zoom, y: pointer.y - world.y * zoom } }
+        return {
+          zoom,
+          pan: { x: pointer.x - world.x * zoom, y: pointer.y - world.y * zoom },
+        }
       })
     },
     [stageRef],

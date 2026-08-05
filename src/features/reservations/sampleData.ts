@@ -51,12 +51,7 @@ const TIMES = [
 ]
 
 // Only the two UI statuses, weighted toward Confirmed.
-const STATUSES: ReservationStatus[] = [
-  'confirmed',
-  'confirmed',
-  'confirmed',
-  'arrived',
-]
+const STATUSES: ReservationStatus[] = ['confirmed', 'confirmed', 'confirmed', 'arrived']
 
 const SOURCES: ReservationSource[] = ['manual', 'phone', 'walk_in', 'website', 'google']
 

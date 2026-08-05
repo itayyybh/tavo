@@ -59,7 +59,8 @@ export function FloorTableMenu({
   const { status } = table
   // Header: the party's name when occupied, else the table(s) it names.
   const heading =
-    reservationName ?? (tablesLabel ? `Tables ${tablesLabel}` : `Table ${table.base.label}`)
+    reservationName ??
+    (tablesLabel ? `Tables ${tablesLabel}` : `Table ${table.base.label}`)
 
   return (
     <div className="absolute left-3 top-3 z-20">

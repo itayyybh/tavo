@@ -68,7 +68,9 @@ export function FloorTableNode({
   const border = selected ? colors.accent : isActive ? statusColor : colors.line
   const borderWidth = selected || isActive ? 2 : 1.5
   // Whole body painted a solid tint of the status color (flat, no alpha).
-  const bodyFill = isActive ? mixHex(colors.surface, statusColor, FLOOR_TINT) : colors.surface
+  const bodyFill = isActive
+    ? mixHex(colors.surface, statusColor, FLOOR_TINT)
+    : colors.surface
 
   const dotX = round ? w / 2 + (Math.min(w, h) / 2 - 7) * 0.707 : w - 9
   const dotY = round ? h / 2 - (Math.min(w, h) / 2 - 7) * 0.707 : 9

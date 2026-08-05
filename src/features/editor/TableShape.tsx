@@ -44,7 +44,7 @@ function chairSlots(shape: string, w: number, h: number, seats: number): ChairSl
   if (shape === 'round') {
     const R = Math.min(w, h) / 2 + CHAIR_GAP + CHAIR_THK / 2
     return Array.from({ length: seats }, (_, i) => {
-      const a = (-Math.PI / 2) + (i * 2 * Math.PI) / seats
+      const a = -Math.PI / 2 + (i * 2 * Math.PI) / seats
       return {
         x: w / 2 + R * Math.cos(a) - CHAIR_THK / 2,
         y: h / 2 + R * Math.sin(a) - CHAIR_THK / 2,
@@ -64,13 +64,23 @@ function chairSlots(shape: string, w: number, h: number, seats: number): ChairSl
   const horiz = (count: number, cy: number) => {
     for (let i = 0; i < count; i++) {
       const cx = (w * (i + 0.5)) / count
-      slots.push({ x: cx - CHAIR_LEN / 2, y: cy - CHAIR_THK / 2, w: CHAIR_LEN, h: CHAIR_THK })
+      slots.push({
+        x: cx - CHAIR_LEN / 2,
+        y: cy - CHAIR_THK / 2,
+        w: CHAIR_LEN,
+        h: CHAIR_THK,
+      })
     }
   }
   const vert = (count: number, cx: number) => {
     for (let i = 0; i < count; i++) {
       const cy = (h * (i + 0.5)) / count
-      slots.push({ x: cx - CHAIR_THK / 2, y: cy - CHAIR_LEN / 2, w: CHAIR_THK, h: CHAIR_LEN })
+      slots.push({
+        x: cx - CHAIR_THK / 2,
+        y: cy - CHAIR_LEN / 2,
+        w: CHAIR_THK,
+        h: CHAIR_LEN,
+      })
     }
   }
   horiz(top, -CHAIR_GAP - CHAIR_THK / 2)
@@ -115,7 +125,8 @@ export function TableShape({
   const border = selected ? colors.accent : colors.line
   const borderWidth = selected ? 2 : 1.5
 
-  const chairs = !merged && Math.min(w, h) >= MIN_CHAIR_SIDE ? chairSlots(shape, w, h, seats) : []
+  const chairs =
+    !merged && Math.min(w, h) >= MIN_CHAIR_SIDE ? chairSlots(shape, w, h, seats) : []
 
   // Hover only lifts the shadow; selection keeps its own glow untouched. Bound to
   // the body shape so `e.target` is the node to tween — no render-phase ref read.
@@ -135,8 +146,18 @@ export function TableShape({
 
   // Soft blue glow when selected; a whisper of a drop shadow otherwise.
   const bodyShadow = selected
-    ? { shadowColor: colors.accent, shadowBlur: 12, shadowOffset: { x: 0, y: 0 }, shadowOpacity: 0.35 }
-    : { shadowColor: '#000000', shadowBlur: 6, shadowOffset: { x: 0, y: 2 }, shadowOpacity: 0.08 }
+    ? {
+        shadowColor: colors.accent,
+        shadowBlur: 12,
+        shadowOffset: { x: 0, y: 0 },
+        shadowOpacity: 0.35,
+      }
+    : {
+        shadowColor: '#000000',
+        shadowBlur: 6,
+        shadowOffset: { x: 0, y: 2 },
+        shadowOpacity: 0.08,
+      }
 
   return (
     <Group

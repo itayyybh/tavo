@@ -600,13 +600,17 @@ export function EditorCanvas() {
   // Zone focus: isolate a single zone (+ its tables and overlapping obstacles).
   // Its nested child zones still render as shells (their pink areas), but without
   // their tables — so focusing Inside shows the Bar region without the Bar's tables.
-  const focusedZone = focusedZoneId ? zones.find((z) => z.id === focusedZoneId) : undefined
+  const focusedZone = focusedZoneId
+    ? zones.find((z) => z.id === focusedZoneId)
+    : undefined
   const focusBox = focusedZone ? aabb(focusedZone.position, focusedZone.size) : null
   const focusSubtree = focusedZone
     ? new Set<string>([focusedZone.id, ...zoneDescendantIds(focusedZone.id, zones)])
     : null
   // Parents render before children so nested zones stack on top and stay clickable.
-  const visibleZones = (focusSubtree ? zones.filter((z) => focusSubtree.has(z.id)) : zones)
+  const visibleZones = (
+    focusSubtree ? zones.filter((z) => focusSubtree.has(z.id)) : zones
+  )
     .slice()
     .sort((a, b) => zoneDepth(a, zonesIndex) - zoneDepth(b, zonesIndex))
   // When focused, show only the focused zone's own tables (nested zones' tables hidden).

@@ -82,7 +82,9 @@ export function MergedHulls({
         const active = tintByStatus && dominant !== 'available'
         const statusColor = colors.status[dominant]
         // Solid, flat body tint (no alpha) so merge passes never stack darker.
-        const bodyFill = active ? mixHex(colors.surface, statusColor, FLOOR_TINT) : colors.surface
+        const bodyFill = active
+          ? mixHex(colors.surface, statusColor, FLOOR_TINT)
+          : colors.surface
         // Neutral hairline (editor) or the status color (floor, when active); soft
         // blue when selected. Grow-pass thickness = visible ring width.
         const border = isSelected || active ? 2 : 1.5
@@ -93,7 +95,12 @@ export function MergedHulls({
             : colors.line
         const growShadow = isSelected
           ? { shadowColor: colors.accent, shadowBlur: 12, shadowOpacity: 0.3 }
-          : { shadowColor: '#000000', shadowBlur: 6, shadowOffsetY: 2, shadowOpacity: 0.08 }
+          : {
+              shadowColor: '#000000',
+              shadowBlur: 6,
+              shadowOffsetY: 2,
+              shadowOpacity: 0.08,
+            }
         const seats = groupCapacity(members, tableTypes, group)
 
         // Union box, for the seat badge (top-left).
@@ -113,7 +120,7 @@ export function MergedHulls({
         // own type clearance). Round → circle, others → ellipse that rotates with
         // the table — never a single axis-aligned box around the whole group.
         const clearanceOf = (m: Table) =>
-          group.clearance ?? (tableTypes.find((ty) => ty.id === m.typeId)?.clearance ?? 0)
+          group.clearance ?? tableTypes.find((ty) => ty.id === m.typeId)?.clearance ?? 0
 
         // Members are arranged left-to-right (see arrangeCluster) — bridge each
         // adjacent pair's seam with a patch sized to their shared vertical span.
@@ -126,16 +133,29 @@ export function MergedHulls({
           const b = sortedMembers[i + 1]
           const seamX = (a.position.x + a.size.x / 2 + (b.position.x - b.size.x / 2)) / 2
           const top = Math.max(a.position.y - a.size.y / 2, b.position.y - b.size.y / 2)
-          const bottom = Math.min(a.position.y + a.size.y / 2, b.position.y + b.size.y / 2)
+          const bottom = Math.min(
+            a.position.y + a.size.y / 2,
+            b.position.y + b.size.y / 2,
+          )
           if (bottom <= top) continue
-          bridges.push({ x: seamX - BRIDGE_REACH, y: top, width: BRIDGE_REACH * 2, height: bottom - top })
+          bridges.push({
+            x: seamX - BRIDGE_REACH,
+            y: top,
+            width: BRIDGE_REACH * 2,
+            height: bottom - top,
+          })
         }
 
         const memberShape = (m: Table, pass: 'grow' | 'fill') => {
           const { x: w, y: h } = m.size
           const stroke =
             pass === 'grow'
-              ? { stroke: borderColor, strokeWidth: border * 2, ...growShadow, shadowForStrokeEnabled: false }
+              ? {
+                  stroke: borderColor,
+                  strokeWidth: border * 2,
+                  ...growShadow,
+                  shadowForStrokeEnabled: false,
+                }
               : {}
           const fill = pass === 'grow' ? borderColor : bodyFill
           return shapeOf(m) === 'round' ? (
@@ -243,7 +263,12 @@ export function MergedHulls({
             ))}
             <Label x={minX} y={minY - 20}>
               <Tag fill={isSelected ? colors.ink : colors.muted} cornerRadius={4} />
-              <Text text={`${seats} seats`} fontSize={11} fill={colors.surface} padding={4} />
+              <Text
+                text={`${seats} seats`}
+                fontSize={11}
+                fill={colors.surface}
+                padding={4}
+              />
             </Label>
             {(() => {
               // One status dot for the whole body (available = green token), pinned

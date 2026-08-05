@@ -46,10 +46,7 @@ export function FloorReservationRail() {
   const seatingFloor = useSeatingFloor()
 
   const zoneById = useMemo(() => new Map(zones.map((z) => [z.id, z])), [zones])
-  const tableZone = useMemo(
-    () => new Map(tables.map((t) => [t.id, t.zoneId])),
-    [tables],
-  )
+  const tableZone = useMemo(() => new Map(tables.map((t) => [t.id, t.zoneId])), [tables])
   const labelOf = useMemo(() => {
     const map = new Map(tables.map((t) => [t.id, t.label]))
     return (ids: string[] = []) => ids.map((id) => map.get(id) ?? '?').join(' + ')
@@ -69,7 +66,9 @@ export function FloorReservationRail() {
   const arrangeBySeating = useMemo(
     () =>
       new Set(
-        runtimeMerges.filter((m) => m.needsArrange && m.seatingId).map((m) => m.seatingId as string),
+        runtimeMerges
+          .filter((m) => m.needsArrange && m.seatingId)
+          .map((m) => m.seatingId as string),
       ),
     [runtimeMerges],
   )
@@ -91,7 +90,9 @@ export function FloorReservationRail() {
   const seated = useMemo(
     () =>
       focusedZoneId
-        ? seatings.filter((s) => s.tableIds.some((id) => tableZone.get(id) === focusedZoneId))
+        ? seatings.filter((s) =>
+            s.tableIds.some((id) => tableZone.get(id) === focusedZoneId),
+          )
         : seatings,
     [seatings, focusedZoneId, tableZone],
   )
@@ -161,7 +162,11 @@ export function FloorReservationRail() {
                 <button
                   className={seatBtn}
                   disabled={!canSeat}
-                  title={canSeat ? undefined : 'Drag onto a table (or a selection) on the floor'}
+                  title={
+                    canSeat
+                      ? undefined
+                      : 'Drag onto a table (or a selection) on the floor'
+                  }
                   onClick={() => seat(r.id, assigned)}
                 >
                   Seat
@@ -200,7 +205,9 @@ export function FloorReservationRail() {
                   <span className="text-xs text-muted">
                     {r.partySize}p ·{' '}
                     {suggestion ? (
-                      <span className="text-ink">{labelOf(suggestion.candidate.tableIds)}</span>
+                      <span className="text-ink">
+                        {labelOf(suggestion.candidate.tableIds)}
+                      </span>
                     ) : (
                       'no table — drag onto the floor'
                     )}
@@ -213,9 +220,15 @@ export function FloorReservationRail() {
                     title={
                       suggestion
                         ? undefined
-                        : explainNoFit(r, seatingFloor, reservations.filter((o) => o.id !== r.id))
+                        : explainNoFit(
+                            r,
+                            seatingFloor,
+                            reservations.filter((o) => o.id !== r.id),
+                          )
                     }
-                    onClick={() => suggestion && seat(r.id, suggestion.candidate.tableIds)}
+                    onClick={() =>
+                      suggestion && seat(r.id, suggestion.candidate.tableIds)
+                    }
                   >
                     Seat
                   </button>
@@ -280,7 +293,10 @@ function ZoneTag({ zone }: { zone: Zone | undefined }) {
   if (!zone) return null
   return (
     <span className="flex shrink-0 items-center gap-1 rounded-full bg-surface-2 px-1.5 py-0.5 text-[10px] font-medium text-muted">
-      <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: zone.color }} />
+      <span
+        className="h-1.5 w-1.5 rounded-full"
+        style={{ backgroundColor: zone.color }}
+      />
       {zone.name}
     </span>
   )

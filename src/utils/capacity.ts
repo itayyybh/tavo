@@ -41,7 +41,10 @@ export function groupCapacity(
  */
 export function hypotheticalMergeCapacity(tables: Table[], types: TableType[]): number {
   if (tables.length < 2) return 0
-  const sum = tables.reduce((total, t) => total + (typeOf(t, types)?.connectedCapacity ?? 0), 0)
+  const sum = tables.reduce(
+    (total, t) => total + (typeOf(t, types)?.connectedCapacity ?? 0),
+    0,
+  )
   return tables.length >= 3 ? Math.max(0, sum - (tables.length - 1)) : sum
 }
 
@@ -68,6 +71,7 @@ export function floorTotals(
     members.push(t)
     groups.set(t.mergedGroupId, members)
   }
-  for (const [id, members] of groups) seats += groupCapacity(members, types, groupsById.get(id))
+  for (const [id, members] of groups)
+    seats += groupCapacity(members, types, groupsById.get(id))
   return { tables: tables.length, seats }
 }

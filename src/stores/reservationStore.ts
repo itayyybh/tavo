@@ -17,7 +17,9 @@ import { createId } from '@/utils'
 export type NewReservation = Omit<Reservation, 'id' | 'createdAt' | 'updatedAt'>
 
 /** Editable fields on an existing reservation (id/timestamps are managed). */
-export type ReservationPatch = Partial<Omit<Reservation, 'id' | 'createdAt' | 'updatedAt'>>
+export type ReservationPatch = Partial<
+  Omit<Reservation, 'id' | 'createdAt' | 'updatedAt'>
+>
 
 interface ReservationState {
   reservations: Reservation[]
