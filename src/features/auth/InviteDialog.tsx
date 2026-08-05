@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Button, Dialog, Text } from '@/components/ui'
 import { useSessionStore } from '@/stores'
 import { createInvite } from '@/services/supabase/auth'
+import { useCan } from './permissions'
 
 /**
  * Invite-a-manager dialog (Phase 9) — owner-only. Mints a reusable invite link an
@@ -10,7 +11,7 @@ import { createInvite } from '@/services/supabase/auth'
  * menu owns the trigger); renders nothing for non-owners.
  */
 export function InviteDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const role = useSessionStore((s) => s.role)
+  const canInvite = useCan('inviteManager')
   const restaurantId = useSessionStore((s) => s.restaurantId)
   const restaurantName = useSessionStore((s) => s.restaurantName)
 
@@ -27,7 +28,7 @@ export function InviteDialog({ open, onClose }: { open: boolean; onClose: () => 
     onClose()
   }
 
-  if (role !== 'owner') return null
+  if (!canInvite) return null
 
   const link = code ? `${window.location.origin}/?invite=${code}` : ''
 

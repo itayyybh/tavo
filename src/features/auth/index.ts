@@ -1,2 +1,5 @@
 export { AuthGate } from './AuthGate'
 export { AccountMenu } from './AccountMenu'
+export { can, useCan } from './permissions'
+export type { PermissionAction } from './permissions'
+export { RequirePermission } from './RequirePermission'

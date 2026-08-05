@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import i18n from '@/i18n'
 import { dirForLocale } from '@/i18n/config'
 import { useSessionStore, useSettingsStore, useUIStore } from '@/stores'
-import { AccountMenu } from '@/features/auth'
+import { AccountMenu, useCan } from '@/features/auth'
 import { LanguageToggle } from '@/components/LanguageToggle'
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -24,6 +24,7 @@ export default function App() {
   const navigate = useNavigate()
   const location = useLocation()
   const locale = useSettingsStore((s) => s.locale)
+  const canEditLayout = useCan('editLayout')
 
   // Phones landing on the app root go straight to the focused mobile flow.
   // Only from '/' so desktop deep-links (editor, reservations) are never hijacked.
@@ -63,9 +64,11 @@ export default function App() {
           <NavLink to="/" end className={navLinkClass}>
             {t('nav.floor')}
           </NavLink>
-          <NavLink to="/editor" className={navLinkClass}>
-            {t('nav.editor')}
-          </NavLink>
+          {canEditLayout && (
+            <NavLink to="/editor" className={navLinkClass}>
+              {t('nav.editor')}
+            </NavLink>
+          )}
           <NavLink to="/reservations" className={navLinkClass}>
             {t('nav.reservations')}
           </NavLink>
