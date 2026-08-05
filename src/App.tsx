@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useUIStore } from '@/stores'
 import { useFloorPersistence } from '@/hooks/useFloorPersistence'
+import { InviteManager } from '@/features/auth'
 import { ThemeToggle } from '@/components/ThemeToggle'
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -56,6 +57,7 @@ export default function App() {
             Design
           </NavLink>
           <span className="mx-1 h-4 w-px bg-line" />
+          <InviteManager />
           <ThemeToggle />
         </nav>
       </header>

@@ -28,6 +28,7 @@ interface SessionState {
   status: SessionStatus
   user: User | null
   restaurantId: ID | null
+  restaurantName: string | null
   role: MembershipRole | null
   /** Boot the store: resolve the persisted session and subscribe to changes. */
   init: () => void
@@ -42,13 +43,20 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   status: 'loading',
   user: null,
   restaurantId: null,
+  restaurantName: null,
   role: null,
 
   init: () => {
     // Resolve the current session once, then react to every future change.
     const resolve = async (userPresent: boolean) => {
       if (!userPresent) {
-        set({ status: 'signed_out', user: null, restaurantId: null, role: null })
+        set({
+          status: 'signed_out',
+          user: null,
+          restaurantId: null,
+          restaurantName: null,
+          role: null,
+        })
         return
       }
       const membership = await getMembership()
@@ -56,10 +64,16 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         set({
           status: 'ready',
           restaurantId: membership.restaurantId,
+          restaurantName: membership.restaurantName,
           role: membership.role,
         })
       } else {
-        set({ status: 'no_restaurant', restaurantId: null, role: null })
+        set({
+          status: 'no_restaurant',
+          restaurantId: null,
+          restaurantName: null,
+          role: null,
+        })
       }
     }
 
@@ -91,6 +105,12 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
   signOut: async () => {
     await authSignOut()
-    set({ status: 'signed_out', user: null, restaurantId: null, role: null })
+    set({
+      status: 'signed_out',
+      user: null,
+      restaurantId: null,
+      restaurantName: null,
+      role: null,
+    })
   },
 }))
