@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Badge } from '@/components/ui'
 import { useSessionStore } from '@/stores'
 import { InviteDialog } from './InviteDialog'
+import { useCan } from './permissions'
 
 /**
  * Header account cluster (Phase 9) — an avatar-triggered dropdown that holds who
@@ -16,6 +17,7 @@ export function AccountMenu() {
   const userName = useSessionStore((s) => s.userName)
   const role = useSessionStore((s) => s.role)
   const signOut = useSessionStore((s) => s.signOut)
+  const canInvite = useCan('inviteManager')
 
   const [menuOpen, setMenuOpen] = useState(false)
   const [inviteOpen, setInviteOpen] = useState(false)
@@ -87,7 +89,7 @@ export function AccountMenu() {
 
             <div className="my-1 h-px bg-line" />
 
-            {role === 'owner' && (
+            {canInvite && (
               <MenuItem
                 onClick={() => {
                   setMenuOpen(false)

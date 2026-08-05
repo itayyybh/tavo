@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { createBrowserRouter } from 'react-router-dom'
 import App from '@/App'
+import { RequirePermission } from '@/features/auth'
 
 // Pages are lazy-loaded per the `performance` skill.
 const FloorPage = lazy(() => import('@/pages/FloorPage'))
@@ -20,7 +21,14 @@ export const router = createBrowserRouter([
     element: <App />,
     children: [
       { index: true, element: withSuspense(<FloorPage />) },
-      { path: 'editor', element: withSuspense(<EditorPage />) },
+      {
+        path: 'editor',
+        element: (
+          <RequirePermission action="editLayout">
+            {withSuspense(<EditorPage />)}
+          </RequirePermission>
+        ),
+      },
       { path: 'reservations', element: withSuspense(<ReservationsPage />) },
     ],
   },

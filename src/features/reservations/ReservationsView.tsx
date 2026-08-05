@@ -14,9 +14,11 @@ import { ReservationTimeline } from './ReservationTimeline'
 import { ReservationDialog } from './ReservationDialog'
 import { useReservationStore } from '@/stores'
 import { buildSampleReservations } from './sampleData'
+import { useCan } from '@/features/auth'
 import { useReservationShortcuts } from './hooks/useReservationShortcuts'
 import { useAssignAll } from './hooks/useAssignAll'
 import { DeleteConfirmDialog } from './DeleteConfirmDialog'
+import { ClearAllConfirmDialog } from './ClearAllConfirmDialog'
 import { CommandPalettePlaceholder } from './CommandPalettePlaceholder'
 import { ShortcutsHelp } from './ShortcutsHelp'
 
@@ -36,7 +38,8 @@ export function ReservationsView() {
   const mergedGroups = useLayoutStore((s) => s.mergedGroups)
   const removeReservation = useReservationStore((s) => s.removeReservation)
   const addReservation = useReservationStore((s) => s.addReservation)
-  const replaceAll = useReservationStore((s) => s.replaceAll)
+  const clearAllReservations = useReservationStore((s) => s.clearAll)
+  const reservationCount = useReservationStore((s) => s.reservations.length)
   const { state, patch, results, slotSource } = useReservationFilters()
   const {
     assignAll,
@@ -52,19 +55,20 @@ export function ReservationsView() {
     [tables, tableTypes, mergedGroups],
   )
   const bufferMin = useSettingsStore((s) => s.seating.turnoverBufferMin)
+  const canSeed = useCan('seedData')
 
   const seedSamples = () => {
     buildSampleReservations({ zones, tables, tableTypes, bufferMin }).forEach(
       addReservation,
     )
   }
-  const clearAll = () => replaceAll([])
 
   const [view, setView] = useState<ViewMode>('list')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<Reservation | undefined>(undefined)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Reservation | null>(null)
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
 
   const zoneChoices = useMemo(
@@ -144,12 +148,16 @@ export function ReservationsView() {
       <div className="flex items-end justify-between">
         <Heading level={1}>{t('title')}</Heading>
         <div className="flex items-center gap-2">
-          {import.meta.env.DEV && (
+          {import.meta.env.DEV && canSeed && (
             <>
               <Button variant="secondary" onClick={seedSamples}>
                 {t('seed20')}
               </Button>
-              <Button variant="ghost" onClick={clearAll}>
+              <Button
+                variant="ghost"
+                onClick={() => setClearConfirmOpen(true)}
+                disabled={reservationCount === 0}
+              >
                 {t('clearAll')}
               </Button>
             </>
@@ -246,6 +254,12 @@ export function ReservationsView() {
         reservation={deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={removeReservation}
+      />
+      <ClearAllConfirmDialog
+        open={clearConfirmOpen}
+        count={reservationCount}
+        onClose={() => setClearConfirmOpen(false)}
+        onConfirm={clearAllReservations}
       />
       <CommandPalettePlaceholder
         open={paletteOpen}

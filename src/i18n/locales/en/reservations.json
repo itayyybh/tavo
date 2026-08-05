@@ -156,6 +156,12 @@
     "keep": "Keep",
     "delete": "Delete"
   },
+  "clearAllConfirm": {
+    "title": "Clear all reservations",
+    "body": "Permanently delete all {{count}} reservations? This can't be undone.",
+    "keep": "Keep",
+    "confirm": "Clear all"
+  },
   "palette": {
     "title": "Command palette",
     "body": "Quick actions and navigation are coming in a later phase.",
