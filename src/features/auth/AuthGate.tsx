@@ -2,6 +2,7 @@ import { useEffect, type ReactNode } from 'react'
 import { useSessionStore } from '@/stores'
 import { useLayoutSync } from '@/hooks/useLayoutSync'
 import { useReservationSync } from '@/hooks/useReservationSync'
+import { useFloorSync } from '@/hooks/useFloorSync'
 import { AuthScreen } from './AuthScreen'
 import { OnboardingScreen } from './OnboardingScreen'
 import { UpdatePasswordScreen } from './UpdatePasswordScreen'
@@ -21,6 +22,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   // layout + reservations from the database. Both hooks no-op until ready.
   useLayoutSync()
   useReservationSync()
+  useFloorSync()
 
   useEffect(() => {
     init()
