@@ -1,19 +1,18 @@
 import { useState, type FormEvent } from 'react'
 import { Button, Heading, Input, Text } from '@/components/ui'
-import { useSessionStore } from '@/stores'
-import { getSession, redeemInvite, signIn, signUp } from '@/services/supabase/auth'
+import { getSession, signIn, signUp } from '@/services/supabase/auth'
 import { useInviteCode } from './useInviteCode'
+import { getPendingInvite } from './pendingInvite'
 
 type Mode = 'signin' | 'signup'
 
 /**
- * Login / signup (Phase 9). One card, two modes. An `?invite=CODE` in the URL
- * flips the copy to "join" and, after signup, binds the new user to that
- * restaurant as a manager before the session resolves.
+ * Login / signup (Phase 9). One card, two modes. An invite (from the URL or the
+ * stashed pending code) flips the copy to "join". Redemption itself happens
+ * centrally in the session store once authenticated — this screen only signs up.
  */
 export function AuthScreen() {
-  const invite = useInviteCode()
-  const refreshMembership = useSessionStore((s) => s.refreshMembership)
+  const invite = useInviteCode() ?? getPendingInvite()
   const [mode, setMode] = useState<Mode>(invite ? 'signup' : 'signin')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -42,11 +41,8 @@ export function AuthScreen() {
         setMode('signin')
         return
       }
-      if (invite) {
-        await redeemInvite(invite)
-        await refreshMembership()
-      }
-      // No invite -> lands on "no_restaurant" -> onboarding create-restaurant.
+      // Session live -> the session store's resolve redeems any pending invite
+      // (central, race-free) and lands the user in the right place.
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong.')
     } finally {
