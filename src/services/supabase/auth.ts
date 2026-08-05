@@ -48,6 +48,20 @@ export async function signOut(): Promise<void> {
   if (error) throw error
 }
 
+/** Email a password-reset link that returns to the app in recovery mode. */
+export async function sendPasswordReset(email: string): Promise<void> {
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin,
+  })
+  if (error) throw error
+}
+
+/** Set a new password for the current (recovery or signed-in) session. */
+export async function updatePassword(password: string): Promise<void> {
+  const { error } = await supabase.auth.updateUser({ password })
+  if (error) throw error
+}
+
 export async function getSession(): Promise<Session | null> {
   const { data } = await supabase.auth.getSession()
   return data.session
@@ -118,12 +132,20 @@ export async function redeemInvite(code: string): Promise<ID> {
   return data as ID
 }
 
-/** Subscribe to auth changes (login/logout/refresh). Returns an unsubscribe fn. */
+export type AuthEvent =
+  | 'INITIAL_SESSION'
+  | 'SIGNED_IN'
+  | 'SIGNED_OUT'
+  | 'PASSWORD_RECOVERY'
+  | 'TOKEN_REFRESHED'
+  | 'USER_UPDATED'
+
+/** Subscribe to auth changes (login/logout/refresh/recovery). Returns an unsubscribe fn. */
 export function onAuthChange(
-  cb: (session: Session | null) => void,
+  cb: (event: AuthEvent, session: Session | null) => void,
 ): () => void {
-  const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-    cb(session)
+  const { data } = supabase.auth.onAuthStateChange((event, session) => {
+    cb(event as AuthEvent, session)
   })
   return () => data.subscription.unsubscribe()
 }

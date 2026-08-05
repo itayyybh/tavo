@@ -1,8 +1,8 @@
 import { useEffect } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { useUIStore } from '@/stores'
+import { useSessionStore, useUIStore } from '@/stores'
 import { useFloorPersistence } from '@/hooks/useFloorPersistence'
-import { InviteManager } from '@/features/auth'
+import { AccountMenu, InviteManager } from '@/features/auth'
 import { ThemeToggle } from '@/components/ThemeToggle'
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -17,6 +17,7 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
  */
 export default function App() {
   const theme = useUIStore((s) => s.theme)
+  const restaurantName = useSessionStore((s) => s.restaurantName)
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -40,9 +41,14 @@ export default function App() {
   return (
     <div className="flex h-full flex-col">
       <header className="flex items-center justify-between border-b border-line px-6 py-3">
-        <span className="text-sm font-semibold tracking-tight text-ink">
-          Restaurant Floor Manager
-        </span>
+        <div className="flex min-w-0 flex-col leading-tight">
+          <span className="truncate text-sm font-semibold tracking-tight text-ink">
+            {restaurantName ?? 'Restaurant Floor Manager'}
+          </span>
+          {restaurantName && (
+            <span className="text-[11px] text-muted">Restaurant Floor Manager</span>
+          )}
+        </div>
         <nav className="flex items-center gap-1">
           <NavLink to="/" end className={navLinkClass}>
             Floor
@@ -59,6 +65,8 @@ export default function App() {
           <span className="mx-1 h-4 w-px bg-line" />
           <InviteManager />
           <ThemeToggle />
+          <span className="mx-1 h-4 w-px bg-line" />
+          <AccountMenu />
         </nav>
       </header>
       <main className="min-h-0 flex-1 overflow-auto bg-surface-2">
