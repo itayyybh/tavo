@@ -15,5 +15,4 @@ export const ACTIVE_UI_STATUSES: ReservationStatus[] = ['confirmed', 'arrived']
 /** Common service durations (minutes). Configurable — not restaurant rules. */
 export const DURATION_VALUES = [60, 90, 120, 150, 180] as const
 
-export const DEFAULT_DURATION = 90
 export const DEFAULT_PARTY_SIZE = 2

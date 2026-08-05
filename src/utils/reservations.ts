@@ -38,10 +38,7 @@ export function isActiveStatus(status: ReservationStatus): boolean {
   return !TERMINAL_STATUSES.includes(status)
 }
 
-export function canTransition(
-  from: ReservationStatus,
-  to: ReservationStatus,
-): boolean {
+export function canTransition(from: ReservationStatus, to: ReservationStatus): boolean {
   return statusTransitions[from].includes(to)
 }
 

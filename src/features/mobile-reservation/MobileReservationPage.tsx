@@ -180,18 +180,12 @@ export function MobileReservationPage() {
               })}{' '}
               · {durationLabel(created.estimatedDuration)}
             </Text>
-            {created.phone && (
-              <Text className="mt-0.5 text-muted">{created.phone}</Text>
-            )}
+            {created.phone && <Text className="mt-0.5 text-muted">{created.phone}</Text>}
             {created.preferences && (
               <div className="mt-3 flex flex-wrap justify-center gap-1.5">
                 {created.preferences.vip && <PrefBadge>VIP</PrefBadge>}
-                {created.preferences.highChair && (
-                  <PrefBadge>High chair</PrefBadge>
-                )}
-                {created.preferences.wheelchair && (
-                  <PrefBadge>Wheelchair</PrefBadge>
-                )}
+                {created.preferences.highChair && <PrefBadge>High chair</PrefBadge>}
+                {created.preferences.wheelchair && <PrefBadge>Wheelchair</PrefBadge>}
                 {created.preferences.smoking && <PrefBadge>Smoking</PrefBadge>}
               </div>
             )}
@@ -332,16 +326,10 @@ export function MobileReservationPage() {
             <Chip active={!!prefs.vip} onClick={() => togglePref('vip')}>
               VIP
             </Chip>
-            <Chip
-              active={!!prefs.highChair}
-              onClick={() => togglePref('highChair')}
-            >
+            <Chip active={!!prefs.highChair} onClick={() => togglePref('highChair')}>
               High chair
             </Chip>
-            <Chip
-              active={!!prefs.wheelchair}
-              onClick={() => togglePref('wheelchair')}
-            >
+            <Chip active={!!prefs.wheelchair} onClick={() => togglePref('wheelchair')}>
               Wheelchair
             </Chip>
             <Chip active={!!prefs.smoking} onClick={() => togglePref('smoking')}>
@@ -438,9 +426,7 @@ function MobileShell({
       <header className="flex items-center justify-between border-b border-line bg-surface px-5 py-3">
         <div className="min-w-0">
           {subtitle && (
-            <div className="truncate text-xs font-medium text-muted">
-              {subtitle}
-            </div>
+            <div className="truncate text-xs font-medium text-muted">{subtitle}</div>
           )}
           <Heading className="text-base">New reservation</Heading>
         </div>

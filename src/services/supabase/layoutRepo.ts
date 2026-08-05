@@ -28,17 +28,12 @@ import {
  * Load a restaurant's layout. Returns `null` when the restaurant has no floor
  * yet (fresh account) — the caller shows the "create or load" onboarding.
  */
-export async function loadLayout(
-  restaurantId: ID,
-): Promise<LayoutSnapshot | null> {
+export async function loadLayout(restaurantId: ID): Promise<LayoutSnapshot | null> {
   const [types, zones, tables, connections, obstacles] = await Promise.all([
     supabase.from('table_types').select('*').eq('restaurant_id', restaurantId),
     supabase.from('zones').select('*').eq('restaurant_id', restaurantId),
     supabase.from('tables').select('*').eq('restaurant_id', restaurantId),
-    supabase
-      .from('table_connections')
-      .select('*')
-      .eq('restaurant_id', restaurantId),
+    supabase.from('table_connections').select('*').eq('restaurant_id', restaurantId),
     supabase.from('obstacles').select('*').eq('restaurant_id', restaurantId),
   ])
   for (const r of [types, zones, tables, connections, obstacles]) {

@@ -123,19 +123,27 @@ function clusterOverrides(
   // Anchor on a table in the reservation's zone so a brought-in donor is pulled
   // INTO that zone (the in-zone table keeps its place), not the other way round.
   // The build direction follows the anchor's zone rule.
-  const anchor = (anchorZoneId && members.find((m) => m.zoneId === anchorZoneId)) || members[0]
+  const anchor =
+    (anchorZoneId && members.find((m) => m.zoneId === anchorZoneId)) || members[0]
   const zone = zones.find((z) => z.id === anchor.zoneId)
   const dir = zoneArrangeDir(zone)
   // The merged block must stay inside the anchor's zone — never spill into empty
   // space or another zone. `zone` is undefined only for an unzoned table (no
   // containment to enforce then).
-  const arranged = placeMergedBlock(members, tableTypes, {
-    tables: others,
-    obstacles,
-    zones,
-    zonesIndex: zonesById(zones),
-    clearanceOf,
-  }, dir, anchor.id, zone)
+  const arranged = placeMergedBlock(
+    members,
+    tableTypes,
+    {
+      tables: others,
+      obstacles,
+      zones,
+      zonesIndex: zonesById(zones),
+      clearanceOf,
+    },
+    dir,
+    anchor.id,
+    zone,
+  )
   if (!arranged) return empty
   const positions: Record<ID, Vec2> = {}
   const rotations: Record<ID, number> = {}
@@ -197,7 +205,12 @@ export const useFloorStore = create<FloorState>((set, get) => ({
         seating.tableIds.length > 1
           ? [
               ...state.runtimeMerges,
-              { id: createId(), tableIds: seating.tableIds, seatingId: seating.id, needsArrange },
+              {
+                id: createId(),
+                tableIds: seating.tableIds,
+                seatingId: seating.id,
+                needsArrange,
+              },
             ]
           : state.runtimeMerges
 
@@ -300,7 +313,9 @@ export const useFloorStore = create<FloorState>((set, get) => ({
       // its `needsArrange` flag (and its hint) once the host has positioned it.
       const moved = new Set(tableIds)
       const runtimeMerges = state.runtimeMerges.map((m) =>
-        m.needsArrange && m.tableIds.length === moved.size && m.tableIds.every((id) => moved.has(id))
+        m.needsArrange &&
+        m.tableIds.length === moved.size &&
+        m.tableIds.every((id) => moved.has(id))
           ? { ...m, needsArrange: false }
           : m,
       )
@@ -317,7 +332,8 @@ export const useFloorStore = create<FloorState>((set, get) => ({
       const { tables } = useLayoutStore.getState()
       const baseById = new Map(tables.map((t) => [t.id, t]))
       const posOf = (id: ID) => state.positionOverrides[id] ?? baseById.get(id)?.position
-      const rotOf = (id: ID) => state.rotationOverrides[id] ?? baseById.get(id)?.rotation ?? 0
+      const rotOf = (id: ID) =>
+        state.rotationOverrides[id] ?? baseById.get(id)?.rotation ?? 0
       const centers = tableIds.map(posOf).filter((p): p is Vec2 => !!p)
       if (centers.length === 0) return state
       const cx = centers.reduce((s, p) => s + p.x, 0) / centers.length
@@ -332,7 +348,10 @@ export const useFloorStore = create<FloorState>((set, get) => ({
         if (!p) continue
         const dx = p.x - cx
         const dy = p.y - cy
-        positionOverrides[id] = { x: cx + dx * cos - dy * sin, y: cy + dx * sin + dy * cos }
+        positionOverrides[id] = {
+          x: cx + dx * cos - dy * sin,
+          y: cy + dx * sin + dy * cos,
+        }
         rotationOverrides[id] = (rotOf(id) + deg) % 360
       }
       return { positionOverrides, rotationOverrides }
@@ -341,7 +360,11 @@ export const useFloorStore = create<FloorState>((set, get) => ({
   mergeTables: (tableIds) => {
     const ids = [...new Set(tableIds)]
     if (ids.length < 2) return
-    const cluster = clusterOverrides(ids, get().positionOverrides, get().rotationOverrides)
+    const cluster = clusterOverrides(
+      ids,
+      get().positionOverrides,
+      get().rotationOverrides,
+    )
     const needsArrange = !cluster.clear
     set((state) => ({
       runtimeMerges: [

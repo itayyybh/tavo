@@ -51,10 +51,7 @@ export function validateReservation(draft: ReservationDraft): ReservationErrors 
     errors.dateTime = 'Choose a valid date and time.'
   }
 
-  if (
-    !Number.isFinite(draft.estimatedDuration) ||
-    draft.estimatedDuration <= 0
-  ) {
+  if (!Number.isFinite(draft.estimatedDuration) || draft.estimatedDuration <= 0) {
     errors.estimatedDuration = 'Duration must be a positive number of minutes.'
   }
 

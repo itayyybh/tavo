@@ -6,7 +6,6 @@ import App from '@/App'
 const FloorPage = lazy(() => import('@/pages/FloorPage'))
 const EditorPage = lazy(() => import('@/pages/EditorPage'))
 const ReservationsPage = lazy(() => import('@/pages/ReservationsPage'))
-const DesignSystemPage = lazy(() => import('@/pages/DesignSystemPage'))
 const MobilePage = lazy(() => import('@/pages/MobilePage'))
 
 const withSuspense = (node: React.ReactNode) => (
@@ -23,7 +22,6 @@ export const router = createBrowserRouter([
       { index: true, element: withSuspense(<FloorPage />) },
       { path: 'editor', element: withSuspense(<EditorPage />) },
       { path: 'reservations', element: withSuspense(<ReservationsPage />) },
-      { path: 'design', element: withSuspense(<DesignSystemPage />) },
     ],
   },
   // Mobile lives outside the desktop shell — an intentionally separate, focused

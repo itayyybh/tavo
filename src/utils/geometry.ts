@@ -73,7 +73,12 @@ export const OVERLAP_TOLERANCE = 0.1
 export function pathBlocksRect(o: Obstacle, box: Rect): boolean {
   if (!o.points?.length) return false
   const r = (o.brushWidth ?? 0) / 2
-  const ex = { x: box.x - r, y: box.y - r, width: box.width + 2 * r, height: box.height + 2 * r }
+  const ex = {
+    x: box.x - r,
+    y: box.y - r,
+    width: box.width + 2 * r,
+    height: box.height + 2 * r,
+  }
   const pts = o.points.map((p) => ({ x: p.x + o.position.x, y: p.y + o.position.y }))
   const step = Math.max(4, r)
   for (let i = 0; i < pts.length; i++) {
@@ -100,7 +105,12 @@ export function pathBlocksRect(o: Obstacle, box: Rect): boolean {
  */
 function grow(box: Rect, by: number): Rect {
   return by
-    ? { x: box.x - by, y: box.y - by, width: box.width + by * 2, height: box.height + by * 2 }
+    ? {
+        x: box.x - by,
+        y: box.y - by,
+        width: box.width + by * 2,
+        height: box.height + by * 2,
+      }
     : box
 }
 

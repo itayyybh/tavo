@@ -75,7 +75,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   waitlistEnabled: true,
   locale: loadLocale(),
   setLocale: (locale) => {
-    if (typeof localStorage !== 'undefined') localStorage.setItem(LOCALE_STORAGE_KEY, locale)
+    if (typeof localStorage !== 'undefined')
+      localStorage.setItem(LOCALE_STORAGE_KEY, locale)
     set({ locale })
   },
   setGridSize: (gridSize) => set({ gridSize }),

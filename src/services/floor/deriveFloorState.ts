@@ -8,13 +8,7 @@
  * only raw overrides; every "what does this table look like now" question is
  * answered here.
  */
-import type {
-  FloorSnapshot,
-  FloorTableStatus,
-  ID,
-  Reservation,
-  Table,
-} from '@/types'
+import type { FloorSnapshot, FloorTableStatus, ID, Reservation, Table } from '@/types'
 import type { EffectiveFloor, EffectiveTable } from './types'
 
 /** Reservation statuses that reserve (but haven't yet occupied) their tables. */
@@ -51,8 +45,13 @@ export function deriveFloorState({
   reservedLookaheadMin,
   now = Date.now(),
 }: DeriveFloorInput): EffectiveFloor {
-  const { seatings, runtimeMerges, statusOverrides, positionOverrides, rotationOverrides } =
-    snapshot
+  const {
+    seatings,
+    runtimeMerges,
+    statusOverrides,
+    positionOverrides,
+    rotationOverrides,
+  } = snapshot
 
   // table id → its active seating (occupancy is derived, never stored as status).
   const seatingByTable = new Map<ID, { seatingId: ID; reservationId: ID }>()
@@ -115,7 +114,8 @@ export function deriveFloorState({
       reservationId,
       // Only meaningful while available — a further-out booking still on the
       // books, so the host can seat a walk-in here without being blindsided.
-      upcomingReservationId: status === 'available' ? upcomingByTable.get(base.id) : undefined,
+      upcomingReservationId:
+        status === 'available' ? upcomingByTable.get(base.id) : undefined,
       mergedGroupId: runtimeMergeId ?? base.mergedGroupId,
       isRuntimeMerge: runtimeMergeId != null,
     }

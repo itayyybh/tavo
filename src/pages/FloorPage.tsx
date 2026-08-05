@@ -10,9 +10,7 @@ import { useLayoutStore } from '@/stores'
 export default function FloorPage() {
   // A hydrated-but-empty layout means a fresh restaurant — nothing to run yet.
   const hydrated = useLayoutStore((s) => s.hydrated)
-  const isEmpty = useLayoutStore(
-    (s) => s.tables.length === 0 && s.zones.length === 0,
-  )
+  const isEmpty = useLayoutStore((s) => s.tables.length === 0 && s.zones.length === 0)
 
   if (hydrated && isEmpty) return <FloorEmptyState />
 

@@ -72,7 +72,8 @@ export function TableInspector() {
     const seats = groupCapacity(members, tableTypes, group)
     const autoSeats = groupCapacity(members, tableTypes)
     const autoClearance = members.reduce(
-      (max, m) => Math.max(max, tableTypes.find((ty) => ty.id === m.typeId)?.clearance ?? 0),
+      (max, m) =>
+        Math.max(max, tableTypes.find((ty) => ty.id === m.typeId)?.clearance ?? 0),
       0,
     )
     const uniform = members.every((m) => m.status === members[0].status)
@@ -85,11 +86,15 @@ export function TableInspector() {
           <h3 className="text-sm font-semibold text-ink">
             {t('inspector.mergedTitle', { count: members.length })}
           </h3>
-          <span className="text-xs text-muted">{t('inspector.seats', { count: seats })}</span>
+          <span className="text-xs text-muted">
+            {t('inspector.seats', { count: seats })}
+          </span>
         </div>
 
         <div className="grid grid-cols-2 gap-2">
-          <Field label={group.seats == null ? t('inspector.seatsAuto') : t('inspector.seats')}>
+          <Field
+            label={group.seats == null ? t('inspector.seatsAuto') : t('inspector.seats')}
+          >
             <NumField
               value={group.seats ?? autoSeats}
               onCommit={(n) => updateMergedGroup(group.id, { seats: n })}
@@ -97,7 +102,9 @@ export function TableInspector() {
           </Field>
           <Field
             label={
-              group.clearance == null ? t('inspector.clearanceAuto') : t('inspector.clearance')
+              group.clearance == null
+                ? t('inspector.clearanceAuto')
+                : t('inspector.clearance')
             }
           >
             <NumField
@@ -108,7 +115,9 @@ export function TableInspector() {
         </div>
         {(group.seats != null || group.clearance != null) && (
           <button
-            onClick={() => updateMergedGroup(group.id, { seats: undefined, clearance: undefined })}
+            onClick={() =>
+              updateMergedGroup(group.id, { seats: undefined, clearance: undefined })
+            }
             className="text-[11px] text-muted transition-colors hover:text-ink"
           >
             {t('inspector.resetAuto')}
@@ -163,7 +172,9 @@ function SingleTable({ table }: { table: Table }) {
         <h3 className="text-sm font-semibold text-ink">
           {t('inspector.tableTitle', { label: table.label })}
         </h3>
-        <span className="text-xs text-muted">{t('inspector.seats', { count: seats })}</span>
+        <span className="text-xs text-muted">
+          {t('inspector.seats', { count: seats })}
+        </span>
       </div>
 
       <label className="flex flex-col gap-1 text-[11px] text-muted">

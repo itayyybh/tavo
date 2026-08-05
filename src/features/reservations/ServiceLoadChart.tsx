@@ -33,7 +33,8 @@ export function ServiceLoadChart({
   const slots = useMemo(() => bucketByTimeSlot(reservations), [reservations])
   // Scale bars against floor capacity when known (occupancy), else the busiest slot.
   const scale = useMemo(
-    () => Math.max(1, capacity && capacity > 0 ? capacity : 0, ...slots.map((s) => s.guests)),
+    () =>
+      Math.max(1, capacity && capacity > 0 ? capacity : 0, ...slots.map((s) => s.guests)),
     [slots, capacity],
   )
   const useCapacity = (capacity ?? 0) > 0

@@ -1,10 +1,4 @@
-import type {
-  FloorSnapshot,
-  ID,
-  RuntimeMergedGroup,
-  Seating,
-  Vec2,
-} from '@/types'
+import type { FloorSnapshot, ID, RuntimeMergedGroup, Seating, Vec2 } from '@/types'
 import { supabase } from './client'
 
 /**
@@ -35,9 +29,7 @@ export function snapshotFromRow(row: FloorRow): FloorSnapshot {
 }
 
 /** Load the current shift's floor. Returns `null` when the restaurant has none. */
-export async function loadFloor(
-  restaurantId: ID,
-): Promise<FloorSnapshot | null> {
+export async function loadFloor(restaurantId: ID): Promise<FloorSnapshot | null> {
   const { data, error } = await supabase
     .from('floor_state')
     .select(

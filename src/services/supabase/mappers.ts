@@ -60,10 +60,7 @@ export function reservationFromRow(row: ReservationRow): Reservation {
 }
 
 /** Full row for insert. `undefined` -> `null` so PostgREST clears the column. */
-export function reservationToRow(
-  restaurantId: ID,
-  r: Reservation,
-): ReservationRow {
+export function reservationToRow(restaurantId: ID, r: Reservation): ReservationRow {
   return {
     id: r.id,
     restaurant_id: restaurantId,

@@ -199,7 +199,10 @@ function roundsFirst(sorted: Table[], isRound: (t: Table) => boolean): Table[] {
   return [...sorted.filter((t) => isRound(t)), ...sorted.filter((t) => !isRound(t))]
 }
 
-function arrangeCluster(members: Table[], isRound: (t: Table) => boolean): Map<string, Vec2> {
+function arrangeCluster(
+  members: Table[],
+  isRound: (t: Table) => boolean,
+): Map<string, Vec2> {
   const byPosition = [...members].sort(
     (a, b) => a.position.x - b.position.x || a.position.y - b.position.y,
   )
@@ -207,9 +210,7 @@ function arrangeCluster(members: Table[], isRound: (t: Table) => boolean): Map<s
   const out = new Map<string, Vec2>()
   const anchor = sorted[0]
   const centered = members.some(isRound)
-  const rowY = centered
-    ? anchor.position.y
-    : anchor.position.y - anchor.size.y / 2
+  const rowY = centered ? anchor.position.y : anchor.position.y - anchor.size.y / 2
   let edge = anchor.position.x - anchor.size.x / 2
   for (const m of sorted) {
     out.set(m.id, { x: edge + m.size.x / 2, y: centered ? rowY : rowY + m.size.y / 2 })
@@ -420,7 +421,10 @@ export const useLayoutStore = create<LayoutState>((set, get) => {
             const dy = t.position.y - center.y
             return {
               ...t,
-              position: { x: center.x + dx * cos - dy * sin, y: center.y + dx * sin + dy * cos },
+              position: {
+                x: center.x + dx * cos - dy * sin,
+                y: center.y + dx * sin + dy * cos,
+              },
               rotation: (t.rotation + degrees) % 360,
             }
           })
@@ -608,8 +612,14 @@ export const useLayoutStore = create<LayoutState>((set, get) => {
           if (zoneDescendantIds(id, s.zones).includes(parentId)) return {}
           // Shrink to fit within the parent (keep a margin), then center it inside.
           const size = {
-            x: Math.max(ZONE_MIN_SIZE, Math.min(child.size.x, parent.size.x - ZONE_NEST_MARGIN * 2)),
-            y: Math.max(ZONE_MIN_SIZE, Math.min(child.size.y, parent.size.y - ZONE_NEST_MARGIN * 2)),
+            x: Math.max(
+              ZONE_MIN_SIZE,
+              Math.min(child.size.x, parent.size.x - ZONE_NEST_MARGIN * 2),
+            ),
+            y: Math.max(
+              ZONE_MIN_SIZE,
+              Math.min(child.size.y, parent.size.y - ZONE_NEST_MARGIN * 2),
+            ),
           }
           moved = { ...child, size, position: { ...parent.position } }
         } else {
@@ -626,9 +636,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => {
           moved = { ...child, position }
         }
 
-        const zones = deriveZoneParents(
-          s.zones.map((z) => (z.id === id ? moved : z)),
-        )
+        const zones = deriveZoneParents(s.zones.map((z) => (z.id === id ? moved : z)))
         return { zones, tables: assignZones(s.tables, zones) }
       }),
 
@@ -718,7 +726,9 @@ export const useLayoutStore = create<LayoutState>((set, get) => {
         mergedGroups: snapshot.mergedGroups ?? [],
         obstacles: snapshot.obstacles ?? [],
         // Pre-Phase-5 documents have no types — fall back to seeded defaults.
-        tableTypes: snapshot.tableTypes?.length ? snapshot.tableTypes : DEFAULT_TABLE_TYPES,
+        tableTypes: snapshot.tableTypes?.length
+          ? snapshot.tableTypes
+          : DEFAULT_TABLE_TYPES,
       })
     },
   }

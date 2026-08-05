@@ -7,7 +7,9 @@ import type { Reservation } from '@/types'
 
 /** A reservation still needs a table if it's active and unassigned. */
 function needsAssignment(r: Reservation): boolean {
-  return isActiveStatus(r.status) && !(r.assignedTableIds && r.assignedTableIds.length > 0)
+  return (
+    isActiveStatus(r.status) && !(r.assignedTableIds && r.assignedTableIds.length > 0)
+  )
 }
 
 /**

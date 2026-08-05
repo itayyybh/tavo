@@ -5,7 +5,6 @@ import i18n from '@/i18n'
 import { dirForLocale } from '@/i18n/config'
 import { useSessionStore, useSettingsStore, useUIStore } from '@/stores'
 import { AccountMenu, InviteManager } from '@/features/auth'
-import { ThemeToggle } from '@/components/ThemeToggle'
 import { LanguageToggle } from '@/components/LanguageToggle'
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -70,13 +69,9 @@ export default function App() {
           <NavLink to="/reservations" className={navLinkClass}>
             {t('nav.reservations')}
           </NavLink>
-          <NavLink to="/design" className={navLinkClass}>
-            {t('nav.design')}
-          </NavLink>
           <span className="mx-1 h-4 w-px bg-line" />
           <InviteManager />
           <LanguageToggle />
-          <ThemeToggle />
           <span className="mx-1 h-4 w-px bg-line" />
           <AccountMenu />
         </nav>

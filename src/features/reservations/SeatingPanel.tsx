@@ -73,7 +73,11 @@ export function SeatingPanel({ reservation }: SeatingPanelProps) {
               {labelsFor(assigned)}
             </Text>
           </div>
-          <Button size="sm" variant="ghost" onClick={() => clearAssignment(reservation.id)}>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => clearAssignment(reservation.id)}
+          >
             {t('seating.clear')}
           </Button>
         </div>
@@ -91,10 +95,15 @@ export function SeatingPanel({ reservation }: SeatingPanelProps) {
       ) : (
         <div className="flex flex-col gap-2">
           {suggestions.map((s, i) => {
-            const chosen = assigned.length > 0 && labelsFor(assigned) === labelsFor(s.candidate.tableIds)
+            const chosen =
+              assigned.length > 0 &&
+              labelsFor(assigned) === labelsFor(s.candidate.tableIds)
             return (
               <motion.div
-                key={s.candidate.tableIds.join('+') + (s.candidate.relocateToZoneId ? ':bring' : '')}
+                key={
+                  s.candidate.tableIds.join('+') +
+                  (s.candidate.relocateToZoneId ? ':bring' : '')
+                }
                 initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.18, ease: 'easeOut', delay: i * 0.03 }}

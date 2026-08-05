@@ -2,7 +2,13 @@
 
 function parseHex(hex: string): [number, number, number] | null {
   const h = hex.trim().replace('#', '')
-  const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h
+  const full =
+    h.length === 3
+      ? h
+          .split('')
+          .map((c) => c + c)
+          .join('')
+      : h
   if (full.length !== 6) return null
   const n = Number.parseInt(full, 16)
   if (Number.isNaN(n)) return null

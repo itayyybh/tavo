@@ -1,11 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Button, Heading, Input, Text } from '@/components/ui'
-import {
-  getSession,
-  sendPasswordReset,
-  signIn,
-  signUp,
-} from '@/services/supabase/auth'
+import { getSession, sendPasswordReset, signIn, signUp } from '@/services/supabase/auth'
 import { useInviteCode } from './useInviteCode'
 import { getPendingInvite } from './pendingInvite'
 

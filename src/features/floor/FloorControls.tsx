@@ -99,9 +99,7 @@ export function FloorControls({
           onClick={onToggleAutoTurnover}
           title="Auto-return cleaning tables to available after the turnover buffer"
           className={`${chip} ${
-            autoTurnover
-              ? 'border-ink text-ink'
-              : 'border-line text-muted hover:text-ink'
+            autoTurnover ? 'border-ink text-ink' : 'border-line text-muted hover:text-ink'
           }`}
         >
           Auto-turnover {autoTurnover ? 'on' : 'off'}

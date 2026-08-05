@@ -3,7 +3,12 @@ import { motion } from 'framer-motion'
 import { Layer, Stage } from 'react-konva'
 import type Konva from 'konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
-import { useFloorStore, useReservationStore, useSettingsStore, useUIStore } from '@/stores'
+import {
+  useFloorStore,
+  useReservationStore,
+  useSettingsStore,
+  useUIStore,
+} from '@/stores'
 import { useContainerSize } from '@/hooks/useContainerSize'
 import {
   aabb,
@@ -164,7 +169,9 @@ export function FloorCanvas() {
   const focusSubtree = focusedZone
     ? new Set<string>([focusedZone.id, ...zoneDescendantIds(focusedZone.id, zones)])
     : null
-  const visibleZones = (focusSubtree ? zones.filter((z) => focusSubtree.has(z.id)) : zones)
+  const visibleZones = (
+    focusSubtree ? zones.filter((z) => focusSubtree.has(z.id)) : zones
+  )
     .slice()
     .sort((a, b) => zoneDepth(a, zonesIndex) - zoneDepth(b, zonesIndex))
   const focusBox = focusedZone ? aabb(focusedZone.position, focusedZone.size) : null
@@ -270,7 +277,9 @@ export function FloorCanvas() {
   const selectedGroup = useMemo(() => {
     if (selectedIds.length < 2) return undefined
     const sel = new Set(selectedIds)
-    return hullGroups.find((g) => g.tableIds.length === sel.size && g.tableIds.every((i) => sel.has(i)))
+    return hullGroups.find(
+      (g) => g.tableIds.length === sel.size && g.tableIds.every((i) => sel.has(i)),
+    )
   }, [selectedIds, hullGroups])
   // Only a runtime merge can be split on the floor (base layout merges are fixed).
   const selectedRuntimeMerge = selectedGroup
@@ -289,7 +298,8 @@ export function FloorCanvas() {
       : selectedIds.length === 1
         ? selectedIds
         : []
-    const isRound = (et: EffectiveTable) => typeById.get(et.base.typeId)?.shape === 'round'
+    const isRound = (et: EffectiveTable) =>
+      typeById.get(et.base.typeId)?.shape === 'round'
     const members = ids
       .map((id) => effective.byId[id])
       .filter((et): et is EffectiveTable => !!et)
@@ -302,7 +312,9 @@ export function FloorCanvas() {
     menuTable?.status === 'occupied'
       ? seatings.find((s) => menuMembers.some((et) => s.tableIds.includes(et.base.id)))
       : undefined
-  const menuRes = menuSeating ? reservationsById.get(menuSeating.reservationId) : undefined
+  const menuRes = menuSeating
+    ? reservationsById.get(menuSeating.reservationId)
+    : undefined
 
   // Occupied-card details: the party's time window, size, and the next booking
   // assigned to any of these tables (who's coming and when).
@@ -347,7 +359,8 @@ export function FloorCanvas() {
         return et ? seatsForTable(et.base, typeById.get(et.base.typeId)) : 0
       }
       const group = hullGroups.find(
-        (g) => g.tableIds.length === ids.length && ids.every((id) => g.tableIds.includes(id)),
+        (g) =>
+          g.tableIds.length === ids.length && ids.every((id) => g.tableIds.includes(id)),
       )
       return groupCapacity(members, tableTypes, group)
     },
@@ -379,12 +392,16 @@ export function FloorCanvas() {
         { x: e.clientX - rect.left, y: e.clientY - rect.top },
         viewport,
       )
-      const hit = visibleEffective.find((et) => pointInRect(world, aabb(et.position, et.base.size)))
+      const hit = visibleEffective.find((et) =>
+        pointInRect(world, aabb(et.position, et.base.size)),
+      )
       if (!hit) return
       targetIds = expandGroups(hit.base.id)
     }
 
-    const allAvailable = targetIds.every((id) => effective.byId[id]?.status === 'available')
+    const allAvailable = targetIds.every(
+      (id) => effective.byId[id]?.status === 'available',
+    )
     if (!allAvailable) {
       flashNotice('One of those tables isn’t free.')
       return
@@ -417,7 +434,8 @@ export function FloorCanvas() {
       if (mid === id) continue
       const n = nodeRefs.current.get(mid)
       const met = effective.byId[mid]
-      if (n && met) n.position({ x: met.position.x + delta.x, y: met.position.y + delta.y })
+      if (n && met)
+        n.position({ x: met.position.x + delta.x, y: met.position.y + delta.y })
     }
     hullRefs.current.get(group.id)?.position(delta)
     node.getLayer()?.batchDraw()
@@ -447,8 +465,16 @@ export function FloorCanvas() {
       const met = effective.byId[mid]
       if (!met) return false
       const newCenter =
-        mid === id ? snapped : { x: met.position.x + delta.x, y: met.position.y + delta.y }
-      return placementBlocked(newCenter, met.base.size, movingSet, ctx, clearanceOf(met.base))
+        mid === id
+          ? snapped
+          : { x: met.position.x + delta.x, y: met.position.y + delta.y }
+      return placementBlocked(
+        newCenter,
+        met.base.size,
+        movingSet,
+        ctx,
+        clearanceOf(met.base),
+      )
     })
 
     if (blocked) {
@@ -614,7 +640,9 @@ export function FloorCanvas() {
             {visibleEffective.map((et) => {
               const type = typeById.get(et.base.typeId)
               const seats = seatsForTable(et.base, type)
-              const res = et.reservationId ? reservationsById.get(et.reservationId) : undefined
+              const res = et.reservationId
+                ? reservationsById.get(et.reservationId)
+                : undefined
               const showGuest =
                 !!res && (et.status === 'occupied' || et.status === 'reserved')
               const upcoming = et.upcomingReservationId
@@ -699,14 +727,18 @@ export function FloorCanvas() {
             transition={{ duration: 0.18, ease: 'easeOut' }}
             className="absolute bottom-4 left-1/2 flex items-center gap-2 rounded-full border border-line bg-surface px-2 py-1.5 shadow-lg"
           >
-            <span className="pl-1.5 text-xs text-muted">{selectedIds.length} selected</span>
+            <span className="pl-1.5 text-xs text-muted">
+              {selectedIds.length} selected
+            </span>
             <button
               className="rounded-full bg-ink px-3 py-1 text-xs font-medium text-surface transition-opacity hover:opacity-90"
               onClick={mergeSelection}
             >
               Merge
             </button>
-            <kbd className="rounded border border-line px-1.5 py-0.5 text-[10px] text-muted">M</kbd>
+            <kbd className="rounded border border-line px-1.5 py-0.5 text-[10px] text-muted">
+              M
+            </kbd>
           </motion.div>
         )}
 
