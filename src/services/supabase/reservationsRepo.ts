@@ -64,3 +64,12 @@ export async function deleteReservation(restaurantId: ID, id: ID): Promise<void>
     .eq('restaurant_id', restaurantId)
   if (error) throw error
 }
+
+/** Delete every reservation for a restaurant (Clear All). One round-trip. */
+export async function deleteAllReservations(restaurantId: ID): Promise<void> {
+  const { error } = await supabase
+    .from('reservations')
+    .delete()
+    .eq('restaurant_id', restaurantId)
+  if (error) throw error
+}

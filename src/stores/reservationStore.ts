@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { ID, Reservation, ReservationStatus } from '@/types'
 import { createId } from '@/utils'
 import {
+  deleteAllReservations,
   deleteReservation,
   insertReservation,
   updateReservation as repoUpdate,
@@ -46,6 +47,12 @@ interface ReservationState {
   /** Clear a reservation's table assignment. */
   clearAssignment: (id: ID) => void
   removeReservation: (id: ID) => void
+  /**
+   * Delete every reservation (Clear All) — write-through, unlike `replaceAll`.
+   * Clears local state and deletes the rows in the database so a reload doesn't
+   * rehydrate them.
+   */
+  clearAll: () => void
   /** Replace the whole collection — used to hydrate from the database. */
   replaceAll: (reservations: Reservation[]) => void
   /** Apply a remote insert/update (realtime). Local-only: never re-persists. */
@@ -139,6 +146,12 @@ export const useReservationStore = create<ReservationState>((set) => ({
     }))
     const rid = activeRestaurant()
     if (rid) persist(deleteReservation(rid, id))
+  },
+
+  clearAll: () => {
+    set({ reservations: [] })
+    const rid = activeRestaurant()
+    if (rid) persist(deleteAllReservations(rid))
   },
 
   replaceAll: (reservations) => set({ reservations }),
