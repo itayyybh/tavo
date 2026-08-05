@@ -1,7 +1,6 @@
 import { useEffect } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useSessionStore, useUIStore } from '@/stores'
-import { useFloorPersistence } from '@/hooks/useFloorPersistence'
 import { AccountMenu, InviteManager } from '@/features/auth'
 import { ThemeToggle } from '@/components/ThemeToggle'
 
@@ -29,9 +28,7 @@ export default function App() {
     }
   }, [location.pathname, navigate])
 
-  // Layout + reservation sync now live in AuthGate (above the router) so the
-  // mobile route hydrates too. Only the desktop-only floor layer stays here.
-  useFloorPersistence()
+  // Layout, reservation, and floor sync all live in AuthGate (above the router).
 
   // Apply the active theme to the document root so tokens flip globally.
   useEffect(() => {
