@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { MergeConfig, SeatingConfig } from '@/types'
+import type { MergeConfig, RestaurantSettingsConfig, SeatingConfig } from '@/types'
 import { DEFAULT_SEATING_CONFIG } from '@/services/seating/defaultConfig'
 import { DEFAULT_LOCALE, isLocale, type Locale } from '@/i18n/config'
 
@@ -51,6 +51,15 @@ interface SettingsState {
   waitlistEnabled: boolean
   /** Active app language. Drives translation + text direction (Phase: i18n). */
   locale: Locale
+  /**
+   * DB hydration flag (Phase 11). Autosave is gated on this so the pre-hydration
+   * defaults never overwrite a restaurant's saved settings (mirrors the layout
+   * store). Locale is excluded from persistence — it's per-user, not per-tenant.
+   */
+  hydrated: boolean
+  setHydrated: (hydrated: boolean) => void
+  /** Apply a config loaded from the database. Does not touch `locale`. */
+  loadConfig: (config: RestaurantSettingsConfig) => void
   setLocale: (locale: Locale) => void
   setGridSize: (size: number) => void
   setSnapToGrid: (snap: boolean) => void
@@ -61,6 +70,8 @@ interface SettingsState {
   setWaitlistEnabled: (on: boolean) => void
   /** Patch the merge rule config (one field or many). */
   updateMergeConfig: (patch: Partial<MergeConfig>) => void
+  /** Patch top-level seating config fields (e.g. turnover buffer). */
+  updateSeatingConfig: (patch: Partial<SeatingConfig>) => void
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
@@ -74,6 +85,20 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   reservedLookaheadMin: 60,
   waitlistEnabled: true,
   locale: loadLocale(),
+  hydrated: false,
+  setHydrated: (hydrated) => set({ hydrated }),
+  loadConfig: (config) =>
+    set({
+      gridSize: config.gridSize,
+      snapToGrid: config.snapToGrid,
+      pathWidth: config.pathWidth,
+      autoTurnover: config.autoTurnover,
+      defaultStayMinutes: config.defaultStayMinutes,
+      maxStayMinutes: config.maxStayMinutes,
+      reservedLookaheadMin: config.reservedLookaheadMin,
+      waitlistEnabled: config.waitlistEnabled,
+      seating: config.seating,
+    }),
   setLocale: (locale) => {
     if (typeof localStorage !== 'undefined')
       localStorage.setItem(LOCALE_STORAGE_KEY, locale)
@@ -92,4 +117,22 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setWaitlistEnabled: (waitlistEnabled) => set({ waitlistEnabled }),
   updateMergeConfig: (patch) =>
     set((s) => ({ seating: { ...s.seating, merge: { ...s.seating.merge, ...patch } } })),
+  updateSeatingConfig: (patch) => set((s) => ({ seating: { ...s.seating, ...patch } })),
 }))
+
+/**
+ * The DB-persisted slice of the store — everything shared across a restaurant's
+ * devices. `locale` and the hydration flag are deliberately excluded. Used by
+ * the settings sync hook to decide what to save.
+ */
+export const persistableConfig = (s: SettingsState): RestaurantSettingsConfig => ({
+  gridSize: s.gridSize,
+  snapToGrid: s.snapToGrid,
+  pathWidth: s.pathWidth,
+  autoTurnover: s.autoTurnover,
+  defaultStayMinutes: s.defaultStayMinutes,
+  maxStayMinutes: s.maxStayMinutes,
+  reservedLookaheadMin: s.reservedLookaheadMin,
+  waitlistEnabled: s.waitlistEnabled,
+  seating: s.seating,
+})

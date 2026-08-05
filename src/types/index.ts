@@ -294,6 +294,24 @@ export interface SeatingConfig {
   weights: SeatingWeights
 }
 
+/**
+ * The per-restaurant, DB-persisted slice of the settings store (Phase 11). These
+ * are shared across a restaurant's devices — everything a host configures about
+ * the floor and seating rules. Excludes device/user-local state like `locale`.
+ * Column-backed in `restaurant_settings` (see the settings repo).
+ */
+export interface RestaurantSettingsConfig {
+  gridSize: number
+  snapToGrid: boolean
+  pathWidth: number
+  autoTurnover: boolean
+  defaultStayMinutes: number
+  maxStayMinutes: number
+  reservedLookaheadMin: number
+  waitlistEnabled: boolean
+  seating: SeatingConfig
+}
+
 /** One ranked option recorded in a seating decision. */
 export interface SeatingDecisionEntry {
   kind: 'single' | 'merge'
