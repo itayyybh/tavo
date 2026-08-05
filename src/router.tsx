@@ -7,6 +7,7 @@ import { RequirePermission } from '@/features/auth'
 const FloorPage = lazy(() => import('@/pages/FloorPage'))
 const EditorPage = lazy(() => import('@/pages/EditorPage'))
 const ReservationsPage = lazy(() => import('@/pages/ReservationsPage'))
+const SettingsPage = lazy(() => import('@/pages/SettingsPage'))
 const MobilePage = lazy(() => import('@/pages/MobilePage'))
 
 const withSuspense = (node: React.ReactNode) => (
@@ -30,6 +31,14 @@ export const router = createBrowserRouter([
         ),
       },
       { path: 'reservations', element: withSuspense(<ReservationsPage />) },
+      {
+        path: 'settings',
+        element: (
+          <RequirePermission action="editSettings">
+            {withSuspense(<SettingsPage />)}
+          </RequirePermission>
+        ),
+      },
     ],
   },
   // Mobile lives outside the desktop shell — an intentionally separate, focused

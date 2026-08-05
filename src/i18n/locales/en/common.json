@@ -10,7 +10,8 @@
     "floor": "Floor",
     "editor": "Editor",
     "reservations": "Reservations",
-    "design": "Design"
+    "design": "Design",
+    "settings": "Settings"
   },
   "theme": {
     "toggleAria": "Toggle color theme",

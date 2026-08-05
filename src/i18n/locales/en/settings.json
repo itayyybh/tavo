@@ -1,0 +1,38 @@
+{
+  "title": "Settings",
+  "subtitle": "Restaurant-wide configuration. Changes save automatically and sync across devices.",
+  "floor": {
+    "title": "Floor",
+    "description": "Grid and drawing behaviour in the layout editor.",
+    "gridSize": { "label": "Grid size", "help": "Spacing of the editor grid, in world units." },
+    "snapToGrid": { "label": "Snap to grid", "help": "Tables and zones snap to the grid while dragging." },
+    "pathWidth": { "label": "Keep-clear brush width", "help": "Default width of freehand keep-clear paths." }
+  },
+  "seating": {
+    "title": "Seating rules",
+    "description": "How the floor turns over and when a booking blocks a table.",
+    "autoTurnover": { "label": "Automatic turnover", "help": "A cleaning table returns to available on its own after the buffer." },
+    "turnoverBuffer": { "label": "Turnover buffer", "help": "Minutes reserved between two bookings on the same table." },
+    "defaultStay": { "label": "Default stay", "help": "Stay time a new booking gets by default." },
+    "maxStay": { "label": "Maximum stay", "help": "Hard cap on how long a booking may hold a table." },
+    "reservedLookahead": { "label": "Reserved look-ahead", "help": "A table reads reserved only once a booking is due within this window." },
+    "waitlist": { "label": "Waiting list", "help": "Show the waiting-list rail on the Live Floor." }
+  },
+  "language": {
+    "title": "Language",
+    "description": "Your display language. This preference is per person, not shared.",
+    "label": "Display language"
+  },
+  "profile": {
+    "title": "Restaurant profile",
+    "description": "Identity used across the app.",
+    "name": { "label": "Restaurant name", "help": "Shown in the header and on invites." },
+    "timezone": { "label": "Time zone", "help": "Used for scheduling. Leave blank to follow this device." },
+    "timezoneAuto": "Follow this device",
+    "save": "Save profile",
+    "saving": "Saving…",
+    "saved": "Saved"
+  },
+  "minutes": "min",
+  "units": "u"
+}
