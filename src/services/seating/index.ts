@@ -1,5 +1,10 @@
 /** Seating Engine (Phase 7) — public surface. */
-export { suggestSeating, explainNoFit, zoneHasFit, DEFAULT_SUGGESTION_LIMIT } from './suggest'
+export {
+  suggestSeating,
+  explainNoFit,
+  zoneHasFit,
+  DEFAULT_SUGGESTION_LIMIT,
+} from './suggest'
 export { canSeat } from './canSeat'
 export { scoreCandidate } from './score'
 export { generateCandidates } from './candidates'

@@ -15,7 +15,12 @@
  * always preferable and the scorer ranks across all seeds' results.
  */
 import type { ID, Reservation, Table } from '@/types'
-import { hypotheticalMergeCapacity, isActiveStatus, seatsForTable, zoneAllowsRelocation } from '@/utils'
+import {
+  hypotheticalMergeCapacity,
+  isActiveStatus,
+  seatsForTable,
+  zoneAllowsRelocation,
+} from '@/utils'
 import { busyTableIds } from './canSeat'
 import { centerDistance } from './geometry'
 import { evaluateMerge, type MergeRuleContext } from './mergeRules'
@@ -320,7 +325,8 @@ function bringToMergeCandidates(
   const connectedOf = (t: Table) => typeOf(t)?.connectedCapacity ?? 0
   const soloOf = (t: Table) => typeOf(t)?.soloCapacity ?? 0
   const usageOf = (id: ID) =>
-    others.filter((o) => isActiveStatus(o.status) && o.assignedTableIds?.includes(id)).length
+    others.filter((o) => isActiveStatus(o.status) && o.assignedTableIds?.includes(id))
+      .length
 
   // Least-used first, then smallest that completes the fit.
   const donors = [...otherZone].sort(

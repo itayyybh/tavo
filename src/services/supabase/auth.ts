@@ -31,10 +31,7 @@ export async function signUp(
   return data.user
 }
 
-export async function signIn(
-  email: string,
-  password: string,
-): Promise<Session> {
+export async function signIn(email: string, password: string): Promise<Session> {
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
@@ -80,7 +77,8 @@ export async function getMembership(): Promise<Membership | null> {
   if (error) throw error
   if (!data) return null
   // PostgREST types an embedded to-one as an array; normalize it.
-  const restaurant = data.restaurants as unknown as { name: string } | { name: string }[] | null
+  const restaurant = data.restaurants as unknown as
+    { name: string } | { name: string }[] | null
   const name = Array.isArray(restaurant) ? restaurant[0]?.name : restaurant?.name
   return {
     restaurantId: data.restaurant_id,

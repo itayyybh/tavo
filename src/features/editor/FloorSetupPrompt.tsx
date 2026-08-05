@@ -19,8 +19,8 @@ export function FloorSetupPrompt({ onCreate }: { onCreate: () => void }) {
       <div className="w-full max-w-md rounded-2xl border border-line bg-surface p-8 text-center shadow-[var(--shadow-soft)]">
         <Heading className="text-lg">Set up your floor</Heading>
         <Text className="mx-auto mt-2 max-w-sm text-muted">
-          This restaurant doesn't have a layout yet. Build one from scratch, or
-          load a layout you saved on this device.
+          This restaurant doesn't have a layout yet. Build one from scratch, or load a
+          layout you saved on this device.
         </Text>
         <div className="mt-6 flex flex-col gap-2.5">
           <Button onClick={onCreate}>Create a layout</Button>

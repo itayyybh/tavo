@@ -41,7 +41,9 @@ export function TableTypesPanel() {
                 />
                 <button
                   aria-label={t('types.deleteAria', { name: type.name })}
-                  title={used > 0 ? t('types.inUse', { count: used }) : t('types.deleteType')}
+                  title={
+                    used > 0 ? t('types.inUse', { count: used }) : t('types.deleteType')
+                  }
                   disabled={used > 0}
                   onClick={() => removeTableType(type.id)}
                   className="shrink-0 text-muted transition-colors hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
@@ -71,7 +73,9 @@ export function TableTypesPanel() {
                     value={type.defaultSize.x}
                     min={20}
                     onCommit={(x) =>
-                      updateTableType(type.id, { defaultSize: { ...type.defaultSize, x } })
+                      updateTableType(type.id, {
+                        defaultSize: { ...type.defaultSize, x },
+                      })
                     }
                   />
                 </Field>
@@ -80,7 +84,9 @@ export function TableTypesPanel() {
                     value={type.defaultSize.y}
                     min={20}
                     onCommit={(y) =>
-                      updateTableType(type.id, { defaultSize: { ...type.defaultSize, y } })
+                      updateTableType(type.id, {
+                        defaultSize: { ...type.defaultSize, y },
+                      })
                     }
                   />
                 </Field>
@@ -94,7 +100,9 @@ export function TableTypesPanel() {
                 <Field label={t('types.soloSeats')}>
                   <NumField
                     value={type.soloCapacity}
-                    onCommit={(soloCapacity) => updateTableType(type.id, { soloCapacity })}
+                    onCommit={(soloCapacity) =>
+                      updateTableType(type.id, { soloCapacity })
+                    }
                   />
                 </Field>
                 <Field label={t('types.connectedSeats')}>
@@ -107,7 +115,9 @@ export function TableTypesPanel() {
                 </Field>
               </div>
 
-              <p className="text-[11px] text-muted">{t('types.usedBy', { count: used })}</p>
+              <p className="text-[11px] text-muted">
+                {t('types.usedBy', { count: used })}
+              </p>
             </div>
           )
         })}

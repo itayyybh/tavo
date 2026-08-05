@@ -68,9 +68,7 @@ export function InviteManager() {
           automatically. Valid 7 days; more than one person can use it.
         </Text>
 
-        {error && (
-          <Text className="mt-3 text-sm text-status-occupied">{error}</Text>
-        )}
+        {error && <Text className="mt-3 text-sm text-status-occupied">{error}</Text>}
 
         {!code ? (
           <Button className="mt-5 w-full" onClick={generate} disabled={loading}>

@@ -1,15 +1,7 @@
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import {
-  RESERVATION_OCCASIONS,
-  RESERVATION_SOURCES,
-  RESERVATION_STATUSES,
-} from '@/types'
-import type {
-  ReservationOccasion,
-  ReservationSource,
-  ReservationStatus,
-} from '@/types'
+import { RESERVATION_OCCASIONS, RESERVATION_SOURCES, RESERVATION_STATUSES } from '@/types'
+import type { ReservationOccasion, ReservationSource, ReservationStatus } from '@/types'
 import type { SelectOption } from '@/components/ui'
 import { DURATION_VALUES } from '../constants'
 

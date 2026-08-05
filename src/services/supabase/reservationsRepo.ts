@@ -1,10 +1,6 @@
 import type { ID, Reservation } from '@/types'
 import { supabase } from './client'
-import {
-  reservationFromRow,
-  reservationToRow,
-  type ReservationRow,
-} from './mappers'
+import { reservationFromRow, reservationToRow, type ReservationRow } from './mappers'
 
 /**
  * Reservations repository (Phase 9) — the tenant-scoped replacement for
@@ -16,9 +12,7 @@ import {
  */
 
 /** All reservations for a restaurant, oldest first (stable order for the list). */
-export async function listReservations(
-  restaurantId: ID,
-): Promise<Reservation[]> {
+export async function listReservations(restaurantId: ID): Promise<Reservation[]> {
   const { data, error } = await supabase
     .from('reservations')
     .select('*')
@@ -62,10 +56,7 @@ export async function updateReservation(
   return reservationFromRow(data as ReservationRow)
 }
 
-export async function deleteReservation(
-  restaurantId: ID,
-  id: ID,
-): Promise<void> {
+export async function deleteReservation(restaurantId: ID, id: ID): Promise<void> {
   const { error } = await supabase
     .from('reservations')
     .delete()

@@ -10,10 +10,7 @@ import {
   type Membership,
   type MembershipRole,
 } from '@/services/supabase/auth'
-import {
-  clearPendingInvite,
-  getPendingInvite,
-} from '@/features/auth/pendingInvite'
+import { clearPendingInvite, getPendingInvite } from '@/features/auth/pendingInvite'
 
 /**
  * Session Store (Phase 9) — the single source of truth for who is logged in and

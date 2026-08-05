@@ -54,7 +54,9 @@ export function ReservationsView() {
   const bufferMin = useSettingsStore((s) => s.seating.turnoverBufferMin)
 
   const seedSamples = () => {
-    buildSampleReservations({ zones, tables, tableTypes, bufferMin }).forEach(addReservation)
+    buildSampleReservations({ zones, tables, tableTypes, bufferMin }).forEach(
+      addReservation,
+    )
   }
   const clearAll = () => replaceAll([])
 
@@ -122,7 +124,9 @@ export function ReservationsView() {
       onFocusSearch: focusSearch,
       onEscape: () => {
         if (state.query) patch({ query: '' })
-        ;(document.getElementById('reservation-search') as HTMLInputElement | null)?.blur()
+        ;(
+          document.getElementById('reservation-search') as HTMLInputElement | null
+        )?.blur()
       },
       onNavigate: navigate,
       onOpenSelected: () => selected && openEdit(selected),

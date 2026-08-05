@@ -29,10 +29,7 @@ export function ReservationTimeline({ reservations, onEdit }: ReservationTimelin
   const { t } = useTranslation('reservations')
   const slots = useMemo(() => bucketByTimeSlot(reservations), [reservations])
 
-  const maxGuests = useMemo(
-    () => Math.max(1, ...slots.map((s) => s.guests)),
-    [slots],
-  )
+  const maxGuests = useMemo(() => Math.max(1, ...slots.map((s) => s.guests)), [slots])
 
   if (slots.length === 0) {
     return (
@@ -46,7 +43,10 @@ export function ReservationTimeline({ reservations, onEdit }: ReservationTimelin
   return (
     <div className="flex flex-col">
       {slots.map((slot) => (
-        <div key={slot.start} className="flex gap-4 border-t border-line py-2 first:border-t-0">
+        <div
+          key={slot.start}
+          className="flex gap-4 border-t border-line py-2 first:border-t-0"
+        >
           <div className="w-14 shrink-0 pt-1 text-xs font-semibold tabular-nums text-muted">
             {formatClock(slot.start)}
           </div>
@@ -72,9 +72,7 @@ export function ReservationTimeline({ reservations, onEdit }: ReservationTimelin
                   <span className="tabular-nums text-muted">·{r.partySize}</span>
                 </button>
               ))}
-              {slot.items.length === 0 && (
-                <span className="text-xs text-line">—</span>
-              )}
+              {slot.items.length === 0 && <span className="text-xs text-line">—</span>}
             </div>
           </div>
         </div>

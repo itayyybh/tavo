@@ -58,7 +58,10 @@ const PREF_KEYS: (keyof ReservationPreferences)[] = [
   'smoking',
 ]
 
-function buildInitialState(initial: Reservation | undefined, defaultDuration: number): FormState {
+function buildInitialState(
+  initial: Reservation | undefined,
+  defaultDuration: number,
+): FormState {
   if (initial) {
     const { date, time } = splitDateTime(initial.dateTime)
     return {
@@ -117,7 +120,9 @@ export function ReservationForm({ initial, onSubmit, onCancel }: ReservationForm
   // Read-only floor snapshot for the physical-fit gate (can a real table/merge
   // ever seat this party in the zone, ignoring current occupancy).
   const seatingFloor = useSeatingFloor()
-  const [form, setForm] = useState<FormState>(() => buildInitialState(initial, defaultStay))
+  const [form, setForm] = useState<FormState>(() =>
+    buildInitialState(initial, defaultStay),
+  )
   // Rule: a booking may not exceed the restaurant's max stay time.
   const durations = durationOptions.filter((o) => Number(o.value) <= maxStay)
   const [errors, setErrors] = useState<ReservationErrors>({})
@@ -225,7 +230,8 @@ export function ReservationForm({ initial, onSubmit, onCancel }: ReservationForm
           // Suggest the next start time a table frees up (a booking ends + buffer).
           const nextFree = zoneNextFreeTime(gateParams, form.partySize)
           if (nextFree) {
-            const sameDay = toDateKey(new Date(nextFree)) === toDateKey(new Date(dateTime))
+            const sameDay =
+              toDateKey(new Date(nextFree)) === toDateKey(new Date(dateTime))
             const when = sameDay
               ? formatTime(nextFree)
               : `${formatDate(nextFree)}, ${formatTime(nextFree)}`

@@ -1,4 +1,9 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Zone } from '@/types'
 import { Button } from '@/components/ui'
@@ -119,7 +124,8 @@ export function ZonesPanel({ onClosePanel }: ZonesPanelProps) {
   const findDropTarget = (x: number, y: number, draggedId: string) => {
     const el = document.elementFromPoint(x, y)
     const row = el?.closest<HTMLElement>('[data-zone-row-id]')
-    if (row) return row.dataset.zoneRowId !== draggedId ? (row.dataset.zoneRowId ?? null) : null
+    if (row)
+      return row.dataset.zoneRowId !== draggedId ? (row.dataset.zoneRowId ?? null) : null
     return el?.closest('[data-zone-list]') ? '__root__' : null
   }
 
@@ -259,7 +265,9 @@ export function ZonesPanel({ onClosePanel }: ZonesPanelProps) {
               }}
               className={cn(
                 'hit-slop hover:text-ink',
-                focusedZoneId === zone.id ? 'text-ink opacity-100' : 'hover-reveal text-muted',
+                focusedZoneId === zone.id
+                  ? 'text-ink opacity-100'
+                  : 'hover-reveal text-muted',
               )}
             >
               ⤢
@@ -324,7 +332,9 @@ export function ZonesPanel({ onClosePanel }: ZonesPanelProps) {
               <Button
                 key={label}
                 size="sm"
-                variant={(selectedZone.smoking ?? undefined) === value ? 'primary' : 'secondary'}
+                variant={
+                  (selectedZone.smoking ?? undefined) === value ? 'primary' : 'secondary'
+                }
                 onClick={() => updateZone(selectedZone.id, { smoking: value })}
               >
                 {label}
@@ -347,16 +357,20 @@ export function ZonesPanel({ onClosePanel }: ZonesPanelProps) {
               <Button
                 key={label}
                 size="sm"
-                variant={selectedZone.allowTableRelocation === value ? 'primary' : 'secondary'}
-                onClick={() => updateZone(selectedZone.id, { allowTableRelocation: value })}
+                variant={
+                  selectedZone.allowTableRelocation === value ? 'primary' : 'secondary'
+                }
+                onClick={() =>
+                  updateZone(selectedZone.id, { allowTableRelocation: value })
+                }
               >
                 {label}
               </Button>
             ))}
           </div>
           <p className="text-[11px] text-muted">
-            Whether tables may be brought in/out for a cross-zone merge. Auto:
-            only smoking / non-smoking zones relocate; indoor zones stay put.
+            Whether tables may be brought in/out for a cross-zone merge. Auto: only
+            smoking / non-smoking zones relocate; indoor zones stay put.
           </p>
         </div>
       )}

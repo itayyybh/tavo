@@ -28,7 +28,9 @@ import { useSessionStore } from './sessionStore'
 export type NewReservation = Omit<Reservation, 'id' | 'createdAt' | 'updatedAt'>
 
 /** Editable fields on an existing reservation (id/timestamps are managed). */
-export type ReservationPatch = Partial<Omit<Reservation, 'id' | 'createdAt' | 'updatedAt'>>
+export type ReservationPatch = Partial<
+  Omit<Reservation, 'id' | 'createdAt' | 'updatedAt'>
+>
 
 interface ReservationState {
   reservations: Reservation[]
@@ -146,9 +148,7 @@ export const useReservationStore = create<ReservationState>((set) => ({
       const exists = state.reservations.some((r) => r.id === reservation.id)
       return {
         reservations: exists
-          ? state.reservations.map((r) =>
-              r.id === reservation.id ? reservation : r,
-            )
+          ? state.reservations.map((r) => (r.id === reservation.id ? reservation : r))
           : [...state.reservations, reservation],
       }
     }),

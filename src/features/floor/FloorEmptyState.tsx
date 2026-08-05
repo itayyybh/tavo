@@ -12,8 +12,8 @@ export function FloorEmptyState() {
       <div className="w-full max-w-md rounded-2xl border border-line bg-surface p-8 text-center shadow-[var(--shadow-soft)]">
         <Heading className="text-lg">No floor to run yet</Heading>
         <Text className="mx-auto mt-2 max-w-sm text-muted">
-          Build your restaurant's layout first — add zones and tables in the
-          Editor, and they'll appear here to seat guests on.
+          Build your restaurant's layout first — add zones and tables in the Editor, and
+          they'll appear here to seat guests on.
         </Text>
         <Link to="/editor" className="mt-6 inline-block">
           <Button>Open the Editor</Button>

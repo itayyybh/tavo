@@ -13,9 +13,7 @@ export function AccountMenu() {
   return (
     <div className="flex items-center gap-2">
       <div className="hidden items-center gap-2 sm:flex">
-        <span className="text-sm font-medium text-ink">
-          {userName ?? 'Account'}
-        </span>
+        <span className="text-sm font-medium text-ink">{userName ?? 'Account'}</span>
         {role && <Badge className="capitalize">{role}</Badge>}
       </div>
       <Button variant="ghost" size="sm" onClick={() => signOut()}>

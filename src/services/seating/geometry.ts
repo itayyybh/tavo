@@ -39,7 +39,12 @@ function intersectsOrTouches(a: Rect, b: Rect): boolean {
 
 /** Expand a rect equally on all sides. */
 function grow(box: Rect, by: number): Rect {
-  return { x: box.x - by, y: box.y - by, width: box.width + by * 2, height: box.height + by * 2 }
+  return {
+    x: box.x - by,
+    y: box.y - by,
+    width: box.width + by * 2,
+    height: box.height + by * 2,
+  }
 }
 
 /**

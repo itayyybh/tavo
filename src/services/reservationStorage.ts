@@ -27,8 +27,7 @@ export function loadReservations(): Reservation[] | null {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return null
     const envelope = JSON.parse(raw) as Partial<ReservationEnvelope>
-    if (envelope.version !== VERSION || !Array.isArray(envelope.reservations))
-      return null
+    if (envelope.version !== VERSION || !Array.isArray(envelope.reservations)) return null
     return envelope.reservations
   } catch {
     return null

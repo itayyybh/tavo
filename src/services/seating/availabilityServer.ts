@@ -16,10 +16,7 @@ import {
   type TableTypeRow,
   type ZoneRow,
 } from '@/services/supabase/layoutMappers'
-import {
-  reservationFromRow,
-  type ReservationRow,
-} from '@/services/supabase/mappers'
+import { reservationFromRow, type ReservationRow } from '@/services/supabase/mappers'
 import type { SeatingFloor } from './types'
 import { DEFAULT_SEATING_CONFIG } from './defaultConfig'
 
