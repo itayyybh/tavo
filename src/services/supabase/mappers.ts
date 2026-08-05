@@ -5,7 +5,10 @@ import type {
   ReservationPreferences,
   ReservationSource,
   ReservationStatus,
+  RestaurantSettingsConfig,
+  SeatingConfig,
 } from '@/types'
+import { DEFAULT_SEATING_CONFIG } from '@/services/seating/defaultConfig'
 
 /**
  * Row <-> domain mappers (Phase 9).
@@ -80,5 +83,70 @@ export function reservationToRow(restaurantId: ID, r: Reservation): ReservationR
     notes: r.notes ?? null,
     created_at: r.createdAt,
     updated_at: r.updatedAt,
+  }
+}
+
+/** Shape of a `restaurant_settings` row as returned by PostgREST. */
+export interface RestaurantSettingsRow {
+  restaurant_id: string
+  seating: SeatingConfig | Record<string, never>
+  grid_size: number
+  snap_to_grid: boolean
+  path_width: number
+  auto_turnover: boolean
+  default_stay_minutes: number
+  max_stay_minutes: number
+  reserved_lookahead_min: number
+  waitlist_enabled: boolean
+  updated_at: string
+}
+
+/**
+ * Fill any missing seating keys from the app defaults. The 0002 bootstrap seeds
+ * `seating` as `{}`, and older rows may predate a config field, so a raw row can
+ * carry a partial (or empty) blob. Merging over the defaults — top level plus the
+ * nested `merge`/`weights` groups — guarantees a complete config either way.
+ */
+function seatingWithDefaults(raw: RestaurantSettingsRow['seating']): SeatingConfig {
+  const s = (raw ?? {}) as Partial<SeatingConfig>
+  return {
+    ...DEFAULT_SEATING_CONFIG,
+    ...s,
+    merge: { ...DEFAULT_SEATING_CONFIG.merge, ...s.merge },
+    weights: { ...DEFAULT_SEATING_CONFIG.weights, ...s.weights },
+  }
+}
+
+/** Row -> the DB-persisted settings config. Missing seating keys fall back to defaults. */
+export function settingsFromRow(row: RestaurantSettingsRow): RestaurantSettingsConfig {
+  return {
+    gridSize: row.grid_size,
+    snapToGrid: row.snap_to_grid,
+    pathWidth: row.path_width,
+    autoTurnover: row.auto_turnover,
+    defaultStayMinutes: row.default_stay_minutes,
+    maxStayMinutes: row.max_stay_minutes,
+    reservedLookaheadMin: row.reserved_lookahead_min,
+    waitlistEnabled: row.waitlist_enabled,
+    seating: seatingWithDefaults(row.seating),
+  }
+}
+
+/** Config -> a full row for upsert. `updated_at` is set by the database default. */
+export function settingsToRow(
+  restaurantId: ID,
+  config: RestaurantSettingsConfig,
+): Omit<RestaurantSettingsRow, 'updated_at'> {
+  return {
+    restaurant_id: restaurantId,
+    seating: config.seating,
+    grid_size: config.gridSize,
+    snap_to_grid: config.snapToGrid,
+    path_width: config.pathWidth,
+    auto_turnover: config.autoTurnover,
+    default_stay_minutes: config.defaultStayMinutes,
+    max_stay_minutes: config.maxStayMinutes,
+    reserved_lookahead_min: config.reservedLookaheadMin,
+    waitlist_enabled: config.waitlistEnabled,
   }
 }

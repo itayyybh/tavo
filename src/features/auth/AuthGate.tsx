@@ -3,6 +3,7 @@ import { useSessionStore } from '@/stores'
 import { useLayoutSync } from '@/hooks/useLayoutSync'
 import { useReservationSync } from '@/hooks/useReservationSync'
 import { useFloorSync } from '@/hooks/useFloorSync'
+import { useSettingsSync } from '@/hooks/useSettingsSync'
 import { AuthScreen } from './AuthScreen'
 import { OnboardingScreen } from './OnboardingScreen'
 import { UpdatePasswordScreen } from './UpdatePasswordScreen'
@@ -23,6 +24,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   useLayoutSync()
   useReservationSync()
   useFloorSync()
+  useSettingsSync()
 
   useEffect(() => {
     init()
