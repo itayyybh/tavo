@@ -7,7 +7,7 @@ import {
   useSettingsStore,
 } from '@/stores'
 import { useSeatingFloor } from '@/hooks/useSeatingFloor'
-import { checkAvailability } from '@/services/availability'
+import { checkAvailabilitySmart } from '@/services/availabilityClient'
 import { insertReservation } from '@/services/supabase/reservationsRepo'
 import { createId } from '@/utils'
 import type { Reservation, ReservationPreferences } from '@/types'
@@ -80,7 +80,7 @@ export function MobileReservationPage() {
     setError(null)
     setAvailability('checking')
     try {
-      const result = await checkAvailability(
+      const result = await checkAvailabilitySmart(
         {
           partySize,
           dateTime: toISODateTime(date, time),
