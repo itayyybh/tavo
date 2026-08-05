@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Dialog } from '@/components/ui'
 import { useReservationStore } from '@/stores'
 import type { Reservation } from '@/types'
@@ -13,6 +14,7 @@ interface ReservationDialogProps {
 
 /** Create/edit modal. Owns the store write so the form stays presentational. */
 export function ReservationDialog({ open, onClose, editing }: ReservationDialogProps) {
+  const { t } = useTranslation('reservations')
   const addReservation = useReservationStore((s) => s.addReservation)
   const updateReservation = useReservationStore((s) => s.updateReservation)
 
@@ -30,7 +32,7 @@ export function ReservationDialog({ open, onClose, editing }: ReservationDialogP
       open={open}
       onClose={onClose}
       size="lg"
-      title={editing ? 'Edit reservation' : 'New reservation'}
+      title={editing ? t('dialog.edit') : t('dialog.new')}
     >
       {/* Remount per edit target so the form resets its local draft. */}
       {open && (

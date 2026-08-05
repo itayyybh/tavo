@@ -25,4 +25,5 @@ export type {
   SeatCandidate,
   Suggestion,
   CanSeatResult,
+  SeatingReason,
 } from './types'

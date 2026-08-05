@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Text } from '@/components/ui'
 import type { ID, Reservation } from '@/types'
 import { ReservationCard } from './ReservationCard'
@@ -30,11 +31,12 @@ export function ReservationList({
   onEdit,
   onDelete,
 }: ReservationListProps) {
+  const { t } = useTranslation('reservations')
   if (reservations.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-line py-16">
-        <Text className="font-medium text-ink">No reservations</Text>
-        <Text muted>Adjust filters or create a reservation to get started.</Text>
+        <Text className="font-medium text-ink">{t('list.emptyTitle')}</Text>
+        <Text muted>{t('list.emptyBody')}</Text>
       </div>
     )
   }

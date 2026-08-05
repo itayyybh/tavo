@@ -53,9 +53,6 @@ export {
   isOnDay,
 } from './datetime'
 export {
-  statusLabel,
-  sourceLabel,
-  occasionLabel,
   statusTransitions,
   TERMINAL_STATUSES,
   isActiveStatus,

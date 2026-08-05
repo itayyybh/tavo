@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   useFloorStore,
   useLayoutStore,
@@ -34,6 +35,7 @@ const clearBtn =
  * on the booking (Phase 7); ad-hoc table picking arrives with drag in Step 4.
  */
 export function FloorReservationRail() {
+  const { t } = useTranslation('reservations')
   const reservations = useReservationStore((s) => s.reservations)
   const tables = useLayoutStore((s) => s.tables)
   const zones = useLayoutStore((s) => s.zones)
@@ -213,7 +215,14 @@ export function FloorReservationRail() {
                     title={
                       suggestion
                         ? undefined
-                        : explainNoFit(r, seatingFloor, reservations.filter((o) => o.id !== r.id))
+                        : (() => {
+                            const reason = explainNoFit(
+                              r,
+                              seatingFloor,
+                              reservations.filter((o) => o.id !== r.id),
+                            )
+                            return t(reason.key, reason.params)
+                          })()
                     }
                     onClick={() => suggestion && seat(r.id, suggestion.candidate.tableIds)}
                   >

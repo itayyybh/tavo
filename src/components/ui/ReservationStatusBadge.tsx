@@ -1,5 +1,5 @@
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/utils'
-import { statusLabel } from '@/utils'
 import type { ReservationStatus } from '@/types'
 
 // Literal classes so Tailwind statically detects them (mirrors StatusBadge).
@@ -22,6 +22,7 @@ export function ReservationStatusBadge({
   status: ReservationStatus
   className?: string
 }) {
+  const { t } = useTranslation('reservations')
   return (
     <span
       className={cn(
@@ -30,7 +31,7 @@ export function ReservationStatusBadge({
       )}
     >
       <span className={cn('h-1.5 w-1.5 rounded-full', dotClass[status])} />
-      {statusLabel[status]}
+      {t(`status.${status}`)}
     </span>
   )
 }

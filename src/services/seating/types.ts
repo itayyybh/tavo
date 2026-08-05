@@ -46,11 +46,24 @@ export interface SeatCandidate {
   relocateToZoneId?: ID
 }
 
+/**
+ * A locale-independent reason descriptor. The engine stays pure and translatable:
+ * it emits an i18n `key` (in the `reservations` namespace) plus interpolation
+ * `params`; the UI resolves the display string. Also makes the decision log
+ * language-agnostic.
+ */
+export interface SeatingReason {
+  /** i18n key, e.g. `reason.exactFit`. */
+  key: string
+  /** Interpolation values for the key, if any. */
+  params?: Record<string, string | number>
+}
+
 /** Whether a candidate can seat a reservation, with reasons when it can't. */
 export interface CanSeatResult {
   ok: boolean
-  /** Human reasons the candidate was rejected (empty when ok). */
-  reasons: string[]
+  /** Reasons the candidate was rejected (empty when ok). */
+  reasons: SeatingReason[]
 }
 
 /** A ranked seating option returned by the engine. */
@@ -58,6 +71,6 @@ export interface Suggestion {
   candidate: SeatCandidate
   /** Higher is better. */
   score: number
-  /** Human reasons this option scored well (shown as chips in the UI). */
-  reasons: string[]
+  /** Reasons this option scored well (shown as chips in the UI). */
+  reasons: SeatingReason[]
 }

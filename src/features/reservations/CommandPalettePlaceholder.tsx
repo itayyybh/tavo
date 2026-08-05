@@ -1,3 +1,4 @@
+import { Trans, useTranslation } from 'react-i18next'
 import { Dialog, Text } from '@/components/ui'
 
 interface CommandPalettePlaceholderProps {
@@ -13,16 +14,21 @@ export function CommandPalettePlaceholder({
   open,
   onClose,
 }: CommandPalettePlaceholderProps) {
+  const { t } = useTranslation('reservations')
   return (
-    <Dialog open={open} onClose={onClose} title="Command palette">
+    <Dialog open={open} onClose={onClose} title={t('palette.title')}>
       <div className="flex flex-col gap-2">
-        <Text muted>Quick actions and navigation are coming in a later phase.</Text>
+        <Text muted>{t('palette.body')}</Text>
         <Text muted className="text-xs">
-          Press{' '}
-          <kbd className="rounded border border-line bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium text-ink">
-            Esc
-          </kbd>{' '}
-          to close.
+          <Trans
+            t={t}
+            i18nKey="palette.escHint"
+            components={{
+              kbd: (
+                <kbd className="rounded border border-line bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium text-ink" />
+              ),
+            }}
+          />
         </Text>
       </div>
     </Dialog>

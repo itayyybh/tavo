@@ -25,3 +25,4 @@ pnpm-debug.log*
 graphify-out/
 .codegraph/
 .claude_dev.log
+.claude/worktrees/

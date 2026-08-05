@@ -1,0 +1,185 @@
+{
+  "title": "הזמנות",
+  "new": "הזמנה חדשה",
+  "assignAll": "שבץ הכול ({{count}})",
+  "clearTables": "נקה שולחנות ({{count}})",
+  "seed20": "יצירת 20",
+  "clearAll": "נקה הכול",
+  "searchPlaceholder": "חיפוש שם, טלפון או מזהה    ( / )",
+  "shortcutsAria": "קיצורי מקלדת",
+  "shortcutsTitle": "קיצורי מקלדת (?)",
+  "view": {
+    "list": "רשימה",
+    "timeline": "ציר זמן"
+  },
+  "status": {
+    "pending": "ממתין",
+    "confirmed": "מאושר",
+    "arrived": "הגיע",
+    "seated": "הושב",
+    "completed": "הושלם",
+    "cancelled": "בוטל",
+    "no_show": "לא הופיע",
+    "waitlist": "רשימת המתנה"
+  },
+  "source": {
+    "manual": "ידני",
+    "phone": "טלפון",
+    "walk_in": "מזדמן",
+    "website": "אתר",
+    "google": "Google"
+  },
+  "occasion": {
+    "birthday": "יום הולדת",
+    "anniversary": "יום נישואין",
+    "business": "עסקי",
+    "date": "דייט",
+    "celebration": "חגיגה",
+    "other": "אחר"
+  },
+  "duration": {
+    "60": "שעה",
+    "90": "שעה וחצי",
+    "120": "שעתיים",
+    "150": "שעתיים וחצי",
+    "180": "3 שעות"
+  },
+  "filters": {
+    "today": "היום",
+    "tomorrow": "מחר",
+    "all": "הכול",
+    "custom": "מותאם",
+    "anySize": "כל גודל",
+    "allZones": "כל האזורים"
+  },
+  "pref": {
+    "vip": "VIP",
+    "wheelchair": "כיסא גלגלים",
+    "highChair": "כיסא תינוק",
+    "windowSeat": "ליד חלון",
+    "smoking": "עישון"
+  },
+  "form": {
+    "guestName": "שם האורח",
+    "guestNamePlaceholder": "לדוגמה: דנה לוי",
+    "partySize": "מספר סועדים",
+    "duration": "משך",
+    "date": "תאריך",
+    "arrivalTime": "שעת הגעה",
+    "phone": "טלפון",
+    "zone": "אזור",
+    "selectZone": "בחר אזור",
+    "email": "אימייל",
+    "optional": "רשות",
+    "occasion": "אירוע",
+    "none": "ללא",
+    "source": "מקור",
+    "notes": "הערות",
+    "preferences": "העדפות",
+    "allergiesPlaceholder": "אלרגיות (רשות)",
+    "cancel": "ביטול",
+    "saveChanges": "שמור שינויים",
+    "create": "צור הזמנה",
+    "zoneOption": "{{name}} ({{count}} מקומות)",
+    "duplicate": "ייתכן כפילות — {{name}}, {{size}} סועדים בשעה {{time}}. עדיין ניתן לשמור.",
+    "zoneNoFit": "אף שולחן או צירוף ב{{zone}} לא יכול להושיב {{party}} סועדים — בחר אזור אחר.",
+    "zoneFullAtTime": "{{zone}} מלא בשעה זו.",
+    "zoneShortfall_one": "ל{{zone}} יש {{count}} מקום פנוי אז, צריך {{party}}.",
+    "zoneShortfall_other": "ל{{zone}} יש {{count}} מקומות פנויים אז, צריך {{party}}.",
+    "zoneTooSmall": "{{zone}} מכיל לכל היותר {{capacity}} — {{party}} סועדים לא ייכנסו כאן. בחר אזור אחר.",
+    "zoneNextOpening": "{{shortfall}} הפתיחה הבאה ל-{{party}}: {{when}}.",
+    "zoneNoLaterOpening": "{{shortfall}} אין פתיחה מאוחרת יותר היום — בחר אזור אחר."
+  },
+  "list": {
+    "emptyTitle": "אין הזמנות",
+    "emptyBody": "שנה את הסינון או צור הזמנה כדי להתחיל."
+  },
+  "timeline": {
+    "emptyTitle": "אין מה שמתוכנן",
+    "emptyBody": "הזמנות ליום הנבחר יופיעו כאן על ציר הזמן."
+  },
+  "card": {
+    "guest_one": "{{count}} אורח",
+    "guest_other": "{{count}} אורחים",
+    "edit": "עריכה",
+    "delete": "מחיקה"
+  },
+  "summary": {
+    "reservations": "הזמנות",
+    "guests": "אורחים",
+    "confirmed": "מאושר",
+    "arrived": "הגיע",
+    "vip": "VIP",
+    "avgParty": "ממוצע סועדים"
+  },
+  "statusControl": {
+    "aria": "שנה סטטוס"
+  },
+  "seating": {
+    "title": "הושבה",
+    "reserved": "שמור",
+    "clear": "נקה",
+    "noFitTitle": "אין שולחן מתאים",
+    "noFitBody": "{{size}} סועדים — אין שולחן פנוי או צירוף זמין בשעה זו.",
+    "best": "מיטבי",
+    "reserve": "שמור",
+    "reservedBtn": "נשמר",
+    "seatsParty": "מקומות {{seats}} · סועדים {{party}}"
+  },
+  "reason": {
+    "exactFit": "התאמה מדויקת",
+    "seatsFor": "מקומות {{seats}} עבור {{party}}",
+    "preferredZone": "אזור מועדף",
+    "bringToPreferredZone": "הבא שולחן לאזור המועדף",
+    "requestedTable": "שולחן מבוקש",
+    "singleTable": "שולחן יחיד",
+    "mergeOf": "צירוף של {{count}}",
+    "bookedAtTime": "מוזמן בשעה זו",
+    "seatsPartyOf": "מקומות {{seats}}, {{party}} סועדים",
+    "tooLarge": "גדול מדי — {{seats}} מקומות עבור {{party}}",
+    "noFreeTables": "אין כרגע שולחנות פנויים באזור המועדף.",
+    "largestSeats": "השולחן או הצירוף הגדול ביותר מכיל {{max}} מקומות — {{party}} סועדים צריכים יותר. פנה שולחנות, או העלה את מגבלת הצירוף (כעת {{limit}}).",
+    "allBooked": "כל שולחן גדול מספיק מוזמן בשעה זו."
+  },
+  "loadChart": {
+    "title": "עומס שירות",
+    "seats": "{{count}} מקומות",
+    "clear": "נקה",
+    "tooltip_one": "{{count}} הזמנה · {{guests}} אורחים",
+    "tooltip_other": "{{count}} הזמנות · {{guests}} אורחים",
+    "over": " · {{count}} מעל הקיבולת",
+    "free": " · {{count}} מקומות פנויים"
+  },
+  "delete": {
+    "title": "מחיקת הזמנה",
+    "body": "למחוק לצמיתות את ההזמנה של <name>{{name}}</name> ({{size}} סועדים)? לא ניתן לבטל.",
+    "keep": "השאר",
+    "delete": "מחק"
+  },
+  "palette": {
+    "title": "לוח פקודות",
+    "body": "פעולות מהירות וניווט יגיעו בשלב מאוחר יותר.",
+    "escHint": "לחץ <kbd>Esc</kbd> לסגירה."
+  },
+  "dialog": {
+    "edit": "עריכת הזמנה",
+    "new": "הזמנה חדשה"
+  },
+  "shortcuts": {
+    "title": "קיצורי מקלדת",
+    "nav": "ניווט",
+    "navigate": "ניווט בין הזמנות",
+    "openSelected": "פתח הזמנה נבחרת",
+    "search": "חיפוש",
+    "focusSearch": "מיקוד בחיפוש",
+    "actions": "פעולות",
+    "new": "הזמנה חדשה",
+    "editSelected": "ערוך הזמנה נבחרת",
+    "deleteSelected": "מחק הזמנה נבחרת",
+    "general": "כללי",
+    "clearClose": "נקה חיפוש / סגור חלונות",
+    "commandPalette": "לוח פקודות",
+    "shortcutsRef": "קיצורי מקלדת",
+    "footnote": "⌘ הוא Cmd ב-macOS, Ctrl ב-Windows/Linux."
+  }
+}

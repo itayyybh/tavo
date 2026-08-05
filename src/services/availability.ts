@@ -1,5 +1,10 @@
 import type { ID, Reservation, ReservationPreferences } from '@/types'
-import { explainNoFit, suggestSeating, type SeatingFloor } from '@/services/seating'
+import {
+  explainNoFit,
+  suggestSeating,
+  type SeatingFloor,
+  type SeatingReason,
+} from '@/services/seating'
 
 /**
  * Availability check (Phase 9) — the gate the reservation-create flow calls.
@@ -27,8 +32,11 @@ export interface AvailabilityInput {
 
 export interface AvailabilityResult {
   available: boolean
-  /** Host-readable reason when unavailable (for context; the UI leads with the rule). */
-  reason?: string
+  /**
+   * Reason when unavailable, as a locale-free descriptor ({key,params}); the UI
+   * resolves it with i18next so the message follows the active language.
+   */
+  reason?: SeatingReason
 }
 
 /** Build the throwaway reservation the engine reasons over. */

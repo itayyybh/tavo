@@ -15,7 +15,7 @@
  */
 import type { Reservation } from '@/types'
 import { isActiveStatus } from '@/utils'
-import type { CanSeatResult, SeatCandidate, SeatingFloor } from './types'
+import type { CanSeatResult, SeatCandidate, SeatingFloor, SeatingReason } from './types'
 
 const MINUTE = 60_000
 
@@ -83,10 +83,13 @@ export function canSeat(
   floor: SeatingFloor,
   others: Reservation[] = [],
 ): CanSeatResult {
-  const reasons: string[] = []
+  const reasons: SeatingReason[] = []
 
   if (candidate.seats < reservation.partySize) {
-    reasons.push(`Seats ${candidate.seats}, party of ${reservation.partySize}`)
+    reasons.push({
+      key: 'reason.seatsPartyOf',
+      params: { seats: candidate.seats, party: reservation.partySize },
+    })
   } else if (
     candidate.kind === 'single' &&
     candidate.seats - reservation.partySize > floor.config.maxUnderfill
@@ -94,10 +97,13 @@ export function canSeat(
     // Too big — wastes more than the allowed slack (e.g. a party of 3 at an
     // 8-top). Only guards SINGLE tables: a merge must combine whatever's free,
     // so its overshoot is unavoidable — the scorer ranks tighter merges higher.
-    reasons.push(`Too large — seats ${candidate.seats} for ${reservation.partySize}`)
+    reasons.push({
+      key: 'reason.tooLarge',
+      params: { seats: candidate.seats, party: reservation.partySize },
+    })
   }
   if (hasTimeConflict(reservation, candidate, floor, others)) {
-    reasons.push('Booked at this time')
+    reasons.push({ key: 'reason.bookedAtTime' })
   }
 
   return { ok: reasons.length === 0, reasons }

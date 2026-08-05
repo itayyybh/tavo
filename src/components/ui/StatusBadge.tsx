@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/utils'
 import type { TableStatus } from '@/types'
 
@@ -9,13 +10,6 @@ const dotClass: Record<TableStatus, string> = {
   blocked: 'bg-status-blocked',
 }
 
-const label: Record<TableStatus, string> = {
-  available: 'Available',
-  reserved: 'Reserved',
-  occupied: 'Occupied',
-  blocked: 'Blocked',
-}
-
 /** Table status pill — the single source of truth for status → color/label. */
 export function StatusBadge({
   status,
@@ -24,6 +18,7 @@ export function StatusBadge({
   status: TableStatus
   className?: string
 }) {
+  const { t } = useTranslation('common')
   return (
     <span
       className={cn(
@@ -32,7 +27,7 @@ export function StatusBadge({
       )}
     >
       <span className={cn('h-1.5 w-1.5 rounded-full', dotClass[status])} />
-      {label[status]}
+      {t(`tableStatus.${status}`)}
     </span>
   )
 }

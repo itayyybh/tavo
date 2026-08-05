@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   EditorCanvas,
   EditorSidebar,
@@ -12,6 +13,7 @@ import { cn } from '@/utils'
 
 /** Layout Editor — the Figma-like restaurant builder (see the `layout-editor` skill). */
 export default function EditorPage() {
+  const { t } = useTranslation('editor')
   useEditorShortcuts()
   const [panelOpen, setPanelOpen] = useState(false)
   const [setupDismissed, setSetupDismissed] = useState(false)
@@ -40,8 +42,10 @@ export default function EditorPage() {
         )}
         <div
           className={cn(
-            'absolute inset-y-0 left-0 z-30 flex shadow-[var(--shadow-soft)] transition-transform md:static md:z-auto md:translate-x-0 md:shadow-none',
-            panelOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
+            'absolute inset-y-0 start-0 z-30 flex shadow-[var(--shadow-soft)] transition-transform md:static md:z-auto md:translate-x-0 md:shadow-none',
+            panelOpen
+              ? 'translate-x-0'
+              : '-translate-x-full rtl:translate-x-full md:translate-x-0',
           )}
         >
           <EditorSidebar onClosePanel={() => setPanelOpen(false)} />
@@ -51,10 +55,7 @@ export default function EditorPage() {
         </div>
       </div>
       <footer className="flex items-center justify-between gap-4 border-t border-line px-4 py-1.5 text-xs text-muted">
-        <span className="min-w-0 truncate">
-          Space + drag to pan · ctrl/pinch to zoom · drag to marquee-select · double-click
-          a table to rename · ⌫ delete · ⌘Z undo
-        </span>
+        <span className="min-w-0 truncate">{t('footerHint')}</span>
         <FloorSummary />
       </footer>
     </div>

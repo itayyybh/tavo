@@ -1,5 +1,15 @@
 import { create } from 'zustand'
 import type { MergeConfig, SeatingConfig } from '@/types'
+import { DEFAULT_LOCALE, isLocale, type Locale } from '@/i18n/config'
+
+/** Persist the chosen locale so language survives reloads. */
+const LOCALE_STORAGE_KEY = 'rfm-locale'
+
+const loadLocale = (): Locale => {
+  if (typeof localStorage === 'undefined') return DEFAULT_LOCALE
+  const saved = localStorage.getItem(LOCALE_STORAGE_KEY)
+  return isLocale(saved) ? saved : DEFAULT_LOCALE
+}
 
 /**
  * Default Seating Engine config. Mostly permissive; the host tunes it per
@@ -67,6 +77,9 @@ interface SettingsState {
    * config); flip it here until then.
    */
   waitlistEnabled: boolean
+  /** Active app language. Drives translation + text direction (Phase: i18n). */
+  locale: Locale
+  setLocale: (locale: Locale) => void
   setGridSize: (size: number) => void
   setSnapToGrid: (snap: boolean) => void
   setPathWidth: (width: number) => void
@@ -88,6 +101,11 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   maxStayMinutes: 120,
   reservedLookaheadMin: 60,
   waitlistEnabled: true,
+  locale: loadLocale(),
+  setLocale: (locale) => {
+    if (typeof localStorage !== 'undefined') localStorage.setItem(LOCALE_STORAGE_KEY, locale)
+    set({ locale })
+  },
   setGridSize: (gridSize) => set({ gridSize }),
   setSnapToGrid: (snapToGrid) => set({ snapToGrid }),
   setPathWidth: (pathWidth) => set({ pathWidth }),

@@ -1,10 +1,4 @@
-import type {
-  ID,
-  Reservation,
-  ReservationOccasion,
-  ReservationSource,
-  ReservationStatus,
-} from '@/types'
+import type { ID, Reservation, ReservationStatus } from '@/types'
 import { isOnDay, minutesOfDay } from './datetime'
 
 /**
@@ -13,37 +7,8 @@ import { isOnDay, minutesOfDay } from './datetime'
  * memoize. Nothing here touches tables (Phase 7 owns that link).
  */
 
-// ---------------------------------------------------------------------------
-// Labels — single source of truth for human-readable text.
-// ---------------------------------------------------------------------------
-
-export const statusLabel: Record<ReservationStatus, string> = {
-  pending: 'Pending',
-  confirmed: 'Confirmed',
-  arrived: 'Arrived',
-  seated: 'Seated',
-  completed: 'Completed',
-  cancelled: 'Cancelled',
-  no_show: 'No Show',
-  waitlist: 'Waitlist',
-}
-
-export const sourceLabel: Record<ReservationSource, string> = {
-  manual: 'Manual',
-  phone: 'Phone',
-  walk_in: 'Walk-In',
-  website: 'Website',
-  google: 'Google',
-}
-
-export const occasionLabel: Record<ReservationOccasion, string> = {
-  birthday: 'Birthday',
-  anniversary: 'Anniversary',
-  business: 'Business',
-  date: 'Date',
-  celebration: 'Celebration',
-  other: 'Other',
-}
+// Human-readable labels live in the i18n `reservations` namespace
+// (`useReservationLabels()`), keyed by these enum values.
 
 // ---------------------------------------------------------------------------
 // Status workflow — simple, predictable, explicit transition map.

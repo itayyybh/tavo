@@ -621,6 +621,9 @@ export function EditorCanvas() {
   return (
     <div
       ref={containerRef}
+      // Canvas is spatial, not text: keep it LTR so Konva coordinates and the
+      // absolutely-positioned overlays never mirror when the shell flips to RTL.
+      dir="ltr"
       className="relative h-full w-full"
       style={{
         cursor: tool === 'path' ? 'crosshair' : spaceDown ? 'grab' : 'default',

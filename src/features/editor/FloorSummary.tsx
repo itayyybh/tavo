@@ -1,9 +1,11 @@
+import { useTranslation } from 'react-i18next'
 import { useLayoutStore } from '@/stores'
 import { floorTotals } from '@/utils'
 
 /** Compact live tally of tables + seats on the floor. Isolated so it can update
  * without re-rendering the surrounding page. */
 export function FloorSummary() {
+  const { t } = useTranslation('editor')
   const tables = useLayoutStore((s) => s.tables)
   const tableTypes = useLayoutStore((s) => s.tableTypes)
   const mergedGroups = useLayoutStore((s) => s.mergedGroups)
@@ -11,7 +13,7 @@ export function FloorSummary() {
 
   return (
     <span className="tabular-nums text-ink">
-      {count} {count === 1 ? 'table' : 'tables'} · {seats} {seats === 1 ? 'seat' : 'seats'}
+      {t('summary.table', { count })} · {t('summary.seat', { count: seats })}
     </span>
   )
 }

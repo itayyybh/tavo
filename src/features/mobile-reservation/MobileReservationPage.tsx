@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button, Heading, Input, Text } from '@/components/ui'
 import {
   useLayoutStore,
@@ -28,6 +29,7 @@ type Availability = 'idle' | 'checking' | 'available' | 'unavailable'
  * create. Deliberately NOT the desktop app (no editor / floor / management).
  */
 export function MobileReservationPage() {
+  const { t } = useTranslation('reservations')
   const zones = useLayoutStore((s) => s.zones)
   const defaultStay = useSettingsStore((s) => s.defaultStayMinutes)
   const floor = useSeatingFloor()
@@ -96,7 +98,7 @@ export function MobileReservationPage() {
         setMessage(null)
       } else {
         setAvailability('unavailable')
-        setMessage(result.reason ?? null)
+        setMessage(result.reason ? t(result.reason.key, result.reason.params) : null)
       }
     } catch {
       setAvailability('idle')

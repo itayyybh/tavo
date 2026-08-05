@@ -10,7 +10,7 @@ import type { Reservation } from '@/types'
 import { canSeat } from './canSeat'
 import { generateCandidates } from './candidates'
 import { scoreCandidate } from './score'
-import type { SeatingFloor, Suggestion } from './types'
+import type { SeatingFloor, SeatingReason, Suggestion } from './types'
 
 /** How many suggestions to return by default. */
 export const DEFAULT_SUGGESTION_LIMIT = 5
@@ -65,15 +65,22 @@ export function explainNoFit(
   reservation: Reservation,
   floor: SeatingFloor,
   others: Reservation[] = [],
-): string {
+): SeatingReason {
   const candidates = generateCandidates(reservation, floor, others)
-  if (candidates.length === 0) return 'No free tables in the preferred zone right now.'
+  if (candidates.length === 0) return { key: 'reason.noFreeTables' }
 
   const bigEnough = candidates.filter((c) => c.seats >= reservation.partySize)
   if (bigEnough.length === 0) {
     const max = Math.max(...candidates.map((c) => c.seats))
-    return `The largest available table or merge seats ${max} — a party of ${reservation.partySize} needs more. Free up tables, or raise the merge limit (now ${floor.config.merge.maxMergeSize}).`
+    return {
+      key: 'reason.largestSeats',
+      params: {
+        max,
+        party: reservation.partySize,
+        limit: floor.config.merge.maxMergeSize ?? 0,
+      },
+    }
   }
   // Something is large enough but every such option was rejected → time conflict.
-  return 'Every table big enough is booked at this time.'
+  return { key: 'reason.allBooked' }
 }

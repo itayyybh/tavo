@@ -1,0 +1,30 @@
+{
+  "appName": "Restaurant Floor Manager",
+  "language": "Language",
+  "languageName": {
+    "en": "English",
+    "he": "עברית"
+  },
+  "languageToggleAria": "Toggle language",
+  "nav": {
+    "floor": "Floor",
+    "editor": "Editor",
+    "reservations": "Reservations",
+    "design": "Design"
+  },
+  "theme": {
+    "toggleAria": "Toggle color theme",
+    "dark": "Dark",
+    "light": "Light"
+  },
+  "tableStatus": {
+    "available": "Available",
+    "reserved": "Reserved",
+    "occupied": "Occupied",
+    "blocked": "Blocked"
+  },
+  "floor": {
+    "title": "Live Floor",
+    "body": "Real-time restaurant floor with table states and seating. Coming in a later phase."
+  }
+}
