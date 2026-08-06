@@ -1,5 +1,20 @@
 {
   "title": "Reservations",
+  "rules": {
+    "closed": "Bookings are closed right now.",
+    "closedUntil": "Bookings are closed until {{until}}.",
+    "blockedDate": "That date is blocked for bookings.",
+    "closedDay": "The restaurant is closed that day.",
+    "beforeOpening": "Before opening — the restaurant opens at {{from}}.",
+    "afterClosing": "After closing — the restaurant closes at {{time}}.",
+    "afterLastSeating": "Past the last seating at {{time}}.",
+    "afterLatest": "Latest booking time is {{time}}.",
+    "noSameDay": "Same-day bookings aren't allowed.",
+    "tooSoon": "Bookings must be at least {{minutes}} min ahead.",
+    "partyTooSmall": "Minimum party size is {{min}}.",
+    "partyTooLarge": "Maximum party size is {{max}}.",
+    "zoneClosed": "{{zone}} is closed for bookings."
+  },
   "new": "New reservation",
   "assignAll": "Assign all ({{count}})",
   "clearTables": "Clear tables ({{count}})",
