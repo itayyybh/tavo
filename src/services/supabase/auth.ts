@@ -17,6 +17,14 @@ export interface Membership {
   restaurantName: string
 }
 
+/** One member of a restaurant's team (from `list_members`). */
+export interface Member {
+  userId: ID
+  role: MembershipRole
+  name: string | null
+  email: string | null
+}
+
 export async function signUp(
   email: string,
   password: string,
@@ -121,6 +129,34 @@ export async function createInvite(
   })
   if (error) throw error
   return data as string
+}
+
+/** List the restaurant's team (owner + managers). Any member may call it. */
+export async function listMembers(restaurantId: ID): Promise<Member[]> {
+  const { data, error } = await supabase.rpc('list_members', {
+    p_restaurant_id: restaurantId,
+  })
+  if (error) throw error
+  return (data as {
+    user_id: string
+    role: MembershipRole
+    name: string | null
+    email: string | null
+  }[]).map((r) => ({
+    userId: r.user_id,
+    role: r.role,
+    name: r.name,
+    email: r.email,
+  }))
+}
+
+/** Owner-only: remove a member (not yourself, not an owner). */
+export async function removeMember(restaurantId: ID, userId: ID): Promise<void> {
+  const { error } = await supabase.rpc('remove_member', {
+    p_restaurant_id: restaurantId,
+    p_user_id: userId,
+  })
+  if (error) throw error
 }
 
 /** Redeem an invite for the current user. Returns the restaurant id joined. */

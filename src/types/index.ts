@@ -81,6 +81,13 @@ export interface Zone {
    * with a smoking policy are relocatable by default.
    */
   allowTableRelocation?: boolean
+  /**
+   * Whether the zone is open for new reservations/seating (Phase 11 — Settings).
+   * Undefined = bookable (the default); false takes the zone out of rotation
+   * without deleting it (e.g. a patio closed for the season). Enforcement in the
+   * reservation/seating flow is a later wiring step.
+   */
+  bookable?: boolean
 }
 
 /**
@@ -294,6 +301,98 @@ export interface SeatingConfig {
   weights: SeatingWeights
 }
 
+/** A day of the week, 0 = Sunday … 6 = Saturday (matches `Date.getDay`). */
+export type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6
+
+/**
+ * Opening hours for a single day. `from`/`to` are 24-hour "HH:mm" clock strings
+ * in the restaurant's local zone. `lastSeating` is the latest a party may be
+ * seated; null means no explicit cutoff (seat until `to`). When `open` is false
+ * the restaurant is closed that day and the times are ignored.
+ */
+export interface DayHours {
+  /** Whether the restaurant operates this day at all. */
+  open: boolean
+  /** Service start, "HH:mm". */
+  from: string
+  /** Service end, "HH:mm". */
+  to: string
+  /** Latest seating time "HH:mm", or null for no explicit cutoff. */
+  lastSeating: string | null
+}
+
+/** Weekly opening hours, one entry per weekday indexed by {@link Weekday}. */
+export type OpeningHours = [
+  DayHours,
+  DayHours,
+  DayHours,
+  DayHours,
+  DayHours,
+  DayHours,
+  DayHours,
+]
+
+/**
+ * Reservation & party rules (Phase 11 — Settings shell). Governs when a booking
+ * may be placed and what party sizes are accepted. Everything configurable — never
+ * hardcode restaurant policy (see the `data-model` skill). Stored as one jsonb
+ * blob (`reservation_rules`), mirroring the `seating` config.
+ *
+ * Note: the "max tables that can be combined" for a party is NOT here — it's the
+ * single source `SeatingConfig.merge.maxMergeSize`, surfaced read/write in the UI.
+ */
+export interface ReservationRulesConfig {
+  /** Latest clock time "HH:mm" a booking may be placed for; null = no cutoff. */
+  latestBookingTime: string | null
+  /** Minimum lead time before the booking slot, in minutes. */
+  minAdvanceMinutes: number
+  /** Allow reservations for the same day. */
+  allowSameDay: boolean
+  /** Allow booking a slot after the day's closing time (default off). */
+  allowAfterClosing: boolean
+  /** Smallest accepted party size. */
+  minPartySize: number
+  /** Largest accepted party size. */
+  maxPartySize: number
+  /** Allow seating one party across several non-merged tables. */
+  allowSplitParty: boolean
+  /** Let the seating engine suggest a table in a zone other than the preferred one. */
+  allowAltZoneSuggestions: boolean
+}
+
+/**
+ * A one-off booking blackout (Phase 11 — Settings shell). Blocks a single date, or
+ * a time window within it. Recurring blocks and named holiday profiles are a later
+ * step — this is the one-off MVP.
+ */
+export interface DateBlock {
+  id: ID
+  /** Blocked date, "YYYY-MM-DD" (restaurant-local). */
+  date: string
+  /** Start of the blocked window "HH:mm"; null with `to` = the whole day. */
+  from: string | null
+  /** End of the blocked window "HH:mm"; null with `from` = the whole day. */
+  to: string | null
+  /** Optional host note (why the block exists). */
+  reason?: string
+}
+
+/** Restaurant-wide temporary closure — a kill switch for all new bookings. */
+export interface TemporaryClosure {
+  /** When true, no new bookings are accepted restaurant-wide. */
+  active: boolean
+  /** Reopen date "YYYY-MM-DD"; null = indefinite (until turned off). */
+  until: string | null
+  /** Optional reason shown to the host. */
+  reason?: string
+}
+
+/** Booking restrictions (Phase 11 — Settings shell): blackout dates + closure. */
+export interface BookingRestrictions {
+  blocks: DateBlock[]
+  closure: TemporaryClosure
+}
+
 /**
  * The per-restaurant, DB-persisted slice of the settings store (Phase 11). These
  * are shared across a restaurant's devices — everything a host configures about
@@ -310,6 +409,12 @@ export interface RestaurantSettingsConfig {
   reservedLookaheadMin: number
   waitlistEnabled: boolean
   seating: SeatingConfig
+  /** Weekly opening hours (Phase 11 — Settings shell). */
+  openingHours: OpeningHours
+  /** Reservation & party rules (Phase 11 — Settings shell). */
+  reservationRules: ReservationRulesConfig
+  /** Booking restrictions — blackout dates + temporary closure (Phase 11). */
+  bookingRestrictions: BookingRestrictions
 }
 
 /** One ranked option recorded in a seating decision. */

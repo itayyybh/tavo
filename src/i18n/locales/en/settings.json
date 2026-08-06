@@ -1,6 +1,65 @@
 {
   "title": "Settings",
   "subtitle": "Restaurant-wide configuration. Changes save automatically and sync across devices.",
+  "nav": {
+    "restaurant": "Restaurant",
+    "reservations": "Reservations",
+    "floor": "Floor",
+    "zones": "Zones",
+    "staff": "Staff & Permissions",
+    "system": "System"
+  },
+  "soon": "This section is coming soon.",
+  "soonTag": "Soon",
+  "openingHours": {
+    "title": "Opening hours",
+    "description": "When the restaurant is open each day. Used for reservation windows.",
+    "from": "Opening time",
+    "to": "Closing time",
+    "lastSeating": "Last seating",
+    "closed": "Closed"
+  },
+  "rules": {
+    "title": "Reservation rules",
+    "description": "When a booking may be placed.",
+    "latestBooking": { "label": "Latest booking time", "help": "Latest clock time a booking may be made for. Leave blank for no cutoff." },
+    "minAdvance": { "label": "Minimum advance", "help": "How far ahead a booking must be made." },
+    "allowSameDay": { "label": "Allow same-day bookings", "help": "Accept reservations for today." },
+    "allowAfterClosing": { "label": "Allow bookings after closing", "help": "Accept a booking for a time past the day's closing hour." }
+  },
+  "party": {
+    "title": "Guest & party rules",
+    "description": "Accepted party sizes and how a party may be seated.",
+    "minSize": { "label": "Minimum party size", "help": "Smallest party a booking may have." },
+    "maxSize": { "label": "Maximum party size", "help": "Largest party a booking may have." },
+    "maxCombined": { "label": "Max combined tables", "help": "Most tables a single party may be merged across." },
+    "allowSplit": { "label": "Allow splitting a party", "help": "Seat one party across several separate tables." },
+    "allowAltZone": { "label": "Suggest alternative zones", "help": "Let the seating engine offer a table outside the preferred zone." }
+  },
+  "defaults": {
+    "title": "Default values",
+    "description": "Applied to a new booking unless overridden."
+  },
+  "closure": {
+    "title": "Temporary closure",
+    "description": "Stop all new bookings restaurant-wide.",
+    "active": { "label": "Closed to new bookings", "help": "No new reservations are accepted while this is on." },
+    "until": { "label": "Reopen date", "help": "Leave blank to stay closed until turned off." },
+    "reason": { "label": "Reason", "placeholder": "e.g. Private event" }
+  },
+  "blocks": {
+    "title": "Blocked dates",
+    "description": "Block a single date, or a time window within it.",
+    "date": "Date",
+    "from": "From",
+    "to": "To",
+    "reason": "Reason",
+    "reasonPlaceholder": "Optional note",
+    "add": "Add block",
+    "allDay": "All day",
+    "remove": "Remove",
+    "empty": "No blocked dates."
+  },
   "floor": {
     "title": "Floor",
     "description": "Grid and drawing behaviour in the layout editor.",
@@ -17,6 +76,67 @@
     "maxStay": { "label": "Maximum stay", "help": "Hard cap on how long a booking may hold a table." },
     "reservedLookahead": { "label": "Reserved look-ahead", "help": "A table reads reserved only once a booking is due within this window." },
     "waitlist": { "label": "Waiting list", "help": "Show the waiting-list rail on the Live Floor." }
+  },
+  "zones": {
+    "title": "Zone settings",
+    "description": "Per-zone policy. Create, rename, and arrange zones in the layout editor.",
+    "empty": "No zones yet. Add zones in the layout editor.",
+    "smoking": {
+      "label": "Smoking policy",
+      "none": "No policy",
+      "non": "Non-smoking",
+      "yes": "Smoking"
+    },
+    "relocation": {
+      "short": "Lend tables",
+      "label": "Allow moving tables in and out of {{zone}} for cross-zone merges"
+    },
+    "availability": {
+      "title": "Zone availability",
+      "description": "Turn a zone off to take it out of bookings without deleting it.",
+      "label": "{{zone}} open for bookings"
+    }
+  },
+  "staff": {
+    "title": "Team",
+    "description": "People with access to this restaurant.",
+    "loading": "Loading team…",
+    "invite": "Invite a manager",
+    "you": "(you)",
+    "unknown": "Unknown user",
+    "remove": "Remove",
+    "role": { "owner": "Owner", "manager": "Manager" },
+    "removeConfirm": {
+      "title": "Remove member",
+      "body": "Remove {{name}} from this restaurant? They lose access immediately.",
+      "cancel": "Cancel",
+      "confirm": "Remove",
+      "removing": "Removing…"
+    }
+  },
+  "roles": {
+    "title": "Roles",
+    "description": "What each role can do. Roles are fixed for now.",
+    "capability": "Capability",
+    "granted": "Allowed",
+    "notGranted": "Not allowed",
+    "action": {
+      "manageFloor": "Run the floor (seat, move, clear)",
+      "deleteReservation": "Delete reservations",
+      "editLayout": "Edit the layout",
+      "editSettings": "Change settings",
+      "inviteManager": "Invite & manage team"
+    }
+  },
+  "tableRules": {
+    "title": "Table rules",
+    "description": "How the seating engine combines tables and picks a fit.",
+    "seats": "seats",
+    "crossZone": { "label": "Allow cross-zone combining", "help": "Let a merge borrow tables from another zone." },
+    "maxCombined": { "label": "Max combined tables", "help": "Most tables one merge may span. Shared with Reservations." },
+    "maxUnderfill": { "label": "Max empty seats", "help": "How many seats a table/merge may exceed the party by." },
+    "exactFit": { "label": "Prefer a tight fit", "help": "Weight toward the smallest table that fits (less wasted capacity)." },
+    "fewer": { "label": "Prefer fewer tables", "help": "Weight toward a single table over a merge when both fit." }
   },
   "language": {
     "title": "Language",

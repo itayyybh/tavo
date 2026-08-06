@@ -1,6 +1,22 @@
 import { create } from 'zustand'
-import type { MergeConfig, RestaurantSettingsConfig, SeatingConfig } from '@/types'
+import type {
+  BookingRestrictions,
+  DateBlock,
+  DayHours,
+  MergeConfig,
+  OpeningHours,
+  ReservationRulesConfig,
+  RestaurantSettingsConfig,
+  SeatingConfig,
+  TemporaryClosure,
+  Weekday,
+} from '@/types'
 import { DEFAULT_SEATING_CONFIG } from '@/services/seating/defaultConfig'
+import {
+  DEFAULT_BOOKING_RESTRICTIONS,
+  DEFAULT_OPENING_HOURS,
+  DEFAULT_RESERVATION_RULES,
+} from '@/services/settings/defaults'
 import { DEFAULT_LOCALE, isLocale, type Locale } from '@/i18n/config'
 
 /** Persist the chosen locale so language survives reloads. */
@@ -49,6 +65,15 @@ interface SettingsState {
    * config); flip it here until then.
    */
   waitlistEnabled: boolean
+  /**
+   * Weekly opening hours (Phase 11 — Settings shell). Seven entries indexed by
+   * weekday (0 = Sunday). Drives reservation-window rules in a later section.
+   */
+  openingHours: OpeningHours
+  /** Reservation & party rules (Phase 11 — Settings shell). */
+  reservationRules: ReservationRulesConfig
+  /** Booking restrictions — blackout dates + temporary closure (Phase 11). */
+  bookingRestrictions: BookingRestrictions
   /** Active app language. Drives translation + text direction (Phase: i18n). */
   locale: Locale
   /**
@@ -68,6 +93,16 @@ interface SettingsState {
   setStayMinutes: (rule: { default?: number; max?: number }) => void
   setReservedLookaheadMin: (minutes: number) => void
   setWaitlistEnabled: (on: boolean) => void
+  /** Patch one weekday's opening hours (one field or many). */
+  setDayHours: (day: Weekday, patch: Partial<DayHours>) => void
+  /** Patch the reservation & party rules (one field or many). */
+  updateReservationRules: (patch: Partial<ReservationRulesConfig>) => void
+  /** Add a one-off blackout date/window (an id is generated). */
+  addDateBlock: (block: Omit<DateBlock, 'id'>) => void
+  /** Remove a blackout by id. */
+  removeDateBlock: (id: string) => void
+  /** Patch the temporary-closure switch (one field or many). */
+  setClosure: (patch: Partial<TemporaryClosure>) => void
   /** Patch the merge rule config (one field or many). */
   updateMergeConfig: (patch: Partial<MergeConfig>) => void
   /** Patch top-level seating config fields (e.g. turnover buffer). */
@@ -84,6 +119,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   maxStayMinutes: 120,
   reservedLookaheadMin: 60,
   waitlistEnabled: true,
+  openingHours: DEFAULT_OPENING_HOURS,
+  reservationRules: DEFAULT_RESERVATION_RULES,
+  bookingRestrictions: DEFAULT_BOOKING_RESTRICTIONS,
   locale: loadLocale(),
   hydrated: false,
   setHydrated: (hydrated) => set({ hydrated }),
@@ -98,6 +136,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       reservedLookaheadMin: config.reservedLookaheadMin,
       waitlistEnabled: config.waitlistEnabled,
       seating: config.seating,
+      openingHours: config.openingHours,
+      reservationRules: config.reservationRules,
+      bookingRestrictions: config.bookingRestrictions,
     }),
   setLocale: (locale) => {
     if (typeof localStorage !== 'undefined')
@@ -115,6 +156,35 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     })),
   setReservedLookaheadMin: (reservedLookaheadMin) => set({ reservedLookaheadMin }),
   setWaitlistEnabled: (waitlistEnabled) => set({ waitlistEnabled }),
+  setDayHours: (day, patch) =>
+    set((s) => {
+      const openingHours = [...s.openingHours] as OpeningHours
+      openingHours[day] = { ...openingHours[day], ...patch }
+      return { openingHours }
+    }),
+  updateReservationRules: (patch) =>
+    set((s) => ({ reservationRules: { ...s.reservationRules, ...patch } })),
+  addDateBlock: (block) =>
+    set((s) => ({
+      bookingRestrictions: {
+        ...s.bookingRestrictions,
+        blocks: [...s.bookingRestrictions.blocks, { ...block, id: crypto.randomUUID() }],
+      },
+    })),
+  removeDateBlock: (id) =>
+    set((s) => ({
+      bookingRestrictions: {
+        ...s.bookingRestrictions,
+        blocks: s.bookingRestrictions.blocks.filter((b) => b.id !== id),
+      },
+    })),
+  setClosure: (patch) =>
+    set((s) => ({
+      bookingRestrictions: {
+        ...s.bookingRestrictions,
+        closure: { ...s.bookingRestrictions.closure, ...patch },
+      },
+    })),
   updateMergeConfig: (patch) =>
     set((s) => ({ seating: { ...s.seating, merge: { ...s.seating.merge, ...patch } } })),
   updateSeatingConfig: (patch) => set((s) => ({ seating: { ...s.seating, ...patch } })),
@@ -135,4 +205,7 @@ export const persistableConfig = (s: SettingsState): RestaurantSettingsConfig =>
   reservedLookaheadMin: s.reservedLookaheadMin,
   waitlistEnabled: s.waitlistEnabled,
   seating: s.seating,
+  openingHours: s.openingHours,
+  reservationRules: s.reservationRules,
+  bookingRestrictions: s.bookingRestrictions,
 })
