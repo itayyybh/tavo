@@ -28,6 +28,7 @@ import type {
 import type { NewReservation } from '@/stores/reservationStore'
 import { useSeatingFloor } from '@/hooks/useSeatingFloor'
 import { zoneHasFit } from '@/services/seating'
+import { evaluateBookingRules } from '@/services/settings/bookingRules'
 import { cn } from '@/utils'
 import { DEFAULT_PARTY_SIZE } from './constants'
 import { useReservationLabels } from './hooks/useReservationLabels'
@@ -117,6 +118,11 @@ export function ReservationForm({ initial, onSubmit, onCancel }: ReservationForm
   const defaultStay = useSettingsStore((s) => s.defaultStayMinutes)
   const maxStay = useSettingsStore((s) => s.maxStayMinutes)
   const bufferMin = useSettingsStore((s) => s.seating.turnoverBufferMin)
+  // Configured booking rules (opening hours, reservation/party window, blackout
+  // dates, closure) — enforced at save time below.
+  const openingHours = useSettingsStore((s) => s.openingHours)
+  const reservationRules = useSettingsStore((s) => s.reservationRules)
+  const bookingRestrictions = useSettingsStore((s) => s.bookingRestrictions)
   // Read-only floor snapshot for the physical-fit gate (can a real table/merge
   // ever seat this party in the zone, ignoring current occupancy).
   const seatingFloor = useSeatingFloor()
@@ -171,6 +177,26 @@ export function ReservationForm({ initial, onSubmit, onCancel }: ReservationForm
       notes: form.notes,
     }
     const found = validateReservation(draft)
+
+    // Configured booking-rule gate (Phase 11): closure, blackout dates, opening
+    // hours, reservation/party window, zone availability. First violation per
+    // field wins so the base field checks above take precedence.
+    if (isValidDateTime(dateTime)) {
+      const violations = evaluateBookingRules({
+        partySize: form.partySize,
+        dateTime,
+        preferredZoneId: form.preferredZoneId || undefined,
+        openingHours,
+        rules: reservationRules,
+        restrictions: bookingRestrictions,
+        zones,
+        now: new Date(),
+        isNew: !initial,
+      })
+      for (const v of violations) {
+        if (!found[v.field]) found[v.field] = t(`rules.${v.code}`, v.params)
+      }
+    }
 
     // Zone capacity gate: a guest is seated only in their chosen zone, so the
     // zone must have enough seats free during the booking's window (time-aware,

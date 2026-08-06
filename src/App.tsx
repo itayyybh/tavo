@@ -25,6 +25,7 @@ export default function App() {
   const location = useLocation()
   const locale = useSettingsStore((s) => s.locale)
   const canEditLayout = useCan('editLayout')
+  const canEditSettings = useCan('editSettings')
 
   // Phones landing on the app root go straight to the focused mobile flow.
   // Only from '/' so desktop deep-links (editor, reservations) are never hijacked.
@@ -77,6 +78,20 @@ export default function App() {
         {/* Right — utilities, muted. */}
         <div className="flex items-center gap-1 justify-self-end">
           <LanguageToggle />
+          {canEditSettings && (
+            <NavLink
+              to="/settings"
+              className={({ isActive }) =>
+                [
+                  'flex h-8 w-8 items-center justify-center rounded-lg transition-colors duration-200',
+                  isActive ? 'bg-surface-2 text-ink' : 'text-muted hover:text-ink',
+                ].join(' ')
+              }
+              aria-label={t('nav.settings')}
+            >
+              <SettingsIcon />
+            </NavLink>
+          )}
           <AccountMenu />
         </div>
       </header>
@@ -84,5 +99,24 @@ export default function App() {
         <Outlet />
       </main>
     </div>
+  )
+}
+
+/** Cog glyph for the settings nav entry. */
+function SettingsIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-[18px] w-[18px]"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
   )
 }

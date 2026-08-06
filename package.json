@@ -8,6 +8,8 @@
     "build": "tsc -b && vite build",
     "build:edge": "npx esbuild src/services/seating/availabilityServer.ts --bundle --format=esm --platform=neutral --tsconfig=tsconfig.app.json --outfile=supabase/functions/check-availability/_engine.mjs",
     "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "lint": "eslint .",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\""
@@ -41,6 +43,7 @@
     "tailwindcss": "^4.3.3",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.65.0",
-    "vite": "^8.1.5"
+    "vite": "^8.1.5",
+    "vitest": "^4.1.10"
   }
 }

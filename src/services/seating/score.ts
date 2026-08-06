@@ -73,6 +73,25 @@ export function scoreCandidate(
     // Proximity — a tighter merge (smaller span) scores higher.
     score += (merge.proximityWeight * 100) / (100 + span(candidate))
     reasons.push({ key: 'reason.mergeOf', params: { count: candidate.tables.length } })
+
+    // Soft preferred combo (Phase 11): boost a merge whose exact table set matches
+    // a host-listed combo for this zone + party size. A preference, not a gate.
+    const preferredCombos = merge.preferredCombos ?? []
+    if (preferredCombos.length > 0) {
+      const zoneName = floor.zones.find((z) => z.id === candidate.zoneId)?.name
+      const labels = new Set(candidate.tables.map((t) => t.label))
+      const matches = preferredCombos.some(
+        (pc) =>
+          pc.zoneName === zoneName &&
+          reservation.partySize >= pc.minPartySize &&
+          pc.combo.length === labels.size &&
+          pc.combo.every((l) => labels.has(l)),
+      )
+      if (matches) {
+        score += weights.preferredCombo
+        reasons.push({ key: 'reason.preferredCombo' })
+      }
+    }
   }
 
   return { candidate, score, reasons }

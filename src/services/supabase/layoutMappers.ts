@@ -26,6 +26,8 @@ export interface ZoneRow {
   parent_id: string | null
   smoking: string | null
   allow_table_relocation: boolean | null
+  bookable: boolean | null
+  arrange_dir: string | null
 }
 
 export function zoneFromRow(r: ZoneRow): Zone {
@@ -38,6 +40,8 @@ export function zoneFromRow(r: ZoneRow): Zone {
     parentId: r.parent_id ?? undefined,
     smoking: (r.smoking as Zone['smoking']) ?? undefined,
     allowTableRelocation: r.allow_table_relocation ?? undefined,
+    bookable: r.bookable ?? undefined,
+    arrangeDir: (r.arrange_dir as Zone['arrangeDir']) ?? undefined,
   }
 }
 
@@ -51,6 +55,8 @@ export function zoneToRow(z: Zone): ZoneRow {
     parent_id: z.parentId ?? null,
     smoking: z.smoking ?? null,
     allow_table_relocation: z.allowTableRelocation ?? null,
+    bookable: z.bookable ?? null,
+    arrange_dir: z.arrangeDir ?? null,
   }
 }
 

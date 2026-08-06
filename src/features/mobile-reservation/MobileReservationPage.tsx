@@ -9,6 +9,7 @@ import {
 } from '@/stores'
 import { useSeatingFloor } from '@/hooks/useSeatingFloor'
 import { checkAvailabilitySmart } from '@/services/availabilityClient'
+import { evaluateBookingRules } from '@/services/settings/bookingRules'
 import { insertReservation } from '@/services/supabase/reservationsRepo'
 import { createId } from '@/utils'
 import type { Reservation, ReservationPreferences } from '@/types'
@@ -32,6 +33,9 @@ export function MobileReservationPage() {
   const { t } = useTranslation('reservations')
   const zones = useLayoutStore((s) => s.zones)
   const defaultStay = useSettingsStore((s) => s.defaultStayMinutes)
+  const openingHours = useSettingsStore((s) => s.openingHours)
+  const reservationRules = useSettingsStore((s) => s.reservationRules)
+  const bookingRestrictions = useSettingsStore((s) => s.bookingRestrictions)
   const floor = useSeatingFloor()
   const others = useReservationStore((s) => s.reservations)
   const upsertLocal = useReservationStore((s) => s.upsertLocal)
@@ -80,6 +84,27 @@ export function MobileReservationPage() {
   const runCheck = async () => {
     if (!canCheck) return
     setError(null)
+
+    // Configured booking rules gate first (closure, blackout, hours, window,
+    // party size, zone availability) — a violation is a hard no, no engine call.
+    const violations = evaluateBookingRules({
+      partySize,
+      dateTime: toISODateTime(date, time),
+      preferredZoneId: zoneId,
+      openingHours,
+      rules: reservationRules,
+      restrictions: bookingRestrictions,
+      zones,
+      now: new Date(),
+      isNew: true,
+    })
+    if (violations.length > 0) {
+      const v = violations[0]
+      setAvailability('unavailable')
+      setMessage(t(`rules.${v.code}`, v.params))
+      return
+    }
+
     setAvailability('checking')
     try {
       const result = await checkAvailabilitySmart(

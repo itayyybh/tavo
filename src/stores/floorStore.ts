@@ -120,11 +120,21 @@ function clusterOverrides(
     }
     return tableTypes.find((ty) => ty.id === t.typeId)?.clearance ?? 0
   }
-  // Anchor on a table in the reservation's zone so a brought-in donor is pulled
-  // INTO that zone (the in-zone table keeps its place), not the other way round.
-  // The build direction follows the anchor's zone rule.
-  const anchor =
-    (anchorZoneId && members.find((m) => m.zoneId === anchorZoneId)) || members[0]
+  // Anchor on the LARGEST table in the reservation's zone: the biggest table
+  // stays put (the line origins on it) and the smaller ones are pulled to it,
+  // rather than dragging the prime table across the floor. Preferring an in-zone
+  // table also pulls a brought-in donor INTO the zone. The build direction
+  // follows the anchor's zone rule.
+  const capOf = (t: Table) =>
+    tableTypes.find((ty) => ty.id === t.typeId)?.connectedCapacity ?? 0
+  const areaOf = (t: Table) => t.size.x * t.size.y
+  const anchorPool =
+    anchorZoneId && members.some((m) => m.zoneId === anchorZoneId)
+      ? members.filter((m) => m.zoneId === anchorZoneId)
+      : members
+  const anchor = [...anchorPool].sort(
+    (a, b) => capOf(b) - capOf(a) || areaOf(b) - areaOf(a) || a.id.localeCompare(b.id),
+  )[0]
   const zone = zones.find((z) => z.id === anchor.zoneId)
   const dir = zoneArrangeDir(zone)
   // The merged block must stay inside the anchor's zone — never spill into empty

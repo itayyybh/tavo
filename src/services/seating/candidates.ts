@@ -231,6 +231,50 @@ function largePartyRestrictions(
 }
 
 /**
+ * Soft preferred combos (Phase 11): the proximity-seeded merge search stops at
+ * the first fit per seed, so a host-preferred set whose members aren't mutually
+ * nearest (e.g. 7+10+11+12 scattered around a zone) may never be enumerated —
+ * and the scorer can only rank candidates that exist. Inject each feasible
+ * preferred combo (all members free, all labels in the zone) so it's offered;
+ * the scorer's `preferredCombo` weight then ranks it first. A preference, not a
+ * gate — nothing else is removed.
+ */
+function preferredComboInjections(
+  reservation: Reservation,
+  floor: SeatingFloor,
+): SeatCandidate[] {
+  const combos = (floor.config.merge.preferredCombos ?? []).filter(
+    (c) => reservation.partySize >= c.minPartySize,
+  )
+  if (combos.length === 0) return []
+
+  const zoneByName = new Map(floor.zones.map((z) => [z.name, z]))
+  const out: SeatCandidate[] = []
+  for (const rule of combos) {
+    const zone = zoneByName.get(rule.zoneName)
+    if (!zone) continue
+    const byLabel = new Map(
+      floor.tables.filter((t) => t.zoneId === zone.id).map((t) => [t.label, t]),
+    )
+    const tables = rule.combo
+      .map((label) => byLabel.get(label))
+      .filter((t): t is Table => !!t)
+    // Every label must resolve to a table in the zone, be a real merge, and be
+    // free right now — otherwise it isn't a seatable option to offer.
+    if (tables.length !== rule.combo.length || tables.length < 2) continue
+    if (!tables.every((t) => t.status === 'available')) continue
+    out.push({
+      kind: 'merge',
+      tableIds: [...tables.map((t) => t.id)].sort(),
+      tables,
+      seats: hypotheticalMergeCapacity(tables, floor.tableTypes),
+      zoneId: zone.id,
+    })
+  }
+  return out
+}
+
+/**
  * All seating options for a reservation: available singles + bounded merge
  * combinations that reach the party size and pass membership merge rules. Then
  * large-party rules restrict/inject combos for their zones.
@@ -244,6 +288,14 @@ export function generateCandidates(
     ...singleCandidates(floor),
     ...mergeCandidates(reservation, floor),
   ]
+
+  // Inject feasible soft-preferred combos the proximity search may have missed,
+  // BEFORE the hard large-party filter below (so a hard rule still governs).
+  for (const cand of preferredComboInjections(reservation, floor)) {
+    if (!result.some((c) => comboKey(c.tableIds) === comboKey(cand.tableIds))) {
+      result.push(cand)
+    }
+  }
 
   // Large-party zone restrictions (when any apply): keep only allowed combos in a
   // restricted zone and inject the mandated ones.
