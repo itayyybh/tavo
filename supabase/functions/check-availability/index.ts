@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
       supabase.from('reservations').select('*').eq('restaurant_id', rid),
       supabase
         .from('restaurant_settings')
-        .select('seating')
+        .select('seating, opening_hours, reservation_rules, booking_restrictions')
         .eq('restaurant_id', rid)
         .maybeSingle(),
     ])
@@ -76,6 +76,9 @@ Deno.serve(async (req) => {
       obstacles: ob.data ?? [],
       reservations: rv.data ?? [],
       seating: st.data?.seating ?? null,
+      openingHours: st.data?.opening_hours ?? null,
+      reservationRules: st.data?.reservation_rules ?? null,
+      bookingRestrictions: st.data?.booking_restrictions ?? null,
     })
 
     return json(result)
