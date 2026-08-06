@@ -317,11 +317,42 @@ function largePartyRestrictions(reservation, floor) {
   }
   return out;
 }
+function preferredComboInjections(reservation, floor) {
+  const combos = (floor.config.merge.preferredCombos ?? []).filter(
+    (c) => reservation.partySize >= c.minPartySize
+  );
+  if (combos.length === 0) return [];
+  const zoneByName = new Map(floor.zones.map((z) => [z.name, z]));
+  const out = [];
+  for (const rule of combos) {
+    const zone = zoneByName.get(rule.zoneName);
+    if (!zone) continue;
+    const byLabel = new Map(
+      floor.tables.filter((t) => t.zoneId === zone.id).map((t) => [t.label, t])
+    );
+    const tables = rule.combo.map((label) => byLabel.get(label)).filter((t) => !!t);
+    if (tables.length !== rule.combo.length || tables.length < 2) continue;
+    if (!tables.every((t) => t.status === "available")) continue;
+    out.push({
+      kind: "merge",
+      tableIds: [...tables.map((t) => t.id)].sort(),
+      tables,
+      seats: hypotheticalMergeCapacity(tables, floor.tableTypes),
+      zoneId: zone.id
+    });
+  }
+  return out;
+}
 function generateCandidates(reservation, floor, others = []) {
   let result = [
     ...singleCandidates(floor),
     ...mergeCandidates(reservation, floor)
   ];
+  for (const cand of preferredComboInjections(reservation, floor)) {
+    if (!result.some((c) => comboKey(c.tableIds) === comboKey(cand.tableIds))) {
+      result.push(cand);
+    }
+  }
   const restrictions = largePartyRestrictions(reservation, floor);
   if (restrictions.length > 0) {
     const byZone = new Map(restrictions.map((r) => [r.zoneId, r]));
