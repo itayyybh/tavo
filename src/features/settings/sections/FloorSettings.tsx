@@ -4,6 +4,7 @@ import { useSettingsStore } from '@/stores'
 import { SettingRow } from '../SettingRow'
 import { NumberField } from '../NumberField'
 import { SettingsSection, SettingsDivider } from '../SettingsSection'
+import { PreferredCombosEditor } from '../PreferredCombosEditor'
 
 /**
  * Floor settings group — editor grid/drawing behaviour and the operational
@@ -134,6 +135,8 @@ export function FloorSettings() {
           />
         </SettingRow>
       </SettingsSection>
+
+      <PreferredCombosEditor />
     </>
   )
 }

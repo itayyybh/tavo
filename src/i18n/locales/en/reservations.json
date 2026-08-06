@@ -149,6 +149,7 @@
     "requestedTable": "Requested table",
     "singleTable": "Single table",
     "mergeOf": "Merge of {{count}}",
+    "preferredCombo": "Preferred combo",
     "bookedAtTime": "Booked at this time",
     "seatsPartyOf": "Seats {{seats}}, party of {{party}}",
     "tooLarge": "Too large — seats {{seats}} for {{party}}",

@@ -35,6 +35,12 @@ export function ZonesSettings() {
     { value: 'smoking', label: t('zones.smoking.yes') },
   ]
 
+  const arrangeOptions = [
+    { value: 'auto', label: t('zones.arrange.auto') },
+    { value: 'horizontal', label: t('zones.arrange.horizontal') },
+    { value: 'vertical', label: t('zones.arrange.vertical') },
+  ]
+
   return (
     <>
       <SettingsSection title={t('zones.title')} description={t('zones.description')}>
@@ -54,6 +60,20 @@ export function ZonesSettings() {
                   })
                 }
                 options={smokingOptions}
+              />
+              <Select
+                className="w-36"
+                aria-label={t('zones.arrange.label')}
+                value={zone.arrangeDir ?? 'auto'}
+                onChange={(e) =>
+                  updateZone(zone.id, {
+                    arrangeDir:
+                      e.target.value === 'auto'
+                        ? undefined
+                        : (e.target.value as Zone['arrangeDir']),
+                  })
+                }
+                options={arrangeOptions}
               />
               <label className="flex items-center gap-2 text-[13px] text-muted">
                 {t('zones.relocation.short')}

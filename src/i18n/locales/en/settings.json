@@ -91,6 +91,12 @@
       "short": "Lend tables",
       "label": "Allow moving tables in and out of {{zone}} for cross-zone merges"
     },
+    "arrange": {
+      "label": "Build direction",
+      "auto": "Auto",
+      "horizontal": "Horizontal",
+      "vertical": "Vertical"
+    },
     "availability": {
       "title": "Zone availability",
       "description": "Turn a zone off to take it out of bookings without deleting it.",
@@ -137,6 +143,19 @@
     "maxUnderfill": { "label": "Max empty seats", "help": "How many seats a table/merge may exceed the party by." },
     "exactFit": { "label": "Prefer a tight fit", "help": "Weight toward the smallest table that fits (less wasted capacity)." },
     "fewer": { "label": "Prefer fewer tables", "help": "Weight toward a single table over a merge when both fit." }
+  },
+  "preferredCombos": {
+    "title": "Preferred large-party combos",
+    "description": "For a big party in a zone, offer a specific table set first. A preference, not a rule — the engine can still fall back.",
+    "zone": "Zone",
+    "selectZone": "Select a zone",
+    "minParty": "Party ≥",
+    "tables": "Tables",
+    "tablesPlaceholder": "e.g. 7, 10, 11, 12",
+    "add": "Add combo",
+    "partyAtLeast": "party ≥ {{n}}",
+    "remove": "Remove",
+    "empty": "No preferred combos."
   },
   "language": {
     "title": "Language",

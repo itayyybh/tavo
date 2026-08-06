@@ -32,5 +32,6 @@ export const DEFAULT_SEATING_CONFIG: SeatingConfig = {
     zoneMatch: 6,
     preferredTable: 8,
     singleTable: 3,
+    preferredCombo: 12,
   },
 }

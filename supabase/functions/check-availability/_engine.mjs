@@ -464,6 +464,18 @@ function scoreCandidate(reservation, candidate, floor) {
   } else {
     score += merge.proximityWeight * 100 / (100 + span(candidate));
     reasons.push({ key: "reason.mergeOf", params: { count: candidate.tables.length } });
+    const preferredCombos = merge.preferredCombos ?? [];
+    if (preferredCombos.length > 0) {
+      const zoneName = floor.zones.find((z) => z.id === candidate.zoneId)?.name;
+      const labels = new Set(candidate.tables.map((t) => t.label));
+      const matches = preferredCombos.some(
+        (pc) => pc.zoneName === zoneName && reservation.partySize >= pc.minPartySize && pc.combo.length === labels.size && pc.combo.every((l) => labels.has(l))
+      );
+      if (matches) {
+        score += weights.preferredCombo;
+        reasons.push({ key: "reason.preferredCombo" });
+      }
+    }
   }
   return { candidate, score, reasons };
 }
@@ -655,7 +667,8 @@ function zoneFromRow(r) {
     parentId: r.parent_id ?? void 0,
     smoking: r.smoking ?? void 0,
     allowTableRelocation: r.allow_table_relocation ?? void 0,
-    bookable: r.bookable ?? void 0
+    bookable: r.bookable ?? void 0,
+    arrangeDir: r.arrange_dir ?? void 0
   };
 }
 function tableFromRow(r) {
@@ -726,7 +739,8 @@ var DEFAULT_SEATING_CONFIG = {
     capacityFit: 10,
     zoneMatch: 6,
     preferredTable: 8,
-    singleTable: 3
+    singleTable: 3,
+    preferredCombo: 12
   }
 };
 

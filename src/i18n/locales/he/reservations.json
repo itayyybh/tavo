@@ -149,6 +149,7 @@
     "requestedTable": "שולחן מבוקש",
     "singleTable": "שולחן יחיד",
     "mergeOf": "צירוף של {{count}}",
+    "preferredCombo": "צירוף מועדף",
     "bookedAtTime": "מוזמן בשעה זו",
     "seatsPartyOf": "מקומות {{seats}}, {{party}} סועדים",
     "tooLarge": "גדול מדי — {{seats}} מקומות עבור {{party}}",

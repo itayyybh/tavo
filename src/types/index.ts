@@ -88,6 +88,12 @@ export interface Zone {
    * reservation/seating flow is a later wiring step.
    */
   bookable?: boolean
+  /**
+   * How merged tables physically build when a party is seated here (Phase 11 —
+   * Settings). Explicit host choice that overrides the smoking-based heuristic
+   * (`zoneArrangeDir`). Undefined = auto (derive from the smoking policy).
+   */
+  arrangeDir?: 'horizontal' | 'vertical'
 }
 
 /**
@@ -260,6 +266,23 @@ export interface MergeConfig {
    * restaurant-wide. Per-zone toggle deferred to Phase 10 settings UI.
    */
   lastResortGatherZone?: boolean
+  /**
+   * Soft preferred combos (Phase 11 — Settings). Unlike `largePartyRules` (a hard
+   * allow-list), these only BOOST a matching merge's score so the engine offers it
+   * first — non-matching options remain, just ranked lower. Authored by table
+   * label / zone name; matched for a party at/above `minPartySize`.
+   */
+  preferredCombos?: PreferredCombo[]
+}
+
+/** A soft-preferred table combination for a zone (see `MergeConfig.preferredCombos`). */
+export interface PreferredCombo {
+  /** Zone this preference applies to, by name (e.g. "Inside"). */
+  zoneName: string
+  /** Applies when the party is at least this size. */
+  minPartySize: number
+  /** The preferred set of tables, by label (e.g. ["7","10","11","12"]). */
+  combo: string[]
 }
 
 /** A large-party seating restriction for one zone (see `MergeConfig.largePartyRules`). */
@@ -285,6 +308,8 @@ export interface SeatingWeights {
   preferredTable: number
   /** Prefer a single table over a merge when both fit. */
   singleTable: number
+  /** Reward a merge that matches a host-preferred combo for its zone/party. */
+  preferredCombo: number
 }
 
 /** Seating Engine configuration (Phase 7). */
