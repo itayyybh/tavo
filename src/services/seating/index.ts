@@ -7,6 +7,7 @@ export {
 } from './suggest'
 export { canSeat } from './canSeat'
 export { scoreCandidate } from './score'
+export { ruleScorer } from './ruleScorer'
 export { generateCandidates } from './candidates'
 export {
   evaluateMerge,
@@ -29,6 +30,7 @@ export type {
   SeatingFloor,
   SeatCandidate,
   Suggestion,
+  SeatingScorer,
   CanSeatResult,
   SeatingReason,
 } from './types'
