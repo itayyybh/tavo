@@ -2,7 +2,10 @@ import { create } from 'zustand'
 import type { ID, SeatingDecision } from '@/types'
 import type { Suggestion } from '@/services/seating/types'
 import { toDecisionEntries } from '@/services/seating/decisionLog'
-import { insertSeatingDecision } from '@/services/supabase/seatingDecisionsRepo'
+import {
+  insertSeatingDecision,
+  recordDecisionOutcome,
+} from '@/services/supabase/seatingDecisionsRepo'
 import { createId } from '@/utils'
 import { useSessionStore } from './sessionStore'
 
@@ -14,15 +17,32 @@ import { useSessionStore } from './sessionStore'
  * data for a future model-based scorer.
  *
  * A decision is written to the database once, on `recordAccept` — the moment the
- * host commits to a table and `chosen` + the override signal are both known.
+ * host commits to a table and `chosen` + the override signal are both known. Its
+ * outcome (`actualMinutes`) is stamped later, on `recordOutcome`, when the party
+ * is cleared from the floor.
  */
 interface DecisionLogState {
   /** Most recent first. */
   decisions: SeatingDecision[]
-  /** Record a suggestion run; returns the new decision's id. */
-  logSuggestion: (reservationId: ID, partySize: number, suggestions: Suggestion[]) => ID
+  /**
+   * Record a suggestion run; returns the new decision's id. `predictedMinutes`
+   * is the reservation's estimated duration, snapshotted here so the engine's
+   * prediction is graded against the actual stay later.
+   */
+  logSuggestion: (
+    reservationId: ID,
+    partySize: number,
+    predictedMinutes: number,
+    suggestions: Suggestion[],
+  ) => ID
   /** Attach the accepted table ids to a logged decision, then persist it. */
   recordAccept: (decisionId: ID, chosenIds: ID[]) => void
+  /**
+   * Grade a completed seating: stamp the real seated duration onto the
+   * reservation's accepted decision (P3 — outcome recording). No-ops when the
+   * seating never ran the engine.
+   */
+  recordOutcome: (reservationId: ID, actualMinutes: number) => void
   clear: () => void
 }
 
@@ -42,13 +62,14 @@ const isOverride = (decision: SeatingDecision, chosenIds: ID[]): boolean => {
 
 export const useDecisionLogStore = create<DecisionLogState>((set, get) => ({
   decisions: [],
-  logSuggestion: (reservationId, partySize, suggestions) => {
+  logSuggestion: (reservationId, partySize, predictedMinutes, suggestions) => {
     const id = createId()
     const decision: SeatingDecision = {
       id,
       reservationId,
       ts: new Date().toISOString(),
       partySize,
+      predictedMinutes,
       ranked: toDecisionEntries(suggestions),
     }
     set((s) => ({ decisions: [decision, ...s.decisions] }))
@@ -67,6 +88,17 @@ export const useDecisionLogStore = create<DecisionLogState>((set, get) => ({
     }))
     const rid = activeRestaurant()
     if (rid) persist(insertSeatingDecision(rid, accepted))
+  },
+  recordOutcome: (reservationId, actualMinutes) => {
+    set((s) => ({
+      decisions: s.decisions.map((d) =>
+        d.reservationId === reservationId && d.chosen && d.actualMinutes === undefined
+          ? { ...d, actualMinutes }
+          : d,
+      ),
+    }))
+    const rid = activeRestaurant()
+    if (rid) persist(recordDecisionOutcome(rid, reservationId, actualMinutes))
   },
   clear: () => set({ decisions: [] }),
 }))

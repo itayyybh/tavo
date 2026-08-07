@@ -106,6 +106,8 @@ export interface SeatingDecisionRow {
   ranked: SeatingDecisionEntry[]
   chosen: string[] | null
   overridden: boolean
+  predicted_minutes: number | null
+  actual_minutes: number | null
   created_at: string
 }
 
@@ -118,6 +120,8 @@ export function seatingDecisionFromRow(row: SeatingDecisionRow): SeatingDecision
     ranked: row.ranked,
     chosen: row.chosen ?? undefined,
     overridden: row.overridden,
+    predictedMinutes: row.predicted_minutes ?? undefined,
+    actualMinutes: row.actual_minutes ?? undefined,
   }
 }
 
@@ -135,6 +139,8 @@ export function seatingDecisionToRow(
     ranked: d.ranked,
     chosen: d.chosen ?? null,
     overridden: d.overridden ?? false,
+    predicted_minutes: d.predictedMinutes ?? null,
+    actual_minutes: d.actualMinutes ?? null,
   }
 }
 

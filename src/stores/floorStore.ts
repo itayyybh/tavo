@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { FloorSnapshot, ID, Seating, Table, Vec2 } from '@/types'
 import { createId, zonesById } from '@/utils'
 import { placeMergedBlock, zoneArrangeDir } from '@/services/floor'
+import { useDecisionLogStore } from './decisionLogStore'
 import { useLayoutStore } from './layoutStore'
 import { useReservationStore } from './reservationStore'
 
@@ -268,6 +269,15 @@ export const useFloorStore = create<FloorState>((set, get) => ({
       }
     })
     useReservationStore.getState().setStatus(seating.reservationId, 'completed')
+
+    // Grade the engine's prediction: stamp the real seated duration onto this
+    // reservation's decision (P3 — outcome recording). No-ops if the seating
+    // never ran the engine.
+    const seatedMs = Date.parse(seating.seatedAt)
+    if (!Number.isNaN(seatedMs)) {
+      const actualMinutes = Math.max(0, Math.round((Date.now() - seatedMs) / 60000))
+      useDecisionLogStore.getState().recordOutcome(seating.reservationId, actualMinutes)
+    }
   },
 
   finishCleaning: (tableId) =>

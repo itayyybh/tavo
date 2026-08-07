@@ -26,6 +26,38 @@ export async function insertSeatingDecision(
   if (error) throw error
 }
 
+/**
+ * Stamp the real seated duration onto a reservation's accepted decision (P3 —
+ * outcome recording). Targets the latest *accepted* decision (`chosen not null`)
+ * for the reservation; a manual seat that never ran the engine has no such row
+ * and this no-ops.
+ *
+ * PostgREST can't order+limit an UPDATE inline, so we resolve the target id
+ * first, then patch by id — two round-trips, fire-and-forget from the store.
+ */
+export async function recordDecisionOutcome(
+  restaurantId: ID,
+  reservationId: ID,
+  actualMinutes: number,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('seating_decisions')
+    .select('id')
+    .eq('restaurant_id', restaurantId)
+    .eq('reservation_id', reservationId)
+    .not('chosen', 'is', null)
+    .order('ts', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error) throw error
+  if (!data) return
+  const { error: updateError } = await supabase
+    .from('seating_decisions')
+    .update({ actual_minutes: actualMinutes })
+    .eq('id', (data as { id: string }).id)
+  if (updateError) throw updateError
+}
+
 /** Recent decisions for a restaurant, newest first (audit / future training data). */
 export async function listSeatingDecisions(
   restaurantId: ID,

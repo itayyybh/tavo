@@ -48,7 +48,12 @@ export function useAssignAll() {
       if (suggestions.length === 0) continue
 
       const best = suggestions[0]
-      const decisionId = logSuggestion(res.id, res.partySize, suggestions)
+      const decisionId = logSuggestion(
+        res.id,
+        res.partySize,
+        res.estimatedDuration,
+        suggestions,
+      )
       recordAccept(decisionId, best.candidate.tableIds)
       assignTable(res.id, best.candidate.tableIds)
       working = working.map((r) =>
