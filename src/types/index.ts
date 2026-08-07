@@ -464,6 +464,11 @@ export interface SeatingDecision {
   ranked: SeatingDecisionEntry[]
   /** Table ids the host accepted; undefined = suggested but not accepted. */
   chosen?: ID[]
+  /**
+   * True when `chosen` was not the engine's top-ranked option — the override
+   * signal recorded at acceptance (Phase 11 — AI preparation).
+   */
+  overridden?: boolean
 }
 
 /**

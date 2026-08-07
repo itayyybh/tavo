@@ -9,8 +9,8 @@
 import type { Reservation } from '@/types'
 import { canSeat } from './canSeat'
 import { generateCandidates } from './candidates'
-import { scoreCandidate } from './score'
-import type { SeatingFloor, SeatingReason, Suggestion } from './types'
+import { ruleScorer } from './ruleScorer'
+import type { SeatingFloor, SeatingReason, SeatingScorer, Suggestion } from './types'
 
 /** How many suggestions to return by default. */
 export const DEFAULT_SUGGESTION_LIMIT = 5
@@ -22,18 +22,19 @@ export const DEFAULT_SUGGESTION_LIMIT = 5
  * @param floor       read-only floor snapshot (tables, zones, config…)
  * @param others      every other reservation (for time-conflict detection)
  * @param limit       max suggestions to return
+ * @param scorer      ranking strategy; defaults to the rule-based scorer
  */
 export function suggestSeating(
   reservation: Reservation,
   floor: SeatingFloor,
   others: Reservation[] = [],
   limit: number = DEFAULT_SUGGESTION_LIMIT,
+  scorer: SeatingScorer = ruleScorer,
 ): Suggestion[] {
-  return generateCandidates(reservation, floor, others)
-    .filter((candidate) => canSeat(reservation, candidate, floor, others).ok)
-    .map((candidate) => scoreCandidate(reservation, candidate, floor))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, limit)
+  const feasible = generateCandidates(reservation, floor, others).filter(
+    (candidate) => canSeat(reservation, candidate, floor, others).ok,
+  )
+  return scorer.rank(reservation, feasible, floor).slice(0, limit)
 }
 
 /**

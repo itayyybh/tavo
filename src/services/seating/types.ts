@@ -9,6 +9,7 @@ import type {
   ID,
   MergedGroup,
   Obstacle,
+  Reservation,
   SeatingConfig,
   Table,
   TableType,
@@ -73,4 +74,22 @@ export interface Suggestion {
   score: number
   /** Reasons this option scored well (shown as chips in the UI). */
   reasons: SeatingReason[]
+}
+
+/**
+ * The engine's ranking strategy (Phase 11 — AI preparation). Given the feasible
+ * candidates for a reservation, return them ranked best-first as scored
+ * `Suggestion`s. Candidate generation and feasibility (`canSeat`) stay fixed;
+ * only the ranking is pluggable.
+ *
+ * Today the sole implementation is the rule-based `ruleScorer`. The interface is
+ * the swap point for a future model-based scorer — rank-level (not
+ * per-candidate) so such a scorer may weigh candidates jointly.
+ */
+export interface SeatingScorer {
+  rank(
+    reservation: Reservation,
+    candidates: SeatCandidate[],
+    floor: SeatingFloor,
+  ): Suggestion[]
 }
