@@ -25,11 +25,11 @@ type Phase = 'form' | 'created'
 type Availability = 'idle' | 'checking' | 'available' | 'unavailable'
 
 /**
- * Mobile reservation creation (Phase 9) — the phone's single purpose. One fast,
- * one-handed screen: guest, party, time, area, then check availability and
- * create. Deliberately NOT the desktop app (no editor / floor / management).
+ * Mobile reservation creation (Phase 9). One fast, one-handed screen: guest,
+ * party, time, area, then check availability and create. Renders as the body of
+ * `MobileShell` — the container owns the header, tabs, and sign-out.
  */
-export function MobileReservationPage() {
+export function MobileReservationForm() {
   const { t } = useTranslation('reservations')
   const zones = useLayoutStore((s) => s.zones)
   const defaultStay = useSettingsStore((s) => s.defaultStayMinutes)
@@ -40,8 +40,6 @@ export function MobileReservationPage() {
   const others = useReservationStore((s) => s.reservations)
   const upsertLocal = useReservationStore((s) => s.upsertLocal)
   const restaurantId = useSessionStore((s) => s.restaurantId)
-  const restaurantName = useSessionStore((s) => s.restaurantName)
-  const signOut = useSessionStore((s) => s.signOut)
 
   const durations = useMemo(() => durationOptions(defaultStay), [defaultStay])
   const zoneRef = useRef<HTMLDivElement>(null)
@@ -127,7 +125,7 @@ export function MobileReservationPage() {
       }
     } catch {
       setAvailability('idle')
-      setError('Could not check availability. Try again.')
+      setError(t('mobile.checkError'))
     }
   }
 
@@ -157,7 +155,7 @@ export function MobileReservationPage() {
       setCreated(saved)
       setPhase('created')
     } catch {
-      setError('Could not create the reservation. Please try again.')
+      setError(t('mobile.createError'))
     } finally {
       setCreating(false)
     }
@@ -184,73 +182,73 @@ export function MobileReservationPage() {
 
   if (phase === 'created' && created) {
     return (
-      <MobileShell subtitle={restaurantName} onSignOut={signOut}>
-        <div className="flex flex-1 flex-col items-center justify-center gap-6 px-6 text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-status-available/15 text-3xl">
-            ✓
-          </div>
-          <div>
-            <Heading className="text-xl">Reservation created</Heading>
-            <Text className="mt-2 text-base font-medium text-ink">
-              {created.guestName}
-            </Text>
-            <Text className="mt-0.5 text-muted">
-              {created.partySize} guests · {zoneName}
-            </Text>
-            <Text className="mt-0.5 text-muted">
-              {new Date(created.dateTime).toLocaleString([], {
-                weekday: 'short',
-                hour: '2-digit',
-                minute: '2-digit',
-              })}{' '}
-              · {durationLabel(created.estimatedDuration)}
-            </Text>
-            {created.phone && <Text className="mt-0.5 text-muted">{created.phone}</Text>}
-            {created.preferences && (
-              <div className="mt-3 flex flex-wrap justify-center gap-1.5">
-                {created.preferences.vip && <PrefBadge>VIP</PrefBadge>}
-                {created.preferences.highChair && <PrefBadge>High chair</PrefBadge>}
-                {created.preferences.wheelchair && <PrefBadge>Wheelchair</PrefBadge>}
-                {created.preferences.smoking && <PrefBadge>Smoking</PrefBadge>}
-              </div>
-            )}
-          </div>
-          <Button className="w-full max-w-xs" onClick={reset}>
-            New reservation
-          </Button>
+      <div className="flex flex-1 flex-col items-center justify-center gap-6 px-6 text-center">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-status-available/15 text-3xl">
+          ✓
         </div>
-      </MobileShell>
+        <div>
+          <Heading className="text-xl">{t('mobile.created')}</Heading>
+          <Text className="mt-2 text-base font-medium text-ink">{created.guestName}</Text>
+          <Text className="mt-0.5 text-muted">
+            {t('card.guest', { count: created.partySize })} · {zoneName}
+          </Text>
+          <Text className="mt-0.5 text-muted">
+            {new Date(created.dateTime).toLocaleString([], {
+              weekday: 'short',
+              hour: '2-digit',
+              minute: '2-digit',
+            })}{' '}
+            · {durationLabel(created.estimatedDuration)}
+          </Text>
+          {created.phone && <Text className="mt-0.5 text-muted">{created.phone}</Text>}
+          {created.preferences && (
+            <div className="mt-3 flex flex-wrap justify-center gap-1.5">
+              {created.preferences.vip && <PrefBadge>{t('pref.vip')}</PrefBadge>}
+              {created.preferences.highChair && (
+                <PrefBadge>{t('pref.highChair')}</PrefBadge>
+              )}
+              {created.preferences.wheelchair && (
+                <PrefBadge>{t('pref.wheelchair')}</PrefBadge>
+              )}
+              {created.preferences.smoking && <PrefBadge>{t('pref.smoking')}</PrefBadge>}
+            </div>
+          )}
+        </div>
+        <Button className="w-full max-w-xs" onClick={reset}>
+          {t('mobile.newReservation')}
+        </Button>
+      </div>
     )
   }
 
   return (
-    <MobileShell subtitle={restaurantName} onSignOut={signOut}>
+    <>
       <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5">
         {/* Guest */}
         <section className="space-y-3">
           <Input
-            label="Guest name"
+            label={t('mobile.guestName')}
             value={guestName}
             onChange={(e) => {
               setGuestName(e.target.value)
               invalidate()
             }}
-            placeholder="John Smith"
+            placeholder={t('mobile.guestNamePlaceholder')}
             className="h-12"
           />
           <Input
-            label="Phone (optional)"
+            label={t('mobile.phone')}
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            placeholder="Optional"
+            placeholder={t('mobile.phonePlaceholder')}
             className="h-12"
           />
         </section>
 
         {/* Party size */}
         <section>
-          <FieldLabel>Party size</FieldLabel>
+          <FieldLabel>{t('mobile.partySize')}</FieldLabel>
           <div className="flex items-center justify-between rounded-xl border border-line bg-surface p-2">
             <StepBtn
               label="−"
@@ -275,7 +273,7 @@ export function MobileReservationPage() {
         {/* Date + time — stacked full-width; native iOS pickers overflow when paired. */}
         <section ref={timeRef} className="space-y-3">
           <div>
-            <FieldLabel>Date</FieldLabel>
+            <FieldLabel>{t('mobile.date')}</FieldLabel>
             <input
               type="date"
               value={date}
@@ -287,7 +285,7 @@ export function MobileReservationPage() {
             />
           </div>
           <div>
-            <FieldLabel>Time</FieldLabel>
+            <FieldLabel>{t('mobile.time')}</FieldLabel>
             <input
               type="time"
               value={time}
@@ -302,7 +300,7 @@ export function MobileReservationPage() {
 
         {/* Duration */}
         <section>
-          <FieldLabel>Duration</FieldLabel>
+          <FieldLabel>{t('mobile.duration')}</FieldLabel>
           <ChipRow>
             {durations.map((d) => (
               <Chip
@@ -321,11 +319,9 @@ export function MobileReservationPage() {
 
         {/* Zone */}
         <section ref={zoneRef}>
-          <FieldLabel>Area</FieldLabel>
+          <FieldLabel>{t('mobile.area')}</FieldLabel>
           {zones.length === 0 ? (
-            <Text className="text-sm text-muted">
-              No areas defined yet. Add zones in the desktop editor first.
-            </Text>
+            <Text className="text-sm text-muted">{t('mobile.noAreas')}</Text>
           ) : (
             <ChipRow>
               {zones.map((z) => (
@@ -346,30 +342,30 @@ export function MobileReservationPage() {
 
         {/* Preferences */}
         <section>
-          <FieldLabel>Preferences (optional)</FieldLabel>
+          <FieldLabel>{t('mobile.preferences')}</FieldLabel>
           <ChipRow>
             <Chip active={!!prefs.vip} onClick={() => togglePref('vip')}>
-              VIP
+              {t('pref.vip')}
             </Chip>
             <Chip active={!!prefs.highChair} onClick={() => togglePref('highChair')}>
-              High chair
+              {t('pref.highChair')}
             </Chip>
             <Chip active={!!prefs.wheelchair} onClick={() => togglePref('wheelchair')}>
-              Wheelchair
+              {t('pref.wheelchair')}
             </Chip>
             <Chip active={!!prefs.smoking} onClick={() => togglePref('smoking')}>
-              Smoking
+              {t('pref.smoking')}
             </Chip>
           </ChipRow>
         </section>
 
         {/* Notes */}
         <section>
-          <FieldLabel>Notes (optional)</FieldLabel>
+          <FieldLabel>{t('mobile.notes')}</FieldLabel>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="Allergies, occasion, seating requests…"
+            placeholder={t('mobile.notesPlaceholder')}
             rows={2}
             className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-base text-ink placeholder:text-muted"
           />
@@ -380,13 +376,13 @@ export function MobileReservationPage() {
       <div className="space-y-3 border-t border-line bg-surface px-5 py-4">
         {availability === 'available' && (
           <div className="rounded-xl bg-status-available/15 px-4 py-2.5 text-sm font-medium text-ink">
-            Table available in {zoneName} ✓
+            {t('mobile.available', { zone: zoneName })}
           </div>
         )}
         {availability === 'unavailable' && (
           <div className="space-y-2.5 rounded-xl border border-line bg-surface-2 px-4 py-3">
             <Text className="text-sm font-medium text-ink">
-              No availability in {zoneName} for this time.
+              {t('mobile.unavailableTitle', { zone: zoneName })}
             </Text>
             {message && <Text className="text-xs text-muted">{message}</Text>}
             <div className="flex gap-2">
@@ -399,7 +395,7 @@ export function MobileReservationPage() {
                   zoneRef.current?.scrollIntoView({ behavior: 'smooth' })
                 }}
               >
-                Try another area
+                {t('mobile.tryArea')}
               </Button>
               <Button
                 variant="secondary"
@@ -410,7 +406,7 @@ export function MobileReservationPage() {
                   timeRef.current?.scrollIntoView({ behavior: 'smooth' })
                 }}
               >
-                Try another time
+                {t('mobile.tryTime')}
               </Button>
             </div>
           </div>
@@ -419,7 +415,7 @@ export function MobileReservationPage() {
 
         {availability === 'available' ? (
           <Button className="h-12 w-full text-base" disabled={creating} onClick={create}>
-            {creating ? 'Creating…' : 'Create reservation'}
+            {creating ? t('mobile.creating') : t('mobile.create')}
           </Button>
         ) : (
           <Button
@@ -427,45 +423,15 @@ export function MobileReservationPage() {
             disabled={!canCheck || availability === 'checking'}
             onClick={runCheck}
           >
-            {availability === 'checking' ? 'Checking…' : 'Check availability'}
+            {availability === 'checking' ? t('mobile.checking') : t('mobile.check')}
           </Button>
         )}
       </div>
-    </MobileShell>
+    </>
   )
 }
 
 // --- Local presentational helpers (mobile-only, kept beside their one use) ---
-
-function MobileShell({
-  children,
-  subtitle,
-  onSignOut,
-}: {
-  children: React.ReactNode
-  subtitle?: string | null
-  onSignOut: () => void
-}) {
-  return (
-    <div className="mx-auto flex h-full w-full max-w-md flex-col overflow-x-hidden bg-surface-2">
-      <header className="flex items-center justify-between border-b border-line bg-surface px-5 py-3">
-        <div className="min-w-0">
-          {subtitle && (
-            <div className="truncate text-xs font-medium text-muted">{subtitle}</div>
-          )}
-          <Heading className="text-base">New reservation</Heading>
-        </div>
-        <button
-          onClick={onSignOut}
-          className="shrink-0 text-sm text-muted transition-colors hover:text-ink"
-        >
-          Sign out
-        </button>
-      </header>
-      {children}
-    </div>
-  )
-}
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return <div className="mb-1.5 text-sm font-medium text-ink">{children}</div>
