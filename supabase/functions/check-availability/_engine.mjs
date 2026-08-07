@@ -24,7 +24,10 @@ function typeOf(table, types) {
 }
 function hypotheticalMergeCapacity(tables, types) {
   if (tables.length < 2) return 0;
-  const sum = tables.reduce((total, t) => total + (typeOf(t, types)?.connectedCapacity ?? 0), 0);
+  const sum = tables.reduce(
+    (total, t) => total + (typeOf(t, types)?.connectedCapacity ?? 0),
+    0
+  );
   return tables.length >= 3 ? Math.max(0, sum - (tables.length - 1)) : sum;
 }
 
@@ -67,12 +70,18 @@ function hasTimeConflict(reservation, candidate, floor, others) {
 function canSeat(reservation, candidate, floor, others = []) {
   const reasons = [];
   if (candidate.seats < reservation.partySize) {
-    reasons.push(`Seats ${candidate.seats}, party of ${reservation.partySize}`);
+    reasons.push({
+      key: "reason.seatsPartyOf",
+      params: { seats: candidate.seats, party: reservation.partySize }
+    });
   } else if (candidate.kind === "single" && candidate.seats - reservation.partySize > floor.config.maxUnderfill) {
-    reasons.push(`Too large \u2014 seats ${candidate.seats} for ${reservation.partySize}`);
+    reasons.push({
+      key: "reason.tooLarge",
+      params: { seats: candidate.seats, party: reservation.partySize }
+    });
   }
   if (hasTimeConflict(reservation, candidate, floor, others)) {
-    reasons.push("Booked at this time");
+    reasons.push({ key: "reason.bookedAtTime" });
   }
   return { ok: reasons.length === 0, reasons };
 }
@@ -308,11 +317,42 @@ function largePartyRestrictions(reservation, floor) {
   }
   return out;
 }
+function preferredComboInjections(reservation, floor) {
+  const combos = (floor.config.merge.preferredCombos ?? []).filter(
+    (c) => reservation.partySize >= c.minPartySize
+  );
+  if (combos.length === 0) return [];
+  const zoneByName = new Map(floor.zones.map((z) => [z.name, z]));
+  const out = [];
+  for (const rule of combos) {
+    const zone = zoneByName.get(rule.zoneName);
+    if (!zone) continue;
+    const byLabel = new Map(
+      floor.tables.filter((t) => t.zoneId === zone.id).map((t) => [t.label, t])
+    );
+    const tables = rule.combo.map((label) => byLabel.get(label)).filter((t) => !!t);
+    if (tables.length !== rule.combo.length || tables.length < 2) continue;
+    if (!tables.every((t) => t.status === "available")) continue;
+    out.push({
+      kind: "merge",
+      tableIds: [...tables.map((t) => t.id)].sort(),
+      tables,
+      seats: hypotheticalMergeCapacity(tables, floor.tableTypes),
+      zoneId: zone.id
+    });
+  }
+  return out;
+}
 function generateCandidates(reservation, floor, others = []) {
   let result = [
     ...singleCandidates(floor),
     ...mergeCandidates(reservation, floor)
   ];
+  for (const cand of preferredComboInjections(reservation, floor)) {
+    if (!result.some((c) => comboKey(c.tableIds) === comboKey(cand.tableIds))) {
+      result.push(cand);
+    }
+  }
   const restrictions = largePartyRestrictions(reservation, floor);
   if (restrictions.length > 0) {
     const byZone = new Map(restrictions.map((r) => [r.zoneId, r]));
@@ -431,26 +471,42 @@ function scoreCandidate(reservation, candidate, floor) {
   let score = 0;
   const waste = candidate.seats - reservation.partySize;
   score += weights.capacityFit / (1 + Math.max(0, waste));
-  if (waste === 0) reasons.push("Exact fit");
-  else reasons.push(`Seats ${candidate.seats} for ${reservation.partySize}`);
+  if (waste === 0) reasons.push({ key: "reason.exactFit" });
+  else
+    reasons.push({
+      key: "reason.seatsFor",
+      params: { seats: candidate.seats, party: reservation.partySize }
+    });
   const preferred = reservation.preferredZoneId;
   if (preferred && candidate.zoneId === preferred) {
     score += weights.zoneMatch;
-    reasons.push("Preferred zone");
+    reasons.push({ key: "reason.preferredZone" });
   } else if (preferred && candidate.relocateToZoneId === preferred) {
     score += weights.zoneMatch * 0.6;
-    reasons.push("Bring to preferred zone");
+    reasons.push({ key: "reason.bringToPreferredZone" });
   }
   if (reservation.preferredTableId && candidate.tableIds.includes(reservation.preferredTableId)) {
     score += weights.preferredTable;
-    reasons.push("Requested table");
+    reasons.push({ key: "reason.requestedTable" });
   }
   if (candidate.kind === "single") {
     score += weights.singleTable;
-    reasons.push("Single table");
+    reasons.push({ key: "reason.singleTable" });
   } else {
     score += merge.proximityWeight * 100 / (100 + span(candidate));
-    reasons.push(`Merge of ${candidate.tables.length}`);
+    reasons.push({ key: "reason.mergeOf", params: { count: candidate.tables.length } });
+    const preferredCombos = merge.preferredCombos ?? [];
+    if (preferredCombos.length > 0) {
+      const zoneName = floor.zones.find((z) => z.id === candidate.zoneId)?.name;
+      const labels = new Set(candidate.tables.map((t) => t.label));
+      const matches = preferredCombos.some(
+        (pc) => pc.zoneName === zoneName && reservation.partySize >= pc.minPartySize && pc.combo.length === labels.size && pc.combo.every((l) => labels.has(l))
+      );
+      if (matches) {
+        score += weights.preferredCombo;
+        reasons.push({ key: "reason.preferredCombo" });
+      }
+    }
   }
   return { candidate, score, reasons };
 }
@@ -462,13 +518,20 @@ function suggestSeating(reservation, floor, others = [], limit = DEFAULT_SUGGEST
 }
 function explainNoFit(reservation, floor, others = []) {
   const candidates = generateCandidates(reservation, floor, others);
-  if (candidates.length === 0) return "No free tables in the preferred zone right now.";
+  if (candidates.length === 0) return { key: "reason.noFreeTables" };
   const bigEnough = candidates.filter((c) => c.seats >= reservation.partySize);
   if (bigEnough.length === 0) {
     const max = Math.max(...candidates.map((c) => c.seats));
-    return `The largest available table or merge seats ${max} \u2014 a party of ${reservation.partySize} needs more. Free up tables, or raise the merge limit (now ${floor.config.merge.maxMergeSize}).`;
+    return {
+      key: "reason.largestSeats",
+      params: {
+        max,
+        party: reservation.partySize,
+        limit: floor.config.merge.maxMergeSize ?? 0
+      }
+    };
   }
-  return "Every table big enough is booked at this time.";
+  return { key: "reason.allBooked" };
 }
 
 // src/services/availability.ts
@@ -497,6 +560,133 @@ async function checkAvailability(input, floor, others) {
   return { available: false, reason: explainNoFit(probe, floor, others) };
 }
 
+// src/services/settings/bookingRules.ts
+function dateKey(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day2 = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day2}`;
+}
+function clock(d) {
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+function evaluateBookingRules(ctx) {
+  const { rules, restrictions } = ctx;
+  const out = [];
+  const at = new Date(ctx.dateTime);
+  if (Number.isNaN(at.getTime())) return out;
+  const key = dateKey(at);
+  const time = clock(at);
+  const closure = restrictions.closure;
+  if (closure.active && (closure.until == null || key < closure.until)) {
+    out.push({
+      field: "dateTime",
+      code: closure.until ? "closedUntil" : "closed",
+      params: closure.until ? { until: closure.until } : void 0
+    });
+  }
+  for (const b of restrictions.blocks) {
+    if (b.date !== key) continue;
+    const wholeDay = !b.from || !b.to;
+    if (wholeDay || time >= b.from && time <= b.to) {
+      out.push({ field: "dateTime", code: "blockedDate" });
+      break;
+    }
+  }
+  const day2 = ctx.openingHours[at.getDay()];
+  if (!day2.open) {
+    out.push({ field: "dateTime", code: "closedDay" });
+  } else {
+    if (time < day2.from) {
+      out.push({ field: "dateTime", code: "beforeOpening", params: { from: day2.from } });
+    } else if (!rules.allowAfterClosing) {
+      if (day2.lastSeating && time > day2.lastSeating) {
+        out.push({
+          field: "dateTime",
+          code: "afterLastSeating",
+          params: { time: day2.lastSeating }
+        });
+      } else if (time > day2.to) {
+        out.push({ field: "dateTime", code: "afterClosing", params: { time: day2.to } });
+      }
+    }
+  }
+  if (rules.latestBookingTime && time > rules.latestBookingTime) {
+    out.push({
+      field: "dateTime",
+      code: "afterLatest",
+      params: { time: rules.latestBookingTime }
+    });
+  }
+  if (ctx.isNew) {
+    if (!rules.allowSameDay && key === dateKey(ctx.now)) {
+      out.push({ field: "dateTime", code: "noSameDay" });
+    }
+    const leadMs = at.getTime() - ctx.now.getTime();
+    if (leadMs < rules.minAdvanceMinutes * 6e4) {
+      out.push({
+        field: "dateTime",
+        code: "tooSoon",
+        params: { minutes: rules.minAdvanceMinutes }
+      });
+    }
+  }
+  if (ctx.partySize < rules.minPartySize) {
+    out.push({ field: "partySize", code: "partyTooSmall", params: { min: rules.minPartySize } });
+  } else if (ctx.partySize > rules.maxPartySize) {
+    out.push({ field: "partySize", code: "partyTooLarge", params: { max: rules.maxPartySize } });
+  }
+  if (ctx.preferredZoneId) {
+    const zone = ctx.zones.find((z) => z.id === ctx.preferredZoneId);
+    if (zone && zone.bookable === false) {
+      out.push({
+        field: "preferredZoneId",
+        code: "zoneClosed",
+        params: { zone: zone.name }
+      });
+    }
+  }
+  return out;
+}
+
+// src/services/settings/defaults.ts
+var day = (open, from) => ({
+  open,
+  from,
+  to: "23:00",
+  lastSeating: null
+});
+var DEFAULT_OPENING_HOURS = [
+  day(true, "08:30"),
+  // 0 Sun
+  day(true, "08:30"),
+  // 1 Mon
+  day(true, "08:30"),
+  // 2 Tue
+  day(true, "08:30"),
+  // 3 Wed
+  day(true, "08:30"),
+  // 4 Thu
+  day(true, "08:30"),
+  // 5 Fri
+  day(true, "11:00")
+  // 6 Sat
+];
+var DEFAULT_RESERVATION_RULES = {
+  latestBookingTime: null,
+  minAdvanceMinutes: 30,
+  allowSameDay: true,
+  allowAfterClosing: false,
+  minPartySize: 1,
+  maxPartySize: 20,
+  allowSplitParty: false,
+  allowAltZoneSuggestions: true
+};
+var DEFAULT_BOOKING_RESTRICTIONS = {
+  blocks: [],
+  closure: { active: false, until: null }
+};
+
 // src/services/supabase/layoutMappers.ts
 function zoneFromRow(r) {
   return {
@@ -507,7 +697,9 @@ function zoneFromRow(r) {
     size: r.size,
     parentId: r.parent_id ?? void 0,
     smoking: r.smoking ?? void 0,
-    allowTableRelocation: r.allow_table_relocation ?? void 0
+    allowTableRelocation: r.allow_table_relocation ?? void 0,
+    bookable: r.bookable ?? void 0,
+    arrangeDir: r.arrange_dir ?? void 0
   };
 }
 function tableFromRow(r) {
@@ -556,6 +748,33 @@ function connectionFromRow(r) {
   };
 }
 
+// src/services/seating/defaultConfig.ts
+var DEFAULT_SEATING_CONFIG = {
+  merge: {
+    forbiddenCombos: [],
+    // 11 + 12 may not merge on their own (only inside a bigger combo like
+    // 7+10+11+12, which is a different set and stays allowed).
+    forbiddenLabelCombos: [["11", "12"]],
+    maxMergeSize: 5,
+    allowCrossZoneMerge: false,
+    proximityWeight: 1,
+    // Inside, a party of 13+ may only take the 7+10+11+12 combo.
+    largePartyRules: [
+      { zoneName: "Inside", minPartySize: 13, allowedCombos: [["7", "10", "11", "12"]] }
+    ],
+    lastResortGatherZone: true
+  },
+  turnoverBufferMin: 15,
+  maxUnderfill: 2,
+  weights: {
+    capacityFit: 10,
+    zoneMatch: 6,
+    preferredTable: 8,
+    singleTable: 3,
+    preferredCombo: 12
+  }
+};
+
 // src/services/supabase/mappers.ts
 function reservationFromRow(row) {
   return {
@@ -579,32 +798,6 @@ function reservationFromRow(row) {
   };
 }
 
-// src/services/seating/defaultConfig.ts
-var DEFAULT_SEATING_CONFIG = {
-  merge: {
-    forbiddenCombos: [],
-    // 11 + 12 may not merge on their own (only inside a bigger combo like
-    // 7+10+11+12, which is a different set and stays allowed).
-    forbiddenLabelCombos: [["11", "12"]],
-    maxMergeSize: 5,
-    allowCrossZoneMerge: false,
-    proximityWeight: 1,
-    // Inside, a party of 13+ may only take the 7+10+11+12 combo.
-    largePartyRules: [
-      { zoneName: "Inside", minPartySize: 13, allowedCombos: [["7", "10", "11", "12"]] }
-    ],
-    lastResortGatherZone: true
-  },
-  turnoverBufferMin: 15,
-  maxUnderfill: 2,
-  weights: {
-    capacityFit: 10,
-    zoneMatch: 6,
-    preferredTable: 8,
-    singleTable: 3
-  }
-};
-
 // src/services/seating/availabilityServer.ts
 async function evaluateAvailability(input, data) {
   const floor = {
@@ -615,6 +808,26 @@ async function evaluateAvailability(input, data) {
     mergedGroups: data.connections.map(connectionFromRow),
     config: hasConfig(data.seating) ? data.seating : DEFAULT_SEATING_CONFIG
   };
+  const violation = evaluateBookingRules({
+    partySize: input.partySize,
+    dateTime: input.dateTime,
+    preferredZoneId: input.zoneId,
+    openingHours: Array.isArray(data.openingHours) && data.openingHours.length === 7 ? data.openingHours : DEFAULT_OPENING_HOURS,
+    rules: { ...DEFAULT_RESERVATION_RULES, ...data.reservationRules ?? {} },
+    restrictions: {
+      blocks: data.bookingRestrictions?.blocks ?? [],
+      closure: {
+        ...DEFAULT_BOOKING_RESTRICTIONS.closure,
+        ...data.bookingRestrictions?.closure ?? {}
+      }
+    },
+    zones: floor.zones,
+    now: /* @__PURE__ */ new Date(),
+    isNew: true
+  })[0];
+  if (violation) {
+    return { available: false, reason: { key: `rules.${violation.code}`, params: violation.params } };
+  }
   const others = data.reservations.map(reservationFromRow);
   return checkAvailability(input, floor, others);
 }

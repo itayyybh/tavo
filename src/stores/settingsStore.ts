@@ -1,6 +1,22 @@
 import { create } from 'zustand'
-import type { MergeConfig, SeatingConfig } from '@/types'
+import type {
+  BookingRestrictions,
+  DateBlock,
+  DayHours,
+  MergeConfig,
+  OpeningHours,
+  ReservationRulesConfig,
+  RestaurantSettingsConfig,
+  SeatingConfig,
+  TemporaryClosure,
+  Weekday,
+} from '@/types'
 import { DEFAULT_SEATING_CONFIG } from '@/services/seating/defaultConfig'
+import {
+  DEFAULT_BOOKING_RESTRICTIONS,
+  DEFAULT_OPENING_HOURS,
+  DEFAULT_RESERVATION_RULES,
+} from '@/services/settings/defaults'
 import { DEFAULT_LOCALE, isLocale, type Locale } from '@/i18n/config'
 
 /** Persist the chosen locale so language survives reloads. */
@@ -49,8 +65,26 @@ interface SettingsState {
    * config); flip it here until then.
    */
   waitlistEnabled: boolean
+  /**
+   * Weekly opening hours (Phase 11 — Settings shell). Seven entries indexed by
+   * weekday (0 = Sunday). Drives reservation-window rules in a later section.
+   */
+  openingHours: OpeningHours
+  /** Reservation & party rules (Phase 11 — Settings shell). */
+  reservationRules: ReservationRulesConfig
+  /** Booking restrictions — blackout dates + temporary closure (Phase 11). */
+  bookingRestrictions: BookingRestrictions
   /** Active app language. Drives translation + text direction (Phase: i18n). */
   locale: Locale
+  /**
+   * DB hydration flag (Phase 11). Autosave is gated on this so the pre-hydration
+   * defaults never overwrite a restaurant's saved settings (mirrors the layout
+   * store). Locale is excluded from persistence — it's per-user, not per-tenant.
+   */
+  hydrated: boolean
+  setHydrated: (hydrated: boolean) => void
+  /** Apply a config loaded from the database. Does not touch `locale`. */
+  loadConfig: (config: RestaurantSettingsConfig) => void
   setLocale: (locale: Locale) => void
   setGridSize: (size: number) => void
   setSnapToGrid: (snap: boolean) => void
@@ -59,8 +93,20 @@ interface SettingsState {
   setStayMinutes: (rule: { default?: number; max?: number }) => void
   setReservedLookaheadMin: (minutes: number) => void
   setWaitlistEnabled: (on: boolean) => void
+  /** Patch one weekday's opening hours (one field or many). */
+  setDayHours: (day: Weekday, patch: Partial<DayHours>) => void
+  /** Patch the reservation & party rules (one field or many). */
+  updateReservationRules: (patch: Partial<ReservationRulesConfig>) => void
+  /** Add a one-off blackout date/window (an id is generated). */
+  addDateBlock: (block: Omit<DateBlock, 'id'>) => void
+  /** Remove a blackout by id. */
+  removeDateBlock: (id: string) => void
+  /** Patch the temporary-closure switch (one field or many). */
+  setClosure: (patch: Partial<TemporaryClosure>) => void
   /** Patch the merge rule config (one field or many). */
   updateMergeConfig: (patch: Partial<MergeConfig>) => void
+  /** Patch top-level seating config fields (e.g. turnover buffer). */
+  updateSeatingConfig: (patch: Partial<SeatingConfig>) => void
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
@@ -73,7 +119,27 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   maxStayMinutes: 120,
   reservedLookaheadMin: 60,
   waitlistEnabled: true,
+  openingHours: DEFAULT_OPENING_HOURS,
+  reservationRules: DEFAULT_RESERVATION_RULES,
+  bookingRestrictions: DEFAULT_BOOKING_RESTRICTIONS,
   locale: loadLocale(),
+  hydrated: false,
+  setHydrated: (hydrated) => set({ hydrated }),
+  loadConfig: (config) =>
+    set({
+      gridSize: config.gridSize,
+      snapToGrid: config.snapToGrid,
+      pathWidth: config.pathWidth,
+      autoTurnover: config.autoTurnover,
+      defaultStayMinutes: config.defaultStayMinutes,
+      maxStayMinutes: config.maxStayMinutes,
+      reservedLookaheadMin: config.reservedLookaheadMin,
+      waitlistEnabled: config.waitlistEnabled,
+      seating: config.seating,
+      openingHours: config.openingHours,
+      reservationRules: config.reservationRules,
+      bookingRestrictions: config.bookingRestrictions,
+    }),
   setLocale: (locale) => {
     if (typeof localStorage !== 'undefined')
       localStorage.setItem(LOCALE_STORAGE_KEY, locale)
@@ -90,6 +156,56 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     })),
   setReservedLookaheadMin: (reservedLookaheadMin) => set({ reservedLookaheadMin }),
   setWaitlistEnabled: (waitlistEnabled) => set({ waitlistEnabled }),
+  setDayHours: (day, patch) =>
+    set((s) => {
+      const openingHours = [...s.openingHours] as OpeningHours
+      openingHours[day] = { ...openingHours[day], ...patch }
+      return { openingHours }
+    }),
+  updateReservationRules: (patch) =>
+    set((s) => ({ reservationRules: { ...s.reservationRules, ...patch } })),
+  addDateBlock: (block) =>
+    set((s) => ({
+      bookingRestrictions: {
+        ...s.bookingRestrictions,
+        blocks: [...s.bookingRestrictions.blocks, { ...block, id: crypto.randomUUID() }],
+      },
+    })),
+  removeDateBlock: (id) =>
+    set((s) => ({
+      bookingRestrictions: {
+        ...s.bookingRestrictions,
+        blocks: s.bookingRestrictions.blocks.filter((b) => b.id !== id),
+      },
+    })),
+  setClosure: (patch) =>
+    set((s) => ({
+      bookingRestrictions: {
+        ...s.bookingRestrictions,
+        closure: { ...s.bookingRestrictions.closure, ...patch },
+      },
+    })),
   updateMergeConfig: (patch) =>
     set((s) => ({ seating: { ...s.seating, merge: { ...s.seating.merge, ...patch } } })),
+  updateSeatingConfig: (patch) => set((s) => ({ seating: { ...s.seating, ...patch } })),
 }))
+
+/**
+ * The DB-persisted slice of the store — everything shared across a restaurant's
+ * devices. `locale` and the hydration flag are deliberately excluded. Used by
+ * the settings sync hook to decide what to save.
+ */
+export const persistableConfig = (s: SettingsState): RestaurantSettingsConfig => ({
+  gridSize: s.gridSize,
+  snapToGrid: s.snapToGrid,
+  pathWidth: s.pathWidth,
+  autoTurnover: s.autoTurnover,
+  defaultStayMinutes: s.defaultStayMinutes,
+  maxStayMinutes: s.maxStayMinutes,
+  reservedLookaheadMin: s.reservedLookaheadMin,
+  waitlistEnabled: s.waitlistEnabled,
+  seating: s.seating,
+  openingHours: s.openingHours,
+  reservationRules: s.reservationRules,
+  bookingRestrictions: s.bookingRestrictions,
+})

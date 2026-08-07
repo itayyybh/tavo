@@ -1,12 +1,14 @@
 import { lazy, Suspense } from 'react'
-import { createBrowserRouter } from 'react-router-dom'
+import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom'
 import App from '@/App'
 import { RequirePermission } from '@/features/auth'
+import { DEFAULT_SECTION } from '@/features/settings/settingsNav'
 
 // Pages are lazy-loaded per the `performance` skill.
 const FloorPage = lazy(() => import('@/pages/FloorPage'))
 const EditorPage = lazy(() => import('@/pages/EditorPage'))
 const ReservationsPage = lazy(() => import('@/pages/ReservationsPage'))
+const SettingsPage = lazy(() => import('@/pages/SettingsPage'))
 const MobilePage = lazy(() => import('@/pages/MobilePage'))
 
 const withSuspense = (node: React.ReactNode) => (
@@ -30,6 +32,18 @@ export const router = createBrowserRouter([
         ),
       },
       { path: 'reservations', element: withSuspense(<ReservationsPage />) },
+      {
+        path: 'settings',
+        element: (
+          <RequirePermission action="editSettings">
+            <Outlet />
+          </RequirePermission>
+        ),
+        children: [
+          { index: true, element: <Navigate to={DEFAULT_SECTION} replace /> },
+          { path: ':section', element: withSuspense(<SettingsPage />) },
+        ],
+      },
     ],
   },
   // Mobile lives outside the desktop shell — an intentionally separate, focused

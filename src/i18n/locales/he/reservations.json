@@ -1,5 +1,20 @@
 {
   "title": "הזמנות",
+  "rules": {
+    "closed": "ההזמנות סגורות כרגע.",
+    "closedUntil": "ההזמנות סגורות עד {{until}}.",
+    "blockedDate": "התאריך הזה חסום להזמנות.",
+    "closedDay": "המסעדה סגורה ביום זה.",
+    "beforeOpening": "לפני הפתיחה — המסעדה נפתחת ב־{{from}}.",
+    "afterClosing": "אחרי הסגירה — המסעדה נסגרת ב־{{time}}.",
+    "afterLastSeating": "אחרי ההושבה האחרונה ב־{{time}}.",
+    "afterLatest": "שעת ההזמנה האחרונה היא {{time}}.",
+    "noSameDay": "הזמנות לאותו יום אינן מותרות.",
+    "tooSoon": "יש להזמין לפחות {{minutes}} דקות מראש.",
+    "partyTooSmall": "גודל קבוצה מינימלי הוא {{min}}.",
+    "partyTooLarge": "גודל קבוצה מרבי הוא {{max}}.",
+    "zoneClosed": "{{zone}} סגור להזמנות."
+  },
   "new": "הזמנה חדשה",
   "assignAll": "שבץ הכול ({{count}})",
   "clearTables": "נקה שולחנות ({{count}})",
@@ -134,6 +149,7 @@
     "requestedTable": "שולחן מבוקש",
     "singleTable": "שולחן יחיד",
     "mergeOf": "צירוף של {{count}}",
+    "preferredCombo": "צירוף מועדף",
     "bookedAtTime": "מוזמן בשעה זו",
     "seatsPartyOf": "מקומות {{seats}}, {{party}} סועדים",
     "tooLarge": "גדול מדי — {{seats}} מקומות עבור {{party}}",

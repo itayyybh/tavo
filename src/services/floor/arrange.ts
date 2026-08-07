@@ -46,6 +46,8 @@ function smokingKindFromName(name: string | undefined): Zone['smoking'] {
  * falling back to its name. Undefined when no rule applies.
  */
 export function zoneArrangeDir(zone: Zone | undefined): ArrangeDir | undefined {
+  // An explicit host choice (Settings › Zones) wins over the heuristic.
+  if (zone?.arrangeDir) return zone.arrangeDir
   const kind = zone?.smoking ?? smokingKindFromName(zone?.name)
   if (kind === 'non-smoking') return 'vertical'
   if (kind === 'smoking') return 'horizontal'
