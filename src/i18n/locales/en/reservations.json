@@ -139,7 +139,12 @@
     "best": "Best",
     "reserve": "Reserve",
     "reservedBtn": "Reserved",
-    "seatsParty": "Seats {{seats}} · party {{party}}"
+    "seatsParty": "Seats {{seats}} · party {{party}}",
+    "repackTitle": "Free up space",
+    "repackBody": "Reassign {{count}} other booking(s) to fit this party:",
+    "repackSeat": "Seat {{name}} at {{tables}}",
+    "repackMove": "Move {{name}} from {{from}} to {{to}}",
+    "repackApply": "Apply & reserve"
   },
   "reason": {
     "exactFit": "Exact fit",
