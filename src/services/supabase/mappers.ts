@@ -5,6 +5,8 @@ import type {
   ReservationPreferences,
   ReservationSource,
   ReservationStatus,
+  SeatingDecision,
+  SeatingDecisionEntry,
 } from '@/types'
 
 /**
@@ -80,5 +82,47 @@ export function reservationToRow(restaurantId: ID, r: Reservation): ReservationR
     notes: r.notes ?? null,
     created_at: r.createdAt,
     updated_at: r.updatedAt,
+  }
+}
+
+/** Shape of a `seating_decisions` row as returned by PostgREST. */
+export interface SeatingDecisionRow {
+  id: string
+  restaurant_id: string
+  reservation_id: string | null
+  ts: string
+  party_size: number
+  ranked: SeatingDecisionEntry[]
+  chosen: string[] | null
+  overridden: boolean
+  created_at: string
+}
+
+export function seatingDecisionFromRow(row: SeatingDecisionRow): SeatingDecision {
+  return {
+    id: row.id,
+    reservationId: row.reservation_id ?? '',
+    ts: row.ts,
+    partySize: row.party_size,
+    ranked: row.ranked,
+    chosen: row.chosen ?? undefined,
+    overridden: row.overridden,
+  }
+}
+
+/** Domain decision -> a full row for insert. `updated`/`created` set by DB defaults. */
+export function seatingDecisionToRow(
+  restaurantId: ID,
+  d: SeatingDecision,
+): Omit<SeatingDecisionRow, 'created_at'> {
+  return {
+    id: d.id,
+    restaurant_id: restaurantId,
+    reservation_id: d.reservationId || null,
+    ts: d.ts,
+    party_size: d.partySize,
+    ranked: d.ranked,
+    chosen: d.chosen ?? null,
+    overridden: d.overridden ?? false,
   }
 }
