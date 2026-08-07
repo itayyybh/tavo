@@ -469,6 +469,17 @@ export interface SeatingDecision {
    * signal recorded at acceptance (Phase 11 — AI preparation).
    */
   overridden?: boolean
+  /**
+   * The engine's expected stay in minutes (the reservation's estimated
+   * duration), snapshotted at accept time so it outlives the booking (Phase 11
+   * P3 — outcome recording).
+   */
+  predictedMinutes?: number
+  /**
+   * The real seated duration in minutes, stamped when the party is cleared from
+   * the floor. Undefined until the party completes.
+   */
+  actualMinutes?: number
 }
 
 /**

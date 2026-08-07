@@ -56,7 +56,12 @@ export function SeatingPanel({ reservation }: SeatingPanelProps) {
 
   const accept = (s: Suggestion) => {
     // Log the whole ranked set + the chosen option together, then reserve.
-    const decisionId = logSuggestion(reservation.id, reservation.partySize, suggestions)
+    const decisionId = logSuggestion(
+      reservation.id,
+      reservation.partySize,
+      reservation.estimatedDuration,
+      suggestions,
+    )
     recordAccept(decisionId, s.candidate.tableIds)
     assignTable(reservation.id, s.candidate.tableIds)
   }
