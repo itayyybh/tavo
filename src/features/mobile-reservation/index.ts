@@ -1,1 +1,1 @@
-export { MobileReservationPage } from './MobileReservationPage'
+export { MobileHome } from './MobileHome'
