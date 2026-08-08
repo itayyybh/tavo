@@ -55,9 +55,11 @@ export function useAssignAll() {
         suggestions,
       )
       recordAccept(decisionId, best.candidate.tableIds)
-      assignTable(res.id, best.candidate.tableIds)
+      assignTable(res.id, best.candidate.tableIds, 'auto')
       working = working.map((r) =>
-        r.id === res.id ? { ...r, assignedTableIds: best.candidate.tableIds } : r,
+        r.id === res.id
+          ? { ...r, assignedTableIds: best.candidate.tableIds, assignmentSource: 'auto' }
+          : r,
       )
     }
   }, [reservations, floor, assignTable, logSuggestion, recordAccept])

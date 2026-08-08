@@ -42,8 +42,13 @@ interface ReservationState {
    * Reserve table(s) for a reservation (Phase 7 Seating Engine). One id for a
    * single table, several for a deferred merge. Reserve only — no layout mutation
    * or status change; seating happens on the Live Floor (Phase 8).
+   *
+   * `source` records who chose the tables: `manual` (host) pins the assignment so
+   * auto-assign and the repack optimizer never move it; `auto` (engine) may be
+   * reshuffled. Defaults to `manual` — a direct/host call is pinned unless it
+   * explicitly opts into `auto`.
    */
-  assignTable: (id: ID, tableIds: ID[]) => void
+  assignTable: (id: ID, tableIds: ID[], source?: 'manual' | 'auto') => void
   /** Clear a reservation's table assignment. */
   clearAssignment: (id: ID) => void
   removeReservation: (id: ID) => void
@@ -114,12 +119,17 @@ export const useReservationStore = create<ReservationState>((set) => ({
     if (rid && updated) persist(repoUpdate(rid, updated))
   },
 
-  assignTable: (id, tableIds) => {
+  assignTable: (id, tableIds, source = 'manual') => {
     let updated: Reservation | undefined
     set((state) => ({
       reservations: state.reservations.map((r) => {
         if (r.id !== id) return r
-        updated = { ...r, assignedTableIds: tableIds, updatedAt: now() }
+        updated = {
+          ...r,
+          assignedTableIds: tableIds,
+          assignmentSource: source,
+          updatedAt: now(),
+        }
         return updated
       }),
     }))
@@ -132,7 +142,12 @@ export const useReservationStore = create<ReservationState>((set) => ({
     set((state) => ({
       reservations: state.reservations.map((r) => {
         if (r.id !== id) return r
-        updated = { ...r, assignedTableIds: undefined, updatedAt: now() }
+        updated = {
+          ...r,
+          assignedTableIds: undefined,
+          assignmentSource: undefined,
+          updatedAt: now(),
+        }
         return updated
       }),
     }))

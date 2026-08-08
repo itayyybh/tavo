@@ -49,6 +49,13 @@ export interface Table {
   status: TableStatus
   /** When part of a merged group, the id of that group. */
   mergedGroupId?: ID
+  /**
+   * In table storage / inventory — owned by the restaurant but not on the active
+   * floor. A stored table keeps all its config (type, size, label, position) so it
+   * restores exactly, but is excluded from the Live Floor, the Seating Engine, and
+   * zone capacity. Undefined/false = on the floor. Never confused with deleted.
+   */
+  stored?: boolean
 }
 
 /** A logical area of the floor (Inside, Outside, VIP…) with a visual boundary. */
@@ -208,6 +215,15 @@ export interface Reservation {
    * (Phase 8), so the layout is never mutated at reserve time.
    */
   assignedTableIds?: ID[]
+  /**
+   * How the current `assignedTableIds` was chosen. `manual` — the host explicitly
+   * picked or dragged the table — is PINNED: neither auto-assign nor the repack
+   * optimizer may relocate it. `auto` — the engine chose it — may be reshuffled.
+   * Undefined (legacy / pre-migration rows, or no assignment) is treated as
+   * `manual`: the safe default that is never silently moved. Cleared with the
+   * assignment.
+   */
+  assignmentSource?: 'manual' | 'auto'
   status: ReservationStatus
   source: ReservationSource
   preferences?: ReservationPreferences

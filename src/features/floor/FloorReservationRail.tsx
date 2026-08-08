@@ -9,6 +9,9 @@ import {
 } from '@/stores'
 import { useSeatingFloor } from '@/hooks/useSeatingFloor'
 import { explainNoFit, suggestSeating, type Suggestion } from '@/services/seating'
+import { urgencyOf, type TableUrgency } from '@/services/floor'
+import { useNow } from '@/hooks/useNow'
+import { FloorStorageBar } from './FloorStorageBar'
 import { formatTime, isOnDay, todayKey } from '@/utils'
 import type { Reservation, Zone } from '@/types'
 
@@ -46,6 +49,7 @@ export function FloorReservationRail() {
   const focusedZoneId = useUIStore((s) => s.focusedZoneId)
   const waitlistEnabled = useSettingsStore((s) => s.waitlistEnabled)
   const seatingFloor = useSeatingFloor()
+  const now = useNow()
 
   const zoneById = useMemo(() => new Map(zones.map((z) => [z.id, z])), [zones])
   const tableZone = useMemo(() => new Map(tables.map((t) => [t.id, t.zoneId])), [tables])
@@ -99,6 +103,26 @@ export function FloorReservationRail() {
     [seatings, focusedZoneId, tableZone],
   )
 
+  // The second seating for each occupied table set: the soonest upcoming booking
+  // assigned to any of the seating's tables. Combined-table aware — a next party
+  // reusing some or all of the merged tables is matched by intersection.
+  const nextBySeating = useMemo(() => {
+    const map = new Map<string, Reservation | undefined>()
+    for (const s of seated) {
+      const set = new Set(s.tableIds)
+      const next = reservations
+        .filter(
+          (r) =>
+            SEATABLE.includes(r.status) &&
+            !seatedIds.has(r.id) &&
+            (r.assignedTableIds ?? []).some((id) => set.has(id)),
+        )
+        .sort((a, b) => a.dateTime.localeCompare(b.dateTime))[0]
+      map.set(s.id, next)
+    }
+    return map
+  }, [seated, reservations, seatedIds])
+
   // Walk-ins with no table yet — no `assignedTableIds`, so each row asks the
   // engine for its own best-fit suggestion (no reservation form step for these).
   const waitlist = useMemo(
@@ -145,7 +169,8 @@ export function FloorReservationRail() {
                 <span className="truncate text-sm font-medium text-ink">
                   {r.guestName}
                 </span>
-                <span className="shrink-0 text-xs text-muted">
+                <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted">
+                  <UrgencyChip minutes={Math.round((Date.parse(r.dateTime) - now) / 60_000)} />
                   {formatTime(r.dateTime)}
                 </span>
               </div>
@@ -271,6 +296,40 @@ export function FloorReservationRail() {
                     <span className="text-ink">{labelOf(s.tableIds)}</span>
                   </span>
                 </div>
+                {(() => {
+                  const next = nextBySeating.get(s.id)
+                  if (!next) return null
+                  const nextTables = next.assignedTableIds ?? []
+                  const sameTables =
+                    nextTables.length === s.tableIds.length &&
+                    nextTables.every((id) => s.tableIds.includes(id))
+                  return (
+                    <div
+                      className="mt-1.5 rounded-md bg-surface-2 px-2 py-1"
+                      style={{ borderLeft: '2px solid var(--color-status-reserved)' }}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted">
+                          Next · 2nd seating
+                        </span>
+                        <UrgencyChip
+                          minutes={Math.round((Date.parse(next.dateTime) - now) / 60_000)}
+                        />
+                      </div>
+                      <div className="mt-0.5 flex items-baseline justify-between gap-2 text-xs">
+                        <span className="truncate text-ink">{next.guestName}</span>
+                        <span className="shrink-0 tabular-nums text-muted">
+                          {next.partySize}p · {formatTime(next.dateTime)}
+                        </span>
+                      </div>
+                      {!sameTables && nextTables.length > 0 && (
+                        <div className="mt-0.5 text-[10px] text-muted">
+                          Tables {labelOf(nextTables)}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()}
                 {arrangeBySeating.has(s.id) && (
                   <div className="mt-1.5 flex items-center gap-1 rounded-md bg-surface-2 px-2 py-1 text-[10px] font-medium text-muted">
                     <span
@@ -290,7 +349,44 @@ export function FloorReservationRail() {
           )
         })}
       </Section>
+
+      <FloorStorageBar />
     </aside>
+  )
+}
+
+/** Color per urgency bucket — calm blue → amber → red as the arrival nears. */
+const URGENCY_COLOR: Record<TableUrgency, string> = {
+  soon: 'var(--color-status-reserved)',
+  due: 'var(--color-status-cleaning)',
+  imminent: 'var(--color-status-cleaning)',
+  overdue: 'var(--color-status-occupied)',
+}
+
+/**
+ * Time-to-arrival pill — hidden until a booking is ~30m out, then ramps in color
+ * and weight (`soon`→`due`→`imminent`→`overdue`) so a busy rail still reads at a
+ * glance which parties need attention. `overdue` means the slot passed unseated.
+ */
+function UrgencyChip({ minutes }: { minutes: number }) {
+  const urgency = urgencyOf(minutes)
+  if (!urgency) return null
+  const color = URGENCY_COLOR[urgency]
+  const label =
+    minutes < 0 ? (minutes <= -1 ? `${-minutes}m late` : 'due') : minutes <= 0 ? 'now' : `${minutes}m`
+  const strong = urgency === 'imminent' || urgency === 'overdue'
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] tabular-nums"
+      style={{
+        color,
+        backgroundColor: strong ? `color-mix(in srgb, ${color} 14%, transparent)` : 'transparent',
+        fontWeight: strong ? 600 : 500,
+      }}
+    >
+      <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color }} />
+      {label}
+    </span>
   )
 }
 

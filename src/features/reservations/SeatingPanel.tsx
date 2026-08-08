@@ -76,7 +76,12 @@ export function SeatingPanel({ reservation }: SeatingPanelProps) {
   // a plain reservation reassignment (write-through); nothing physically moves.
   const applyRepack = () => {
     if (!repackPlan) return
-    for (const m of repackPlan.moves) assignTable(m.reservationId, m.toTableIds)
+    // The target is the host's explicit choice → pinned (manual). The displaced
+    // bookings were auto-held and stay reshuffleable (auto).
+    for (const m of repackPlan.moves) {
+      const source = m.reservationId === repackPlan.target ? 'manual' : 'auto'
+      assignTable(m.reservationId, m.toTableIds, source)
+    }
   }
 
   const assigned = reservation.assignedTableIds ?? []
@@ -91,7 +96,9 @@ export function SeatingPanel({ reservation }: SeatingPanelProps) {
       suggestions,
     )
     recordAccept(decisionId, s.candidate.tableIds)
-    assignTable(reservation.id, s.candidate.tableIds)
+    // Host explicitly chose this option → pin it (manual): the repack optimizer
+    // and auto-assign must never silently relocate it.
+    assignTable(reservation.id, s.candidate.tableIds, 'manual')
   }
 
   return (

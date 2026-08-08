@@ -112,8 +112,10 @@ export function ReservationForm({ initial, onSubmit, onCancel }: ReservationForm
   const { t } = useTranslation('reservations')
   const { durationOptions, occasionOptions, sourceOptions } = useReservationLabels()
   const zones = useLayoutStore((s) => s.zones)
-  const tables = useLayoutStore((s) => s.tables)
+  const allTables = useLayoutStore((s) => s.tables)
   const tableTypes = useLayoutStore((s) => s.tableTypes)
+  // Stored (inventory) tables don't count toward zone capacity — off the floor.
+  const tables = useMemo(() => allTables.filter((t) => !t.stored), [allTables])
   const reservations = useReservationStore((s) => s.reservations)
   const defaultStay = useSettingsStore((s) => s.defaultStayMinutes)
   const maxStay = useSettingsStore((s) => s.maxStayMinutes)
