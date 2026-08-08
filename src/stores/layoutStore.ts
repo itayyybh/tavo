@@ -20,6 +20,7 @@ import {
   zonesById,
 } from '@/utils'
 import { useHistoryStore } from './historyStore'
+import { useReservationStore } from './reservationStore'
 
 /** Default footprint for new obstacles (world units). */
 const OBSTACLE_DEFAULT_SIZE: Record<ObstacleKind, Vec2> = {
@@ -113,6 +114,14 @@ interface LayoutState {
   updateTables: (ids: string[], patch: Partial<Table>) => void
   moveTablesBy: (ids: string[], delta: Vec2) => void
   removeTables: (ids: string[]) => void
+  /**
+   * Move tables to storage (inventory): keep them + their config, but off the
+   * active floor. Dissolves any merge they were in and frees any reservation that
+   * held them, so nothing dangles. Restore with `restoreTables`.
+   */
+  storeTables: (ids: string[]) => void
+  /** Bring stored tables back onto the floor at their saved position. */
+  restoreTables: (ids: string[]) => void
   /**
    * Rotate the selection 90° clockwise. A fully-selected merged group rotates as
    * one rigid body (members swing around the group's center); any other
@@ -456,6 +465,45 @@ export const useLayoutStore = create<LayoutState>((set, get) => {
           )
         return { tables, mergedGroups }
       })
+    },
+
+    storeTables: (ids) => {
+      const idSet = new Set(ids)
+      commit((s) => {
+        // Drop the stored tables from any merge; a group left with <2 dissolves.
+        const mergedGroups = s.mergedGroups
+          .map((g) => ({ ...g, tableIds: g.tableIds.filter((tid) => !idSet.has(tid)) }))
+          .filter((g) => g.tableIds.length > 1)
+        const alive = new Set(mergedGroups.map((g) => g.id))
+        const tables = s.tables.map((t) => {
+          if (idSet.has(t.id)) return { ...t, stored: true, mergedGroupId: undefined }
+          return t.mergedGroupId && !alive.has(t.mergedGroupId)
+            ? { ...t, mergedGroupId: undefined }
+            : t
+        })
+        return { tables, mergedGroups }
+      })
+      // Free any reservation still holding a now-stored table — a stored table is
+      // off the floor and must never remain assigned (the booking goes unassigned
+      // so the host re-seats it, never silently pointing at a missing table).
+      const { reservations, assignTable, clearAssignment } = useReservationStore.getState()
+      for (const r of reservations) {
+        const held = r.assignedTableIds ?? []
+        if (!held.some((id) => idSet.has(id))) continue
+        const remaining = held.filter((id) => !idSet.has(id))
+        if (remaining.length === 0) clearAssignment(r.id)
+        else assignTable(r.id, remaining, r.assignmentSource ?? 'manual')
+      }
+    },
+
+    restoreTables: (ids) => {
+      const idSet = new Set(ids)
+      commit((s) => ({
+        tables: assignZones(
+          s.tables.map((t) => (idSet.has(t.id) ? { ...t, stored: false } : t)),
+          s.zones,
+        ),
+      }))
     },
 
     mergeTables: (ids) => {

@@ -22,7 +22,18 @@
   "footerHint": "Space + drag to pan · ctrl/pinch to zoom · drag to marquee-select · double-click a table to rename · ⌫ delete · ⌘Z undo",
   "sidebar": {
     "zones": "Zones",
-    "types": "Types"
+    "types": "Types",
+    "storage": "Storage"
+  },
+  "storage": {
+    "empty": "No tables in storage. Move a table here from its inspector to take it off the floor without deleting it.",
+    "restore": "Restore",
+    "restoreAll": "Restore all",
+    "typeCount": "{{name}} × {{count}}",
+    "seatsEach_one": "{{count}} seat each",
+    "seatsEach_other": "{{count}} seats each",
+    "count_one": "{{count}} table stored",
+    "count_other": "{{count}} tables stored"
   },
   "summary": {
     "table_one": "{{count}} table",
@@ -75,6 +86,8 @@
     "status": "Status",
     "tablesLabel": "Tables:",
     "split": "Split",
+    "moveToStorage": "Move to storage",
+    "storeGroup": "Move group to storage",
     "tableTitle": "Table {{label}}",
     "label": "Label",
     "type": "Type",

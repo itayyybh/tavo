@@ -5,6 +5,7 @@ import type Konva from 'konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import {
   useFloorStore,
+  useLayoutStore,
   useReservationStore,
   useSettingsStore,
   useUIStore,
@@ -14,6 +15,7 @@ import {
   aabb,
   formatTime,
   groupCapacity,
+  isActiveStatus,
   overlapArea,
   placementBlocked,
   pointInRect,
@@ -97,8 +99,10 @@ export function FloorCanvas() {
   const mergeTables = useFloorStore((s) => s.mergeTables)
   const splitRuntime = useFloorStore((s) => s.splitRuntime)
   const restoreDefault = useFloorStore((s) => s.restoreDefault)
+  const storeTables = useLayoutStore((s) => s.storeTables)
   const autoTurnover = useSettingsStore((s) => s.autoTurnover)
   const setAutoTurnover = useSettingsStore((s) => s.setAutoTurnover)
+  const turnoverBufferMin = useSettingsStore((s) => s.seating.turnoverBufferMin)
   const snapToGrid = useSettingsStore((s) => s.snapToGrid)
   const gridSize = useSettingsStore((s) => s.gridSize)
   useAutoTurnover()
@@ -399,12 +403,39 @@ export function FloorCanvas() {
       targetIds = expandGroups(hit.base.id)
     }
 
-    const allAvailable = targetIds.every(
-      (id) => effective.byId[id]?.status === 'available',
-    )
-    if (!allAvailable) {
-      flashNotice('One of those tables isn’t free.')
-      return
+    // A target must be free to seat THIS party. A table can read `available`
+    // while still holding a further-out booking (`upcomingReservationId`), and a
+    // `reserved` table may be reserved for this very party or for another one — so
+    // check the actual holder, not just the visual status. Without this, seating a
+    // party over a table another overlapping booking holds would silently steal it
+    // (e.g. a party of 9 dropped on 141+41+42 grabbing 141's manual reservation).
+    const bStart = Date.parse(reservation.dateTime)
+    const bEnd = bStart + reservation.estimatedDuration * 60_000
+    const buffer = turnoverBufferMin * 60_000
+    for (const id of targetIds) {
+      const et = effective.byId[id]
+      if (!et) return
+      // Physically unusable right now — someone seated, blocked, or mid-turnover.
+      if (et.status === 'occupied' || et.status === 'blocked' || et.status === 'cleaning') {
+        flashNotice('One of those tables isn’t free.')
+        return
+      }
+      // Held — reserved now, or free-but-booked-later — by ANOTHER active booking
+      // whose window overlaps this party. Seating here would steal their table.
+      const holderId = et.reservationId ?? et.upcomingReservationId
+      if (holderId && holderId !== reservationId) {
+        const holder = reservationsById.get(holderId)
+        if (holder && isActiveStatus(holder.status)) {
+          const hStart = Date.parse(holder.dateTime)
+          const hEnd = hStart + holder.estimatedDuration * 60_000
+          if (bStart < hEnd + buffer && hStart < bEnd + buffer) {
+            flashNotice(
+              `Table ${et.base.label} is reserved for ${holder.guestName} (${formatTime(holder.dateTime)}).`,
+            )
+            return
+          }
+        }
+      }
     }
 
     const capacity = capacityOfTarget(targetIds)
@@ -695,6 +726,7 @@ export function FloorCanvas() {
             occupancy={occupancy}
             canRotate
             canSplit={!!selectedRuntimeMerge}
+            canStore={menuMembers.every((et) => et.status === 'available')}
             onBlock={() => {
               setTableStatus(menuTable.base.id, 'blocked')
               clearSelection()
@@ -714,6 +746,10 @@ export function FloorCanvas() {
             onRotate={() => rotateOne(menuTable)}
             onSplit={() => {
               if (selectedRuntimeMerge) splitRuntime(selectedRuntimeMerge.id)
+              clearSelection()
+            }}
+            onStore={() => {
+              storeTables(menuMembers.map((et) => et.base.id))
               clearSelection()
             }}
             onClose={clearSelection}

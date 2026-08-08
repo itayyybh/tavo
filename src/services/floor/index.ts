@@ -1,5 +1,5 @@
 /** Live Floor effective-state model (Phase 8) — public surface. */
-export { deriveFloorState, type DeriveFloorInput } from './deriveFloorState'
+export { deriveFloorState, urgencyOf, type DeriveFloorInput } from './deriveFloorState'
 export { summarizeFloor, type FloorSummary } from './summarize'
 export {
   placeMergedBlock,
@@ -8,4 +8,4 @@ export {
   type ClusterResult,
   type Placement,
 } from './arrange'
-export type { EffectiveFloor, EffectiveTable } from './types'
+export type { EffectiveFloor, EffectiveTable, TableUrgency } from './types'

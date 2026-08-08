@@ -9,8 +9,10 @@
  * plan, the host confirms, and execution reuses the store's `assignTable`.
  *
  * Scope (deliberately bounded for Step 1):
- * - Only *tentative* reservations move — active and not yet `arrived`/`seated`.
- *   A party that has physically arrived is never reshuffled.
+ * - Only *tentative, auto-assigned* reservations move — active, not yet
+ *   `arrived`/`seated`, and holding tables the ENGINE chose (`assignmentSource`
+ *   `auto`). A party that has physically arrived, or whose table the host picked
+ *   manually, is never reshuffled — a manual assignment is pinned.
  * - Only reservations whose time window overlaps the target's (± turnover
  *   buffer) are considered — the ones actually in the way.
  * - Within that set, the search treats every reservation as mutually exclusive
@@ -57,9 +59,16 @@ export interface RepackPlan {
 /** Tables a reservation currently holds. */
 const held = (r: Reservation): ID[] => r.assignedTableIds ?? []
 
-/** A tentative reservation may be reshuffled; a committed/terminal one may not. */
+/**
+ * A reservation may be reshuffled only if it is active, not physically committed
+ * (`arrived`/`seated`), AND its tables were auto-assigned. A manual pin — or an
+ * assignment with no recorded source (legacy / pre-migration) — is immovable, so
+ * the optimizer never silently overrides a host's explicit table choice.
+ */
 const isMovable = (r: Reservation): boolean =>
-  isActiveStatus(r.status) && !COMMITTED_STATUSES.includes(r.status)
+  isActiveStatus(r.status) &&
+  !COMMITTED_STATUSES.includes(r.status) &&
+  r.assignmentSource === 'auto'
 
 const windowOf = (r: Reservation): [number, number] => {
   const start = Date.parse(r.dateTime)

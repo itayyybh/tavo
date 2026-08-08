@@ -20,6 +20,7 @@ export function useEffectiveFloor(): EffectiveFloor {
   const positionOverrides = useFloorStore((s) => s.positionOverrides)
   const rotationOverrides = useFloorStore((s) => s.rotationOverrides)
   const reservedLookaheadMin = useSettingsStore((s) => s.reservedLookaheadMin)
+  const turnoverBufferMin = useSettingsStore((s) => s.seating.turnoverBufferMin)
 
   return useMemo(
     () =>
@@ -35,6 +36,7 @@ export function useEffectiveFloor(): EffectiveFloor {
           rotationOverrides,
         },
         reservedLookaheadMin,
+        turnoverBufferMin,
       }),
     [
       tables,
@@ -46,6 +48,7 @@ export function useEffectiveFloor(): EffectiveFloor {
       positionOverrides,
       rotationOverrides,
       reservedLookaheadMin,
+      turnoverBufferMin,
     ],
   )
 }

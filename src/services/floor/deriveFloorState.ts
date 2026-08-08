@@ -9,10 +9,20 @@
  * answered here.
  */
 import type { FloorSnapshot, FloorTableStatus, ID, Reservation, Table } from '@/types'
-import type { EffectiveFloor, EffectiveTable } from './types'
+import { findAssignmentConflicts } from '@/utils'
+import type { EffectiveFloor, EffectiveTable, TableUrgency } from './types'
 
 /** Reservation statuses that reserve (but haven't yet occupied) their tables. */
 const RESERVING_STATUSES: Reservation['status'][] = ['confirmed', 'arrived']
+
+/** Bucket minutes-until-arrival into a graded urgency (undefined = >30m away). */
+export function urgencyOf(minutesUntil: number): TableUrgency | undefined {
+  if (minutesUntil < 0) return 'overdue'
+  if (minutesUntil <= 5) return 'imminent'
+  if (minutesUntil <= 15) return 'due'
+  if (minutesUntil <= 30) return 'soon'
+  return undefined
+}
 
 export interface DeriveFloorInput {
   /** Base tables from the layout (read-only). */
@@ -29,6 +39,8 @@ export interface DeriveFloorInput {
    * `settingsStore.reservedLookaheadMin`.
    */
   reservedLookaheadMin: number
+  /** Turnover buffer (minutes) — pads windows when detecting double-books. */
+  turnoverBufferMin: number
   /** Injectable for tests; defaults to the real clock. */
   now?: number
 }
@@ -43,6 +55,7 @@ export function deriveFloorState({
   reservations,
   snapshot,
   reservedLookaheadMin,
+  turnoverBufferMin,
   now = Date.now(),
 }: DeriveFloorInput): EffectiveFloor {
   const {
@@ -67,18 +80,35 @@ export function deriveFloorState({
     for (const tableId of m.tableIds) runtimeMergeByTable.set(tableId, m.id)
   }
 
+  // Tables double-booked across overlapping windows — flagged so the floor shows
+  // the clash rather than silently hiding whichever booking loses the map race.
+  const conflictTables = findAssignmentConflicts(reservations, turnoverBufferMin).tableIds
+
   // table id → the reservation holding it, split by how soon it's due.
   // `arrived` is always "due now" regardless of dateTime (the guest is here).
+  // Bookings are processed soonest-first so a table's reserved/upcoming binding
+  // is always the NEXT party to arrive, not whichever row came first in the array.
   const lookaheadMs = reservedLookaheadMin * 60_000
   const reservedByTable = new Map<ID, ID>()
   const upcomingByTable = new Map<ID, ID>()
-  for (const r of reservations) {
+  const resById = new Map<ID, Reservation>()
+  const sorted = [...reservations].sort(
+    (a, b) => Date.parse(a.dateTime) - Date.parse(b.dateTime),
+  )
+  for (const r of sorted) {
+    resById.set(r.id, r)
     if (!RESERVING_STATUSES.includes(r.status)) continue
     const dueSoon = r.status === 'arrived' || Date.parse(r.dateTime) - now <= lookaheadMs
     const target = dueSoon ? reservedByTable : upcomingByTable
     for (const tableId of r.assignedTableIds ?? []) {
       if (!target.has(tableId)) target.set(tableId, r.id)
     }
+  }
+
+  // Minutes from now until a booking's arrival (negative once its time passes).
+  const minutesUntilOf = (reservationId: ID | undefined): number | undefined => {
+    const r = reservationId ? resById.get(reservationId) : undefined
+    return r ? Math.round((Date.parse(r.dateTime) - now) / 60_000) : undefined
   }
 
   const effective = tables.map<EffectiveTable>((base) => {
@@ -105,6 +135,37 @@ export function deriveFloorState({
 
     const runtimeMergeId = runtimeMergeByTable.get(base.id)
 
+    // Only meaningful while available — a further-out booking still on the books,
+    // so the host can seat a walk-in here without being blindsided.
+    const upcomingReservationId =
+      status === 'available' ? upcomingByTable.get(base.id) : undefined
+
+    // The soonest future booking on an occupied table — the second seating.
+    const nextReservationId =
+      status === 'occupied'
+        ? (reservedByTable.get(base.id) ?? upcomingByTable.get(base.id))
+        : undefined
+
+    // Arrival pressure of the table's most pressing pending party: the reserved
+    // one, the upcoming one, or — for an occupied table — the next seating. Drives
+    // the floor's reserved-visual ramp and the rail countdown.
+    const pending = reservationId ?? upcomingReservationId ?? nextReservationId
+    const minutesUntil =
+      status === 'occupied' ? undefined : minutesUntilOf(pending)
+    // An `arrived` party is physically present and waiting — maximally urgent
+    // regardless of their booked time (they may have come early). Otherwise bucket
+    // by minutes-until-arrival.
+    const pendingArrived =
+      !!pending && resById.get(pending)?.status === 'arrived'
+    const urgency =
+      status === 'occupied'
+        ? undefined
+        : pendingArrived
+          ? 'overdue'
+          : minutesUntil == null
+            ? undefined
+            : urgencyOf(minutesUntil)
+
     return {
       base,
       position: positionOverrides[base.id] ?? base.position,
@@ -112,12 +173,13 @@ export function deriveFloorState({
       status,
       seatingId,
       reservationId,
-      // Only meaningful while available — a further-out booking still on the
-      // books, so the host can seat a walk-in here without being blindsided.
-      upcomingReservationId:
-        status === 'available' ? upcomingByTable.get(base.id) : undefined,
+      upcomingReservationId,
+      nextReservationId,
+      minutesUntil,
+      urgency,
       mergedGroupId: runtimeMergeId ?? base.mergedGroupId,
       isRuntimeMerge: runtimeMergeId != null,
+      conflict: conflictTables.has(base.id) || undefined,
     }
   })
 

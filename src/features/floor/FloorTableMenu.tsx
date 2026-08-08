@@ -23,12 +23,15 @@ interface FloorTableMenuProps {
   canRotate: boolean
   /** Show the split action (a runtime-merged table). */
   canSplit: boolean
+  /** Show "move to storage" — a free table the host is pulling off the floor. */
+  canStore: boolean
   onBlock: () => void
   onUnblock: () => void
   onFinishCleaning: () => void
   onClear: () => void
   onRotate: () => void
   onSplit: () => void
+  onStore: () => void
   onClose: () => void
 }
 
@@ -48,12 +51,14 @@ export function FloorTableMenu({
   occupancy,
   canRotate,
   canSplit,
+  canStore,
   onBlock,
   onUnblock,
   onFinishCleaning,
   onClear,
   onRotate,
   onSplit,
+  onStore,
   onClose,
 }: FloorTableMenuProps) {
   const { status } = table
@@ -136,6 +141,11 @@ export function FloorTableMenu({
         {canRotate && (
           <button className={action} onClick={onRotate}>
             Rotate 90°
+          </button>
+        )}
+        {canStore && (
+          <button className={`${action} text-muted`} onClick={onStore}>
+            Move to storage
           </button>
         )}
         <button className={`${action} text-muted`} onClick={onClose}>

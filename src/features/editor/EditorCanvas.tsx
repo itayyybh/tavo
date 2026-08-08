@@ -85,7 +85,9 @@ export function EditorCanvas() {
   const setFocusedZone = useUIStore((s) => s.setFocusedZone)
   const tool = useUIStore((s) => s.tool)
 
-  const tables = useLayoutStore((s) => s.tables)
+  const allTables = useLayoutStore((s) => s.tables)
+  // Stored (inventory) tables are off the floor — never drawn or interactive here.
+  const tables = useMemo(() => allTables.filter((t) => !t.stored), [allTables])
   const tableTypes = useLayoutStore((s) => s.tableTypes)
   const obstacles = useLayoutStore((s) => s.obstacles)
   const zones = useLayoutStore((s) => s.zones)

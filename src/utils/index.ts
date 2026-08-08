@@ -61,6 +61,7 @@ export {
   filterReservations,
   sortReservations,
   findDuplicate,
+  findAssignmentConflicts,
   summarizeReservations,
   zoneReservationUsage,
   bucketByTimeSlot,
@@ -71,6 +72,7 @@ export type {
   ReservationFilter,
   ReservationSortKey,
   ReservationSummaryData,
+  AssignmentConflicts,
   TimeSlot,
 } from './reservations'
 export { validateReservation, isValidDraft } from './reservationValidation'

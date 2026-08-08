@@ -15,7 +15,11 @@ import type {
  * Reservation Assignment Optimizer tests (Phase 12, Step 1). Exercises the pure
  * planner: displacing tentative bookings so an otherwise-unseatable reservation
  * fits, and the guards that keep every produced plan valid (committed parties
- * frozen, non-overlapping bookings untouched, external time conflicts honoured).
+ * frozen, MANUAL pins frozen, non-overlapping bookings untouched, external time
+ * conflicts honoured).
+ *
+ * Only ENGINE-assigned holds (`assignmentSource: 'auto'`) are reshuffleable, so
+ * the movable bookings below carry that flag; a manual pin is never moved.
  *
  * Tables are placed far apart so no merge candidates form — the scenarios are
  * pure single-table reshuffles, which isolates the search from geometry.
@@ -121,7 +125,7 @@ describe('optimizeAssignments', () => {
     // T8 (the only 8-seat) is held by a party of 2; two free deuces exist.
     const tables = [table('8', BIG), table('1', SMALL), table('2', SMALL)]
     const floor = floorOf(tables)
-    const parked = res('parked', 2, { assignedTableIds: ['T8'] })
+    const parked = res('parked', 2, { assignedTableIds: ['T8'], assignmentSource: 'auto' })
     const target = res('target', 8)
 
     const plan = optimizeAssignments(target, floor, [parked, target])
@@ -146,8 +150,8 @@ describe('optimizeAssignments', () => {
     // A off T8; the only home for A is T1, which forces B onto T2.
     const tables = [table('8', BIG), table('1', SMALL), table('2', SMALL)]
     const floor = floorOf(tables)
-    const a = res('A', 2, { assignedTableIds: ['T8'] })
-    const b = res('B', 2, { assignedTableIds: ['T1'] })
+    const a = res('A', 2, { assignedTableIds: ['T8'], assignmentSource: 'auto' })
+    const b = res('B', 2, { assignedTableIds: ['T1'], assignmentSource: 'auto' })
     const target = res('target', 8)
 
     const plan = optimizeAssignments(target, floor, [a, b, target])
@@ -168,7 +172,7 @@ describe('optimizeAssignments', () => {
   it('returns a single-move plan when the target already fits a free table', () => {
     const tables = [table('8', BIG), table('1', SMALL)]
     const floor = floorOf(tables)
-    const other = res('other', 2, { assignedTableIds: ['T1'] })
+    const other = res('other', 2, { assignedTableIds: ['T1'], assignmentSource: 'auto' })
     const target = res('target', 8)
 
     const plan = optimizeAssignments(target, floor, [other, target])
@@ -186,7 +190,7 @@ describe('optimizeAssignments', () => {
     // T8 held by a deuce, but there is nowhere for that deuce to go.
     const tables = [table('8', BIG)]
     const floor = floorOf(tables)
-    const parked = res('parked', 2, { assignedTableIds: ['T8'] })
+    const parked = res('parked', 2, { assignedTableIds: ['T8'], assignmentSource: 'auto' })
     const target = res('target', 8)
 
     expect(optimizeAssignments(target, floor, [parked, target])).toBeNull()
@@ -203,6 +207,31 @@ describe('optimizeAssignments', () => {
     const target = res('target', 8)
 
     expect(optimizeAssignments(target, floor, [arrived, target])).toBeNull()
+  })
+
+  it('never relocates a manually pinned booking', () => {
+    // Same shape as the displace test, but the party on T8 was MANUALLY assigned.
+    // A manual pin is off-limits to the optimizer even though it is tentative, so
+    // no reshuffle frees T8 and there is no plan.
+    const tables = [table('8', BIG), table('1', SMALL), table('2', SMALL)]
+    const floor = floorOf(tables)
+    const pinned = res('pinned', 2, {
+      assignedTableIds: ['T8'],
+      assignmentSource: 'manual',
+    })
+    const target = res('target', 8)
+
+    expect(optimizeAssignments(target, floor, [pinned, target])).toBeNull()
+  })
+
+  it('treats an assignment with no recorded source as a manual pin', () => {
+    // Legacy / pre-migration hold (undefined source) must also be frozen.
+    const tables = [table('8', BIG), table('1', SMALL), table('2', SMALL)]
+    const floor = floorOf(tables)
+    const legacy = res('legacy', 2, { assignedTableIds: ['T8'] }) // no assignmentSource
+    const target = res('target', 8)
+
+    expect(optimizeAssignments(target, floor, [legacy, target])).toBeNull()
   })
 
   it('ignores bookings whose time window does not overlap the target', () => {
@@ -229,7 +258,7 @@ describe('optimizeAssignments', () => {
     // T1. If T1 were also blocked, there would be no plan.
     const tables = [table('8', BIG), table('1', SMALL), table('2', SMALL)]
     const floor = floorOf(tables)
-    const a = res('A', 2, { assignedTableIds: ['T8'] })
+    const a = res('A', 2, { assignedTableIds: ['T8'], assignmentSource: 'auto' })
     // C overlaps A's window but its own window does not overlap the 8-top target
     // enough to matter for T8 — it only blocks T2.
     const c = res('C', 2, {
