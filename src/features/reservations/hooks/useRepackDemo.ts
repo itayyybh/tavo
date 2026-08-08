@@ -68,7 +68,11 @@ function stageRepackDemo(
   const cap = (t: Table) =>
     seatsForTable(t, floor.tableTypes.find((ty) => ty.id === t.typeId))
 
-  for (const zone of floor.zones) {
+  // Stage the demo only in a real dining zone: skip nested zones (e.g. a Bar
+  // inside another zone) and zones taken out of booking rotation.
+  const zones = floor.zones.filter((z) => !z.parentId && z.bookable !== false)
+
+  for (const zone of zones) {
     const zoneTables = floor.tables
       .filter((t) => t.zoneId === zone.id)
       .sort((a, b) => cap(b) - cap(a))
@@ -78,45 +82,54 @@ function stageRepackDemo(
     const bigSize = cap(bigT)
     if (bigSize < 3) continue
 
-    // A smaller same-zone table the displaced hold (party of 2) can move onto.
+    // The spare must seat a party of 2 WITHIN the under-fill slack, or the
+    // displaced hold couldn't legally move onto it.
+    const maxSpare = 2 + floor.config.maxUnderfill
     const spare = zoneTables.find(
-      (t) => t.id !== bigT.id && cap(t) >= 2 && cap(t) < bigSize,
+      (t) => t.id !== bigT.id && cap(t) >= 2 && cap(t) <= maxSpare,
     )
     if (!spare) continue
 
-    const hold = probe(2, {
-      preferredZoneId: zone.id,
-      assignedTableIds: [bigT.id],
-      assignmentSource: 'auto',
-    })
+    // Occupy every table EXCEPT the spare with a small auto hold. With only the
+    // (too-small) spare left free the big party has no direct fit — the sole way
+    // in is to relocate the hold off bigT onto the spare, freeing bigT. Holding
+    // the rest is what blocks a lucky direct single/merge fit.
+    const blocked = zoneTables.filter((t) => t.id !== spare.id)
+    const holds = blocked.map((t) =>
+      probe(2, {
+        preferredZoneId: zone.id,
+        assignedTableIds: [t.id],
+        assignmentSource: 'auto',
+      }),
+    )
     const party = probe(bigSize, { preferredZoneId: zone.id })
 
     // Must have NO direct fit (mirrors planSheetRepack) yet a valid repack —
     // checked against the LIVE sheet so the demo works given current bookings.
-    if (suggestSeating(party, floor, [...existing, hold]).length > 0) continue
-    const plan = optimizeAssignments(party, floor, [...existing, hold, party])
+    if (suggestSeating(party, floor, [...existing, ...holds]).length > 0) continue
+    const plan = optimizeAssignments(party, floor, [...existing, ...holds, party])
     if (!plan?.moves.some((m) => m.reservationId === party.id)) continue
 
+    const base = {
+      estimatedDuration: 120,
+      preferredZoneId: zone.id,
+      status: 'confirmed' as const,
+      source: 'manual' as const,
+    }
     return [
-      {
-        guestName: 'Repack demo — hold',
+      ...blocked.map((t, i) => ({
+        ...base,
+        guestName: `Repack demo — hold ${i + 1}`,
         partySize: 2,
-        dateTime: hold.dateTime,
-        estimatedDuration: 120,
-        preferredZoneId: zone.id,
-        status: 'confirmed',
-        source: 'manual',
-        assignedTableIds: [bigT.id],
-        assignmentSource: 'auto',
-      },
+        dateTime: holds[i].dateTime,
+        assignedTableIds: [t.id],
+        assignmentSource: 'auto' as const,
+      })),
       {
+        ...base,
         guestName: 'Repack demo — big party',
         partySize: bigSize,
         dateTime: party.dateTime,
-        estimatedDuration: 120,
-        preferredZoneId: zone.id,
-        status: 'confirmed',
-        source: 'manual',
       },
     ]
   }
