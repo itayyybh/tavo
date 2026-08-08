@@ -19,6 +19,11 @@ export {
 } from './mergeRules'
 export { toDecisionEntries } from './decisionLog'
 export {
+  optimizeAssignments,
+  type RepackPlan,
+  type AssignmentMove,
+} from './optimizeAssignments'
+export {
   tableFootprint,
   centerDistance,
   areAdjacent,

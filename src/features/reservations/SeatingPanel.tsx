@@ -4,9 +4,15 @@ import { motion } from 'framer-motion'
 import { Button, Panel, Text } from '@/components/ui'
 import { useReservationStore, useDecisionLogStore } from '@/stores'
 import { useSeatingFloor } from '@/hooks/useSeatingFloor'
-import { suggestSeating, explainNoFit, type Suggestion } from '@/services/seating'
+import {
+  suggestSeating,
+  explainNoFit,
+  optimizeAssignments,
+  type Suggestion,
+} from '@/services/seating'
 import type { ID, Reservation } from '@/types'
 import { cn } from '@/utils'
+import { RepackSuggestion } from './RepackSuggestion'
 
 interface SeatingPanelProps {
   reservation: Reservation
@@ -51,6 +57,28 @@ export function SeatingPanel({ reservation }: SeatingPanelProps) {
     [suggestions.length, reservation, floor, others],
   )
 
+  // When nothing fits, try a repack: reshuffle other tentative bookings to free
+  // a table for this party (Phase 12). Only computed in the no-fit case.
+  const repackPlan = useMemo(
+    () =>
+      suggestions.length === 0
+        ? optimizeAssignments(reservation, floor, reservations)
+        : null,
+    [suggestions.length, reservation, floor, reservations],
+  )
+
+  const guestName = useMemo(
+    () => new Map<ID, string>(reservations.map((r) => [r.id, r.guestName])),
+    [reservations],
+  )
+
+  // Apply a repack: relocate the displaced bookings and seat the target. Each is
+  // a plain reservation reassignment (write-through); nothing physically moves.
+  const applyRepack = () => {
+    if (!repackPlan) return
+    for (const m of repackPlan.moves) assignTable(m.reservationId, m.toTableIds)
+  }
+
   const assigned = reservation.assignedTableIds ?? []
   const labelsFor = (ids: ID[]) => ids.map((id) => tableLabel.get(id) ?? id).join(' + ')
 
@@ -89,13 +117,23 @@ export function SeatingPanel({ reservation }: SeatingPanelProps) {
       )}
 
       {suggestions.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-line py-8 text-center">
-          <Text className="font-medium text-ink">{t('seating.noFitTitle')}</Text>
-          <Text muted className="mt-0.5 text-xs">
-            {noFitReason
-              ? t(noFitReason.key, noFitReason.params)
-              : t('seating.noFitBody', { size: reservation.partySize })}
-          </Text>
+        <div>
+          <div className="rounded-lg border border-dashed border-line py-8 text-center">
+            <Text className="font-medium text-ink">{t('seating.noFitTitle')}</Text>
+            <Text muted className="mt-0.5 text-xs">
+              {noFitReason
+                ? t(noFitReason.key, noFitReason.params)
+                : t('seating.noFitBody', { size: reservation.partySize })}
+            </Text>
+          </div>
+          {repackPlan && (
+            <RepackSuggestion
+              plan={repackPlan}
+              tableLabel={tableLabel}
+              guestName={guestName}
+              onApply={applyRepack}
+            />
+          )}
         </div>
       ) : (
         <div className="flex flex-col gap-2">

@@ -139,7 +139,12 @@
     "best": "מיטבי",
     "reserve": "שמור",
     "reservedBtn": "נשמר",
-    "seatsParty": "מקומות {{seats}} · סועדים {{party}}"
+    "seatsParty": "מקומות {{seats}} · סועדים {{party}}",
+    "repackTitle": "פינוי מקום",
+    "repackBody": "שיבוץ מחדש של {{count}} הזמנות אחרות כדי לפנות מקום:",
+    "repackSeat": "הושב {{name}} ב־{{tables}}",
+    "repackMove": "העבר {{name}} מ־{{from}} ל־{{to}}",
+    "repackApply": "החל ושמור"
   },
   "reason": {
     "exactFit": "התאמה מדויקת",
