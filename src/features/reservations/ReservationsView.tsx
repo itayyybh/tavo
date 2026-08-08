@@ -14,9 +14,12 @@ import { ReservationTimeline } from './ReservationTimeline'
 import { ReservationDialog } from './ReservationDialog'
 import { useReservationStore } from '@/stores'
 import { buildSampleReservations } from './sampleData'
+import { useRepackDemo } from './hooks/useRepackDemo'
 import { useCan } from '@/features/auth'
 import { useReservationShortcuts } from './hooks/useReservationShortcuts'
 import { useAssignAll } from './hooks/useAssignAll'
+import { useSheetRepack } from './hooks/useSheetRepack'
+import { SheetRepackDialog } from './SheetRepackDialog'
 import { DeleteConfirmDialog } from './DeleteConfirmDialog'
 import { ClearAllConfirmDialog } from './ClearAllConfirmDialog'
 import { CommandPalettePlaceholder } from './CommandPalettePlaceholder'
@@ -47,6 +50,7 @@ export function ReservationsView() {
     clearAll: clearTableAssignments,
     assignedCount,
   } = useAssignAll()
+  const { plan: repackPlan, repackableCount, apply: applySheetRepack } = useSheetRepack()
 
   // Total floor seats — lets the load chart show occupancy against real capacity
   // (free space = the visible remainder). Read-only; no reservation↔table coupling.
@@ -62,6 +66,8 @@ export function ReservationsView() {
       addReservation,
     )
   }
+
+  const { seed: seedRepackDemo, canDemo } = useRepackDemo()
 
   const [view, setView] = useState<ViewMode>('list')
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -86,6 +92,7 @@ export function ReservationsView() {
   )
 
   const [helpOpen, setHelpOpen] = useState(false)
+  const [repackOpen, setRepackOpen] = useState(false)
 
   const openCreate = () => {
     setEditing(undefined)
@@ -120,7 +127,7 @@ export function ReservationsView() {
   const selected = results.find((r) => r.id === selectedId)
 
   // Shortcuts are disabled while any modal is open (dialogs own their own Escape).
-  const active = !(dialogOpen || paletteOpen || helpOpen || !!deleteTarget)
+  const active = !(dialogOpen || paletteOpen || helpOpen || repackOpen || !!deleteTarget)
 
   useReservationShortcuts(
     {
@@ -154,6 +161,14 @@ export function ReservationsView() {
                 {t('seed20')}
               </Button>
               <Button
+                variant="secondary"
+                onClick={seedRepackDemo}
+                disabled={!canDemo}
+                title={canDemo ? undefined : t('seedRepackDemoUnavailable')}
+              >
+                {t('seedRepackDemo')}
+              </Button>
+              <Button
                 variant="ghost"
                 onClick={() => setClearConfirmOpen(true)}
                 disabled={reservationCount === 0}
@@ -173,6 +188,11 @@ export function ReservationsView() {
           {assignableCount > 0 && (
             <Button variant="secondary" onClick={assignAll}>
               {t('assignAll', { count: assignableCount })}
+            </Button>
+          )}
+          {repackableCount > 0 && (
+            <Button variant="secondary" onClick={() => setRepackOpen(true)}>
+              {t('sheetRepack.button', { count: repackableCount })}
             </Button>
           )}
           {assignedCount > 0 && (
@@ -266,6 +286,12 @@ export function ReservationsView() {
         onClose={() => setPaletteOpen(false)}
       />
       <ShortcutsHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
+      <SheetRepackDialog
+        open={repackOpen}
+        onClose={() => setRepackOpen(false)}
+        plan={repackPlan}
+        onApply={applySheetRepack}
+      />
     </div>
   )
 }

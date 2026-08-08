@@ -244,5 +244,14 @@
     "todayEmptyBody": "הזמנות חדשות יופיעו כאן עם הגעתן.",
     "todayTable": "שולחן {{labels}}",
     "todayUnassigned": "לא שובץ"
-  }
+  },
+  "sheetRepack": {
+    "button": "מיטוב ({{count}})",
+    "title": "מיטוב הושבה",
+    "body": "שיבוץ מחדש של הזמנות זמניות כדי להושיב {{count}} סועדים שאינם נכנסים כרגע:",
+    "cancel": "ביטול",
+    "apply": "החל שיבוץ"
+  },
+  "seedRepackDemo": "דמו שיבוץ",
+  "seedRepackDemoUnavailable": "הרצפה הזו לא מתאימה לדמו (צריך שולחן גדול + שולחן קטן פנוי באותו אזור)."
 }
