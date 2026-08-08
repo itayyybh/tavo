@@ -1,7 +1,7 @@
 import { useCallback } from 'react'
 import { useReservationStore, useDecisionLogStore } from '@/stores'
 import { useSeatingFloor } from '@/hooks/useSeatingFloor'
-import { suggestSeating } from '@/services/seating'
+import { suggestSeating, optimizeAssignments } from '@/services/seating'
 import { isActiveStatus } from '@/utils'
 import type { Reservation } from '@/types'
 
@@ -27,6 +27,7 @@ export function useAssignAll() {
   const clearAssignment = useReservationStore((s) => s.clearAssignment)
   const logSuggestion = useDecisionLogStore((s) => s.logSuggestion)
   const recordAccept = useDecisionLogStore((s) => s.recordAccept)
+  const logRepack = useDecisionLogStore((s) => s.logRepack)
   const floor = useSeatingFloor()
 
   const assignableCount = reservations.filter(needsAssignment).length
@@ -45,7 +46,26 @@ export function useAssignAll() {
     for (const res of queue) {
       const others = working.filter((r) => r.id !== res.id)
       const suggestions = suggestSeating(res, floor, others)
-      if (suggestions.length === 0) continue
+      if (suggestions.length === 0) {
+        // Greedy found no direct fit — try a repack: reshuffle other tentative
+        // (auto) holds to free a table for this booking. Every move here is
+        // engine-driven, so it stays 'auto' and remains reshuffleable later.
+        const plan = optimizeAssignments(res, floor, working)
+        if (!plan) continue
+        for (const m of plan.moves) {
+          assignTable(m.reservationId, m.toTableIds, 'auto')
+          working = working.map((r) =>
+            r.id === m.reservationId
+              ? { ...r, assignedTableIds: m.toTableIds, assignmentSource: 'auto' as const }
+              : r,
+          )
+        }
+        // Log the freshly-seated booking as a repack override (Phase 12).
+        const targetTables =
+          plan.moves.find((m) => m.reservationId === res.id)?.toTableIds ?? []
+        logRepack(res.id, res.partySize, res.estimatedDuration, targetTables)
+        continue
+      }
 
       const best = suggestions[0]
       const decisionId = logSuggestion(
@@ -62,7 +82,7 @@ export function useAssignAll() {
           : r,
       )
     }
-  }, [reservations, floor, assignTable, logSuggestion, recordAccept])
+  }, [reservations, floor, assignTable, logSuggestion, recordAccept, logRepack])
 
   const clearAll = useCallback(() => {
     for (const r of reservations) {
