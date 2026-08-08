@@ -2,15 +2,34 @@ import { useRef, type RefObject } from 'react'
 import { Circle, Group, Rect, Text } from 'react-konva'
 import type Konva from 'konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
-import type { TableType, Vec2 } from '@/types'
+import type { FloorTableStatus, TableType, Vec2 } from '@/types'
 import { mixHex } from '@/utils'
-import type { EffectiveTable } from '@/services/floor'
+import type { EffectiveTable, TableUrgency } from '@/services/floor'
 import type { FloorCanvasColors } from './hooks/useFloorColors'
 import { useNodeColorTween } from './hooks/useNodeColorTween'
 import { useNodePositionGlide } from './hooks/useNodePositionGlide'
 
 /** How far a table body is tinted toward its status color (0 = surface, 1 = full). */
 export const FLOOR_TINT = 0.22
+
+/**
+ * Reserved-table ramp: as a booking nears, escalate through DISCRETE, vivid
+ * status hues — calm blue (reserved) → amber (approaching) → red (due/overdue) —
+ * while deepening the body tint and thickening the border. Discrete on purpose:
+ * blending blue↔amber in RGB passes through gray (they're near-complementary),
+ * which read as a blocked table. `far` (>~30m out) stays plain reserved blue.
+ * Static — no motion — so a busy floor stays legible.
+ */
+const RESERVED_RAMP: Record<
+  'far' | TableUrgency,
+  { colorKey: FloorTableStatus; tint: number; border: number }
+> = {
+  far: { colorKey: 'reserved', tint: 0, border: 0 },
+  soon: { colorKey: 'reserved', tint: 0.03, border: 0 },
+  due: { colorKey: 'cleaning', tint: 0.07, border: 0.5 },
+  imminent: { colorKey: 'cleaning', tint: 0.13, border: 0.75 },
+  overdue: { colorKey: 'occupied', tint: 0.18, border: 1 },
+}
 
 interface FloorTableNodeProps {
   et: EffectiveTable
@@ -63,14 +82,27 @@ export function FloorTableNode({
   const shape = type?.shape ?? 'rectangle'
   const round = shape === 'round'
 
-  const statusColor = colors.status[status]
   const isActive = status !== 'available'
-  const border = selected ? colors.accent : isActive ? statusColor : colors.line
-  const borderWidth = selected || isActive ? 2 : 1.5
+  const conflict = !!et.conflict
+
+  // Reserved tables escalate blue → amber → red as their booking nears (see
+  // RESERVED_RAMP). A far-out reservation stays plain blue.
+  const ramp = status === 'reserved' ? RESERVED_RAMP[et.urgency ?? 'far'] : undefined
+  const statusColor = ramp ? colors.status[ramp.colorKey] : colors.status[status]
+  const tint = FLOOR_TINT + (ramp?.tint ?? 0)
+
+  // A double-book overrides the border with the alarm hue + a dashed stroke, so
+  // the clash is unmissable regardless of the table's underlying status.
+  const border = conflict
+    ? colors.conflict
+    : selected
+      ? colors.accent
+      : isActive
+        ? statusColor
+        : colors.line
+  const borderWidth = conflict ? 2.5 : selected || isActive ? 2 + (ramp?.border ?? 0) : 1.5
   // Whole body painted a solid tint of the status color (flat, no alpha).
-  const bodyFill = isActive
-    ? mixHex(colors.surface, statusColor, FLOOR_TINT)
-    : colors.surface
+  const bodyFill = isActive ? mixHex(colors.surface, statusColor, tint) : colors.surface
 
   const dotX = round ? w / 2 + (Math.min(w, h) / 2 - 7) * 0.707 : w - 9
   const dotY = round ? h / 2 - (Math.min(w, h) / 2 - 7) * 0.707 : 9
@@ -96,6 +128,7 @@ export function FloorTableNode({
       fill={bodyFill}
       stroke={border}
       strokeWidth={borderWidth}
+      dash={conflict ? [7, 4] : undefined}
       shadowColor="#000000"
       shadowBlur={6}
       shadowOffset={{ x: 0, y: 2 }}
@@ -112,6 +145,7 @@ export function FloorTableNode({
       fill={bodyFill}
       stroke={border}
       strokeWidth={borderWidth}
+      dash={conflict ? [7, 4] : undefined}
       shadowColor="#000000"
       shadowBlur={6}
       shadowOffset={{ x: 0, y: 2 }}
@@ -213,6 +247,33 @@ export function FloorTableNode({
           listening={false}
           perfectDrawEnabled={false}
         />
+      )}
+      {conflict && !merged && (
+        // Alarm badge (top-left) — a double-book the host must resolve.
+        <Group x={round ? w / 2 - (Math.min(w, h) / 2 - 7) * 0.707 : 9} y={dotY} listening={false}>
+          <Circle
+            radius={7}
+            fill={colors.conflict}
+            stroke={colors.surface}
+            strokeWidth={1.5}
+            perfectDrawEnabled={false}
+          />
+          <Text
+            text="!"
+            x={-7}
+            y={-7}
+            width={14}
+            height={14}
+            align="center"
+            verticalAlign="middle"
+            fontFamily={FONT}
+            fontSize={11}
+            fontStyle="700"
+            fill={colors.surface}
+            listening={false}
+            perfectDrawEnabled={false}
+          />
+        </Group>
       )}
     </Group>
   )

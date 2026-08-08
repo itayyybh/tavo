@@ -22,7 +22,18 @@
   "footerHint": "רווח + גרירה להזזה · ctrl/צביטה לזום · גרירה לבחירה · לחיצה כפולה על שולחן לשינוי שם · ⌫ מחיקה · ⌘Z ביטול",
   "sidebar": {
     "zones": "אזורים",
-    "types": "סוגים"
+    "types": "סוגים",
+    "storage": "מחסן"
+  },
+  "storage": {
+    "empty": "אין שולחנות במחסן. העבר שולחן לכאן מהמפקח שלו כדי להוריד אותו מהרצפה בלי למחוק.",
+    "restore": "שחזר",
+    "restoreAll": "שחזר הכול",
+    "typeCount": "{{name}} × {{count}}",
+    "seatsEach_one": "{{count}} מקום כל אחד",
+    "seatsEach_other": "{{count}} מקומות כל אחד",
+    "count_one": "{{count}} שולחן במחסן",
+    "count_other": "{{count}} שולחנות במחסן"
   },
   "summary": {
     "table_one": "{{count}} שולחן",
@@ -75,6 +86,8 @@
     "status": "סטטוס",
     "tablesLabel": "שולחנות:",
     "split": "פצל",
+    "moveToStorage": "העבר למחסן",
+    "storeGroup": "העבר קבוצה למחסן",
     "tableTitle": "שולחן {{label}}",
     "label": "תווית",
     "type": "סוג",

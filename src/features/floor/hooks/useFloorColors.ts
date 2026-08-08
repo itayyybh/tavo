@@ -13,6 +13,8 @@ import {
  */
 export interface FloorCanvasColors extends Omit<CanvasColors, 'status'> {
   status: Record<FloorTableStatus, string>
+  /** Alarm hue for a double-booked table (not a real status). */
+  conflict: string
 }
 
 function readVar(name: string): string {
@@ -28,6 +30,8 @@ export function useFloorColors(): FloorCanvasColors {
     return {
       ...base,
       status: { ...base.status, cleaning: readVar('--color-status-cleaning') },
+      // Fallback keeps the alarm visible if the token hasn't loaded (stale CSS).
+      conflict: readVar('--color-status-conflict') || '#db2777',
     }
   }, [base, theme])
 }

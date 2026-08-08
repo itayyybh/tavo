@@ -27,6 +27,8 @@
   --color-status-occupied: #dc2626;
   --color-status-cleaning: #d97706;
   --color-status-blocked: #737373;
+  /* Double-book alarm — a distinct hue (not any real status) so a clash screams. */
+  --color-status-conflict: #db2777;
 
   /* Reservation lifecycle colors — restrained, one hue per state. */
   --color-reservation-pending: #d97706;

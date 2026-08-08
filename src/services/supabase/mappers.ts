@@ -41,6 +41,7 @@ export interface ReservationRow {
   preferred_zone_id: string | null
   preferred_table_id: string | null
   assigned_table_ids: string[] | null
+  assignment_source: string | null
   occasion: string | null
   status: string
   source: string
@@ -62,6 +63,8 @@ export function reservationFromRow(row: ReservationRow): Reservation {
     preferredZoneId: row.preferred_zone_id ?? undefined,
     preferredTableId: row.preferred_table_id ?? undefined,
     assignedTableIds: row.assigned_table_ids ?? undefined,
+    assignmentSource:
+      (row.assignment_source as Reservation['assignmentSource'] | null) ?? undefined,
     occasion: (row.occasion as ReservationOccasion | null) ?? undefined,
     status: row.status as ReservationStatus,
     source: row.source as ReservationSource,
@@ -86,6 +89,7 @@ export function reservationToRow(restaurantId: ID, r: Reservation): ReservationR
     preferred_zone_id: r.preferredZoneId ?? null,
     preferred_table_id: r.preferredTableId ?? null,
     assigned_table_ids: r.assignedTableIds ?? null,
+    assignment_source: r.assignmentSource ?? null,
     occasion: r.occasion ?? null,
     status: r.status,
     source: r.source,

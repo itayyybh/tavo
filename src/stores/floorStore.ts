@@ -238,7 +238,15 @@ export const useFloorStore = create<FloorState>((set, get) => ({
           : state.rotationOverrides,
       }
     })
-    useReservationStore.getState().setStatus(reservationId, 'seated')
+    // The seated party physically holds these tables. Record that on the
+    // reservation (a manual pin) alongside the status flip, so the Seating Engine
+    // treats them as busy for any overlapping booking — otherwise a party seated
+    // on an open table is still recommended to the next reservation in its window.
+    useReservationStore.getState().updateReservation(reservationId, {
+      assignedTableIds: seating.tableIds,
+      assignmentSource: 'manual',
+      status: 'seated',
+    })
   },
 
   clear: (seatingId) => {

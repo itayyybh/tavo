@@ -207,6 +207,58 @@ export function summarizeReservations(list: Reservation[]): ReservationSummaryDa
   }
 }
 
+const MINUTE = 60_000
+
+/** Double-booked tables and the reservations involved (see `findAssignmentConflicts`). */
+export interface AssignmentConflicts {
+  /** Table ids held by ≥2 active reservations whose windows overlap (± buffer). */
+  tableIds: Set<ID>
+  /** Reservations sharing a table with an overlapping active reservation. */
+  reservationIds: Set<ID>
+}
+
+/**
+ * Detect assignment conflicts across the booking sheet: any table held by two
+ * active reservations whose windows overlap once padded by the turnover buffer.
+ *
+ * The engine prevents these at assign time, but they can still arise after the
+ * fact — e.g. editing a reservation's time or duration so it now overlaps a
+ * booking it shares a table with. Surfacing them matters because the Live Floor
+ * ties one table to a single reservation (first-writer-wins), so a silent
+ * double-book would otherwise HIDE one of the bookings. Pure + O(n²) over the
+ * assigned set (small in practice).
+ */
+export function findAssignmentConflicts(
+  reservations: Reservation[],
+  bufferMin: number,
+): AssignmentConflicts {
+  const buffer = bufferMin * MINUTE
+  const active = reservations.filter(
+    (r) => isActiveStatus(r.status) && (r.assignedTableIds?.length ?? 0) > 0,
+  )
+  const tableIds = new Set<ID>()
+  const reservationIds = new Set<ID>()
+  for (let i = 0; i < active.length; i += 1) {
+    const a = active[i]
+    const aStart = Date.parse(a.dateTime)
+    const aEnd = aStart + a.estimatedDuration * MINUTE
+    for (let j = i + 1; j < active.length; j += 1) {
+      const b = active[j]
+      const bStart = Date.parse(b.dateTime)
+      const bEnd = bStart + b.estimatedDuration * MINUTE
+      // Windows must overlap once each end is padded by the turnover buffer.
+      if (!(aStart < bEnd + buffer && bStart < aEnd + buffer)) continue
+      const bTables = b.assignedTableIds ?? []
+      const shared = (a.assignedTableIds ?? []).filter((id) => bTables.includes(id))
+      if (shared.length === 0) continue
+      for (const id of shared) tableIds.add(id)
+      reservationIds.add(a.id)
+      reservationIds.add(b.id)
+    }
+  }
+  return { tableIds, reservationIds }
+}
+
 /**
  * Duplicate heuristic — same guest name + same party size within 90 minutes.
  * Used for a soft WARNING only; never blocks (see the `data-model` rules).

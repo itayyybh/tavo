@@ -16,8 +16,17 @@ export function useSeatingFloor(): SeatingFloor {
   const mergedGroups = useLayoutStore((s) => s.mergedGroups)
   const config = useSettingsStore((s) => s.seating)
 
+  // Stored (inventory) tables are off the active floor — excluded from the engine,
+  // the Live Floor, and zone capacity alike.
   return useMemo(
-    () => ({ tables, tableTypes, zones, obstacles, mergedGroups, config }),
+    () => ({
+      tables: tables.filter((t) => !t.stored),
+      tableTypes,
+      zones,
+      obstacles,
+      mergedGroups,
+      config,
+    }),
     [tables, tableTypes, zones, obstacles, mergedGroups, config],
   )
 }

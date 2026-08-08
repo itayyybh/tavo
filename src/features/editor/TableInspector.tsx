@@ -54,6 +54,7 @@ export function TableInspector() {
   const updateTables = useLayoutStore((s) => s.updateTables)
   const splitGroup = useLayoutStore((s) => s.splitGroup)
   const updateMergedGroup = useLayoutStore((s) => s.updateMergedGroup)
+  const storeTables = useLayoutStore((s) => s.storeTables)
 
   if (selectedIds.length === 0) return null
 
@@ -140,6 +141,13 @@ export function TableInspector() {
         >
           {t('inspector.split')}
         </button>
+
+        <button
+          onClick={() => storeTables(memberIds)}
+          className="w-full rounded-lg border border-line px-2 py-1.5 text-sm text-muted transition-colors hover:bg-surface-2 hover:text-ink"
+        >
+          {t('inspector.storeGroup')}
+        </button>
       </div>
     )
   }
@@ -154,6 +162,7 @@ function SingleTable({ table }: { table: Table }) {
   const tableTypes = useLayoutStore((s) => s.tableTypes)
   const zones = useLayoutStore((s) => s.zones)
   const updateTable = useLayoutStore((s) => s.updateTable)
+  const storeTables = useLayoutStore((s) => s.storeTables)
 
   const type = tableTypes.find((ty) => ty.id === table.typeId)
   const seats = seatsForTable(table, type)
@@ -210,6 +219,13 @@ function SingleTable({ table }: { table: Table }) {
       <p className="text-[11px] text-muted">
         {t('inspector.zoneLabel')} <span className="text-ink">{zoneName}</span>
       </p>
+
+      <button
+        onClick={() => storeTables([table.id])}
+        className="w-full rounded-lg border border-line px-2 py-1.5 text-sm text-muted transition-colors hover:bg-surface-2 hover:text-ink"
+      >
+        {t('inspector.moveToStorage')}
+      </button>
     </div>
   )
 }

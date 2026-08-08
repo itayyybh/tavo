@@ -38,6 +38,20 @@ interface DecisionLogState {
   /** Attach the accepted table ids to a logged decision, then persist it. */
   recordAccept: (decisionId: ID, chosenIds: ID[]) => void
   /**
+   * Record an applied repack (Phase 12): the host ran the assignment optimizer
+   * to seat a party the engine could not place with its one-at-a-time search.
+   * Logged as an override with an EMPTY ranked set — the engine offered nothing,
+   * the reshuffle did — and persisted immediately, like `recordAccept`.
+   * `chosenIds` are the tables the target ends up on; `predictedMinutes` is its
+   * estimated duration, so the outcome is graded later like any other decision.
+   */
+  logRepack: (
+    reservationId: ID,
+    partySize: number,
+    predictedMinutes: number,
+    chosenIds: ID[],
+  ) => void
+  /**
    * Grade a completed seating: stamp the real seated duration onto the
    * reservation's accepted decision (P3 — outcome recording). No-ops when the
    * seating never ran the engine.
@@ -88,6 +102,21 @@ export const useDecisionLogStore = create<DecisionLogState>((set, get) => ({
     }))
     const rid = activeRestaurant()
     if (rid) persist(insertSeatingDecision(rid, accepted))
+  },
+  logRepack: (reservationId, partySize, predictedMinutes, chosenIds) => {
+    const decision: SeatingDecision = {
+      id: createId(),
+      reservationId,
+      ts: new Date().toISOString(),
+      partySize,
+      predictedMinutes,
+      ranked: [],
+      chosen: chosenIds,
+      overridden: true,
+    }
+    set((s) => ({ decisions: [decision, ...s.decisions] }))
+    const rid = activeRestaurant()
+    if (rid) persist(insertSeatingDecision(rid, decision))
   },
   recordOutcome: (reservationId, actualMinutes) => {
     set((s) => ({
