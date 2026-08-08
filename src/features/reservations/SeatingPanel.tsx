@@ -32,6 +32,7 @@ export function SeatingPanel({ reservation }: SeatingPanelProps) {
   const clearAssignment = useReservationStore((s) => s.clearAssignment)
   const logSuggestion = useDecisionLogStore((s) => s.logSuggestion)
   const recordAccept = useDecisionLogStore((s) => s.recordAccept)
+  const logRepack = useDecisionLogStore((s) => s.logRepack)
 
   // Labels + zone names for display, resolved once from the floor snapshot.
   const tableLabel = useMemo(
@@ -76,11 +77,23 @@ export function SeatingPanel({ reservation }: SeatingPanelProps) {
   // a plain reservation reassignment (write-through); nothing physically moves.
   const applyRepack = () => {
     if (!repackPlan) return
+    const targetMove = repackPlan.moves.find(
+      (m) => m.reservationId === repackPlan.target,
+    )
     // The target is the host's explicit choice → pinned (manual). The displaced
     // bookings were auto-held and stay reshuffleable (auto).
     for (const m of repackPlan.moves) {
       const source = m.reservationId === repackPlan.target ? 'manual' : 'auto'
       assignTable(m.reservationId, m.toTableIds, source)
+    }
+    // Record the repack as an override for the decision history (Phase 12).
+    if (targetMove) {
+      logRepack(
+        reservation.id,
+        reservation.partySize,
+        reservation.estimatedDuration,
+        targetMove.toTableIds,
+      )
     }
   }
 
