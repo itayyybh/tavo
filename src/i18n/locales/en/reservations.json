@@ -144,7 +144,8 @@
     "repackBody": "Reassign {{count}} other booking(s) to fit this party:",
     "repackSeat": "Seat {{name}} at {{tables}}",
     "repackMove": "Move {{name}} from {{from}} to {{to}}",
-    "repackApply": "Apply & reserve"
+    "repackApply": "Apply & reserve",
+    "repackApplied": "Seated {{name}} · moved {{count}} booking(s)"
   },
   "reason": {
     "exactFit": "Exact fit",
@@ -250,8 +251,11 @@
     "title": "Optimize seating",
     "body": "Reshuffle tentative bookings to seat {{count}} party(ies) that don't currently fit:",
     "cancel": "Cancel",
-    "apply": "Apply repack"
+    "apply": "Apply repack",
+    "applied": "Optimized · seated {{count}} party(ies) by reshuffling"
   },
   "seedRepackDemo": "Repack demo",
-  "seedRepackDemoUnavailable": "This floor can’t stage a repack demo (needs a big table + a spare smaller table in one zone)."
+  "seedRepackDemoUnavailable": "This floor can’t stage a repack demo (needs a big table + a spare smaller table in one zone).",
+  "assignAllDone": "Seated {{count}} reservation(s)",
+  "assignAllDoneRepack": "Seated {{count}} · {{repack}} via reshuffle"
 }

@@ -1,5 +1,6 @@
 import { useCallback } from 'react'
-import { useReservationStore, useDecisionLogStore } from '@/stores'
+import { useTranslation } from 'react-i18next'
+import { useReservationStore, useDecisionLogStore, useToastStore } from '@/stores'
 import { useSeatingFloor } from '@/hooks/useSeatingFloor'
 import { suggestSeating, optimizeAssignments } from '@/services/seating'
 import { isActiveStatus } from '@/utils'
@@ -22,12 +23,14 @@ function needsAssignment(r: Reservation): boolean {
  * with `canSeat`'s turnover buffer keeping them apart. Every decision is logged.
  */
 export function useAssignAll() {
+  const { t } = useTranslation('reservations')
   const reservations = useReservationStore((s) => s.reservations)
   const assignTable = useReservationStore((s) => s.assignTable)
   const clearAssignment = useReservationStore((s) => s.clearAssignment)
   const logSuggestion = useDecisionLogStore((s) => s.logSuggestion)
   const recordAccept = useDecisionLogStore((s) => s.recordAccept)
   const logRepack = useDecisionLogStore((s) => s.logRepack)
+  const notify = useToastStore((s) => s.notify)
   const floor = useSeatingFloor()
 
   const assignableCount = reservations.filter(needsAssignment).length
@@ -42,6 +45,9 @@ export function useAssignAll() {
     const queue = working
       .filter(needsAssignment)
       .sort((a, b) => Date.parse(a.dateTime) - Date.parse(b.dateTime))
+
+    let seated = 0
+    let viaRepack = 0
 
     for (const res of queue) {
       const others = working.filter((r) => r.id !== res.id)
@@ -64,6 +70,8 @@ export function useAssignAll() {
         const targetTables =
           plan.moves.find((m) => m.reservationId === res.id)?.toTableIds ?? []
         logRepack(res.id, res.partySize, res.estimatedDuration, targetTables)
+        seated += 1
+        viaRepack += 1
         continue
       }
 
@@ -81,8 +89,15 @@ export function useAssignAll() {
           ? { ...r, assignedTableIds: best.candidate.tableIds, assignmentSource: 'auto' }
           : r,
       )
+      seated += 1
     }
-  }, [reservations, floor, assignTable, logSuggestion, recordAccept, logRepack])
+
+    notify(
+      viaRepack > 0
+        ? t('assignAllDoneRepack', { count: seated, repack: viaRepack })
+        : t('assignAllDone', { count: seated }),
+    )
+  }, [reservations, floor, assignTable, logSuggestion, recordAccept, logRepack, notify, t])
 
   const clearAll = useCallback(() => {
     for (const r of reservations) {

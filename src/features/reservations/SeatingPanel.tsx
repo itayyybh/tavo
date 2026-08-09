@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
 import { Button, Panel, Text } from '@/components/ui'
-import { useReservationStore, useDecisionLogStore } from '@/stores'
+import { useReservationStore, useDecisionLogStore, useToastStore } from '@/stores'
 import { useSeatingFloor } from '@/hooks/useSeatingFloor'
 import {
   suggestSeating,
@@ -33,6 +33,7 @@ export function SeatingPanel({ reservation }: SeatingPanelProps) {
   const logSuggestion = useDecisionLogStore((s) => s.logSuggestion)
   const recordAccept = useDecisionLogStore((s) => s.recordAccept)
   const logRepack = useDecisionLogStore((s) => s.logRepack)
+  const notify = useToastStore((s) => s.notify)
 
   // Labels + zone names for display, resolved once from the floor snapshot.
   const tableLabel = useMemo(
@@ -95,6 +96,10 @@ export function SeatingPanel({ reservation }: SeatingPanelProps) {
         targetMove.toTableIds,
       )
     }
+    const moved = repackPlan.moves.filter(
+      (m) => m.reservationId !== repackPlan.target,
+    ).length
+    notify(t('seating.repackApplied', { name: reservation.guestName, count: moved }))
   }
 
   const assigned = reservation.assignedTableIds ?? []
