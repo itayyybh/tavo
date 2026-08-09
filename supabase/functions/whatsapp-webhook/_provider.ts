@@ -63,6 +63,14 @@ export interface WhatsAppProvider {
 
   /** Send a text reply to the guest. */
   sendMessage(msg: OutboundMessage): Promise<void>
+
+  /**
+   * TEST-ONLY (optional): return and clear the replies sent during this request
+   * so a local chat client can display them inline. The mock implements this;
+   * real transports (Meta) leave it undefined — replies go over the wire, not
+   * back in the webhook response.
+   */
+  drainOutbox?(): OutboundMessage[]
 }
 
 /**

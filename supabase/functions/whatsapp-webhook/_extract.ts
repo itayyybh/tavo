@@ -45,21 +45,25 @@ export async function extractDraft(
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY not set')
 
   const zoneNames = ctx.zones.map((z) => z.name)
-  const nowISO = new Date().toISOString()
+  // The app's convention is implicit-local-time: a booking's wall-clock time is
+  // interpreted in the restaurant's local zone. We give the model the current
+  // LOCAL date/time and ask for a naive local wall-clock datetime (no timezone
+  // designator); mergeDraft converts it exactly like the manual form does.
+  const nowLocal = formatLocalNow()
 
   const system =
     'You extract restaurant booking details from a WhatsApp conversation between ' +
     'a guest and a booking assistant. Capture ONLY what the guest has actually ' +
     'stated or clearly confirmed — never guess a value that was not given. ' +
     'Resolve relative dates and times (e.g. "tonight", "tomorrow 8pm", "next ' +
-    `Friday") against the current time and the restaurant timezone into a full ` +
-    'ISO 8601 datetime with offset. For the zone, use ONLY a name from the ' +
-    'provided list; if the guest asked for an area not in the list, omit it. ' +
-    'Leave any field the guest has not provided unset.'
+    'Friday") against the current local date/time provided. Output dateTime as a ' +
+    'LOCAL wall-clock time in the exact format YYYY-MM-DDTHH:mm:ss with NO ' +
+    'timezone designator, no "Z", and no offset. For the zone, use ONLY a name ' +
+    'from the provided list; if the guest asked for an area not in the list, ' +
+    'omit it. Leave any field the guest has not provided unset.'
 
   const prompt =
-    `Current time: ${nowISO}\n` +
-    `Restaurant timezone: ${ctx.timezone ?? 'UTC'}\n` +
+    `Current local date and time: ${nowLocal}\n` +
     `Bookable zones: ${JSON.stringify(zoneNames)}\n` +
     `Draft so far: ${JSON.stringify(current)}\n\n` +
     `Conversation (oldest first):\n` +
@@ -137,8 +141,15 @@ function mergeDraft(
   if (Number.isFinite(raw.partySize) && (raw.partySize as number) > 0) {
     next.partySize = Math.floor(raw.partySize as number)
   }
-  if (typeof raw.dateTime === 'string' && !Number.isNaN(Date.parse(raw.dateTime))) {
-    next.dateTime = raw.dateTime
+  if (typeof raw.dateTime === 'string') {
+    // The model returns a naive local wall-clock string. Convert it to a UTC
+    // instant exactly like the manual form's combineDateTime() does — parsed in
+    // the runtime's local zone (the restaurant's zone by the app's convention),
+    // so the engine reads back the intended wall-clock hour. Strip any stray
+    // timezone the model may have added so it's always interpreted as local.
+    const naive = raw.dateTime.trim().replace(/(Z|[+-]\d{2}:?\d{2})$/, '')
+    const d = new Date(naive)
+    if (!Number.isNaN(d.getTime())) next.dateTime = d.toISOString()
   }
   if (typeof raw.preferredZoneName === 'string') {
     const zone = ctx.zones.find(
@@ -151,4 +162,14 @@ function mergeDraft(
   }
 
   return next
+}
+
+/**
+ * Current date/time as a naive local wall-clock string (YYYY-MM-DDTHH:mm:ss) in
+ * the runtime's zone — the restaurant's zone by the app's implicit-local-time
+ * convention. Feeds the model so it resolves "tonight"/"tomorrow" correctly.
+ */
+function formatLocalNow(): string {
+  // 'sv-SE' formats as "YYYY-MM-DD HH:mm:ss"; swap the space for a T.
+  return new Date().toLocaleString('sv-SE').replace(' ', 'T')
 }

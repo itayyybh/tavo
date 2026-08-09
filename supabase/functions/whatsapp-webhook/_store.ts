@@ -41,6 +41,10 @@ export interface DraftFields {
 export interface ConversationState {
   draft: DraftFields
   transcript: TranscriptEntry[]
+  /** Guest confirmed this is a separate booking despite the duplicate warning. */
+  dupAck?: boolean
+  /** A confirmation prompt was sent; a "yes" now finalizes the booking (step 8). */
+  awaitingConfirm?: boolean
 }
 
 /** A loaded conversation row (only the fields the flow needs). */
@@ -198,5 +202,7 @@ function normalizeState(raw: unknown): ConversationState {
   return {
     draft: s.draft ?? {},
     transcript: Array.isArray(s.transcript) ? s.transcript : [],
+    dupAck: s.dupAck ?? false,
+    awaitingConfirm: s.awaitingConfirm ?? false,
   }
 }

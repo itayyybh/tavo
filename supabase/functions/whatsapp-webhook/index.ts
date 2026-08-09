@@ -29,12 +29,13 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getProvider } from './_provider.ts'
 import type { InboundMessage } from './_provider.ts'
 import { extractDraft } from './_extract.ts'
+import { decideReply } from './_flow.ts'
+import { detectLang } from './_reply.ts'
 import {
   loadOrCreateConversation,
   loadRestaurantContext,
   resolveRestaurantId,
   saveState,
-  type DraftFields,
 } from './_store.ts'
 
 const DEFAULT_TIMEOUT_MIN = 45
@@ -77,6 +78,16 @@ Deno.serve(async (req) => {
       console.error('[whatsapp] handle failed', err)
     }
   }
+
+  // In mock mode, echo the replies in the response so the local chat client can
+  // show them inline. Real transports send over the wire and leave this unset.
+  const replies = provider.drainOutbox?.()
+  if (replies) {
+    return new Response(JSON.stringify({ replies }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
   return new Response('ok', { status: 200 })
 })
 
@@ -104,6 +115,10 @@ async function handleMessage(
 
   convo.state.transcript.push({ role: 'guest', text: msg.text, at: msg.timestamp })
 
+  // Reply in the guest's own language (detected from what they've written) —
+  // the app has no per-restaurant language, only a per-device locale.
+  const lang = detectLang(convo.state.transcript.filter((t) => t.role === 'guest').map((t) => t.text).join(' '))
+
   // Extract structured booking fields from the conversation, grounded in the
   // restaurant's real zones + timezone. The phone is the WhatsApp number, not
   // something the model guesses.
@@ -111,31 +126,26 @@ async function handleMessage(
   convo.state.draft = await extractDraft(convo.state.transcript, convo.state.draft, ctx)
   convo.state.draft.phone = msg.from
 
-  // TODO (step 7): validate the assembled draft, run the availability engine and
-  // duplicate check, and reply with i18n templates in the restaurant's language;
-  // (step 8) insert on confirm and send the confirmation. For now, ask for the
-  // next missing field so the multi-turn flow is exercisable.
-  const reply = interimReply(convo.state.draft)
+  // Decide the next reply using the shared validation, availability engine, and
+  // duplicate check (mutates state: dupAck / awaitingConfirm).
+  // TODO (step 8): when decision.readyToBook and the guest replies affirmatively
+  // to the confirm prompt, insertReservation(source 'whatsapp', pending) and
+  // send the 'booked' reply; mark the conversation confirmed.
+  const decision = await decideReply(
+    supabase,
+    restaurantId,
+    convo.state,
+    ctx,
+    lang,
+    msg.text,
+  )
 
   convo.state.transcript.push({
     role: 'bot',
-    text: reply,
+    text: decision.text,
     at: new Date().toISOString(),
   })
   await saveState(supabase, convo.id, convo.state)
 
-  await provider.sendMessage({ to: msg.from, text: reply })
-}
-
-/**
- * Interim reply: acknowledge what was understood and ask for the next missing
- * required field. Deliberately plain English — step 7 replaces this with
- * localized templates that also reflect the availability check.
- */
-function interimReply(draft: DraftFields): string {
-  if (!draft.guestName) return "Happy to help with a booking! What name should it be under?"
-  if (!draft.partySize) return `Thanks ${draft.guestName}. How many people?`
-  if (!draft.dateTime) return "Great — what date and time would you like?"
-  if (!draft.preferredZoneId) return "Any seating area preference?"
-  return "Got everything — I'll confirm availability and get back to you shortly."
+  await provider.sendMessage({ to: msg.from, text: decision.text })
 }

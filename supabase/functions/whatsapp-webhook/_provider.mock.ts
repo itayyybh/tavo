@@ -91,4 +91,9 @@ export class MockWhatsAppProvider implements WhatsAppProvider {
     console.log(`[mock whatsapp] -> ${msg.to}: ${msg.text}`)
     return Promise.resolve()
   }
+
+  /** Return + clear the replies captured this request (for the local chat client). */
+  drainOutbox(): OutboundMessage[] {
+    return mockOutbox.splice(0, mockOutbox.length)
+  }
 }
