@@ -616,7 +616,7 @@ export function FloorCanvas() {
       />
       <div
         ref={containerRef}
-        className="relative min-h-0 flex-1 bg-[#ececeb] dark:bg-[#141414]"
+        className="relative min-h-0 flex-1 bg-[#ececeb] dark:bg-[#0d1013]"
         style={{ touchAction: 'none' }}
         onDragOver={(e) => {
           e.preventDefault()

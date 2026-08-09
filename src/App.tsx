@@ -96,7 +96,7 @@ export default function App() {
           <AccountMenu />
         </div>
       </header>
-      <main className="min-h-0 flex-1 overflow-auto bg-surface-2">
+      <main className="min-h-0 flex-1 overflow-auto bg-canvas">
         <Outlet />
       </main>
       <Toaster />
