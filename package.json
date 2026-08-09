@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "build:edge": "npx esbuild src/services/seating/availabilityServer.ts --bundle --format=esm --platform=neutral --tsconfig=tsconfig.app.json --outfile=supabase/functions/check-availability/_engine.mjs",
+    "build:edge:whatsapp": "npx esbuild src/services/whatsapp/reservationServer.ts --bundle --format=esm --platform=neutral --tsconfig=tsconfig.app.json --outfile=supabase/functions/whatsapp-webhook/_reservation.mjs",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
