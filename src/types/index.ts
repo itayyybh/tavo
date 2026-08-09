@@ -161,6 +161,7 @@ export const RESERVATION_SOURCES = [
   'walk_in',
   'website',
   'google',
+  'whatsapp',
 ] as const
 export type ReservationSource = (typeof RESERVATION_SOURCES)[number]
 
