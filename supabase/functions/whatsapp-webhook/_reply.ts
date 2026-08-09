@@ -25,6 +25,7 @@ export type ReplyKind =
   | 'askParty'
   | 'askDateTime'
   | 'askZone'
+  | 'askSmoking'
   | 'unavailable'
   | 'duplicate'
   | 'confirmPrompt'
@@ -48,6 +49,7 @@ const TEMPLATES: Record<Lang, Record<ReplyKind, Template>> = {
     askParty: (p) => `Thanks${p.name ? ' ' + p.name : ''}. How many people?`,
     askDateTime: () => 'Great — what date and time would you like?',
     askZone: () => 'Any seating area preference?',
+    askSmoking: () => 'Sure — smoking or non-smoking?',
     unavailable: (p) =>
       `Sorry, we don't have a table${p.zone ? ' in ' + p.zone : ''}${
         p.when ? ' at ' + p.when : ''
@@ -71,6 +73,7 @@ const TEMPLATES: Record<Lang, Record<ReplyKind, Template>> = {
     askParty: (p) => `תודה${p.name ? ' ' + p.name : ''}. כמה סועדים?`,
     askDateTime: () => 'מעולה — לאיזה תאריך ושעה?',
     askZone: () => 'יש העדפה לאזור ישיבה?',
+    askSmoking: () => 'בטח — מעשנים או לא מעשנים?',
     unavailable: (p) =>
       `מצטערים, אין לנו שולחן פנוי${p.zone ? ' ב' + p.zone : ''}${
         p.when ? ' ב' + p.when : ''

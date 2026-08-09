@@ -27,6 +27,8 @@ interface Extracted {
   partySize?: number
   dateTime?: string
   preferredZoneName?: string
+  /** Set when the requested area is ambiguous between smoking/non-smoking zones. */
+  needsSmokingChoice?: boolean
   notes?: string
 }
 
@@ -45,6 +47,9 @@ export async function extractDraft(
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY not set')
 
   const zoneNames = ctx.zones.map((z) => z.name)
+  // Zones with their smoking policy, so the model can resolve a specific zone
+  // from a smoking/non-smoking answer and detect an ambiguous area request.
+  const zoneList = ctx.zones.map((z) => ({ name: z.name, smoking: z.smoking }))
   // The app's convention is implicit-local-time: a booking's wall-clock time is
   // interpreted in the restaurant's local zone. We give the model the current
   // LOCAL date/time and ask for a naive local wall-clock datetime (no timezone
@@ -60,11 +65,16 @@ export async function extractDraft(
     'LOCAL wall-clock time in the exact format YYYY-MM-DDTHH:mm:ss with NO ' +
     'timezone designator, no "Z", and no offset. For the zone, use ONLY a name ' +
     'from the provided list; if the guest asked for an area not in the list, ' +
-    'omit it. Leave any field the guest has not provided unset.'
+    'omit it. If the guest asks for a general area (e.g. "outside") that matches ' +
+    'MORE THAN ONE zone differing only by smoking policy, do NOT pick one: leave ' +
+    'preferredZoneName unset and set needsSmokingChoice=true. When the guest then ' +
+    'says smoking or non-smoking, resolve to that specific zone by its smoking ' +
+    'policy and set needsSmokingChoice=false. Leave any field the guest has not ' +
+    'provided unset.'
 
   const prompt =
     `Current local date and time: ${nowLocal}\n` +
-    `Bookable zones: ${JSON.stringify(zoneNames)}\n` +
+    `Bookable zones (name + smoking policy): ${JSON.stringify(zoneList)}\n` +
     `Draft so far: ${JSON.stringify(current)}\n\n` +
     `Conversation (oldest first):\n` +
     transcript.map((t) => `${t.role === 'guest' ? 'Guest' : 'Assistant'}: ${t.text}`).join('\n')
@@ -101,6 +111,11 @@ export async function extractDraft(
                 type: 'string',
                 enum: zoneNames,
                 description: 'Requested seating area — only from the provided list.',
+              },
+              needsSmokingChoice: {
+                type: 'boolean',
+                description:
+                  'True when the requested area matches multiple zones differing only by smoking policy and the guest has not chosen yet.',
               },
               notes: {
                 type: 'string',
@@ -157,6 +172,9 @@ function mergeDraft(
     )
     if (zone) next.preferredZoneId = zone.id
   }
+  // A resolved zone always wins over an ambiguity flag; otherwise honor the
+  // model's signal that it needs the guest to pick smoking vs non-smoking.
+  next.needsSmokingChoice = next.preferredZoneId ? false : raw.needsSmokingChoice === true
   if (typeof raw.notes === 'string' && raw.notes.trim()) {
     next.notes = raw.notes.trim()
   }

@@ -35,6 +35,12 @@ export interface DraftFields {
   estimatedDuration?: number
   preferredZoneId?: string
   notes?: string
+  /**
+   * Set when the guest asked for an area (e.g. "outside") that matches multiple
+   * zones differing only by smoking policy — the flow then asks smoking vs
+   * non-smoking. Cleared once a specific zone is resolved.
+   */
+  needsSmokingChoice?: boolean
 }
 
 /** Everything persisted in `whatsapp_conversations.state`. */
@@ -162,6 +168,8 @@ export async function markStatus(
 export interface ZoneRef {
   id: string
   name: string
+  /** Smoking policy, used to disambiguate a general request like "outside". */
+  smoking: 'smoking' | 'non-smoking' | null
 }
 
 /** Restaurant context the LLM needs to talk about real zones and resolve times. */
@@ -184,7 +192,7 @@ export async function loadRestaurantContext(
   const [zonesRes, restRes] = await Promise.all([
     supabase
       .from('zones')
-      .select('id, name, bookable')
+      .select('id, name, bookable, smoking')
       .eq('restaurant_id', restaurantId),
     supabase.from('restaurants').select('timezone').eq('id', restaurantId).maybeSingle(),
   ])
@@ -192,7 +200,11 @@ export async function loadRestaurantContext(
   if (restRes.error) throw restRes.error
   const zones = (zonesRes.data ?? [])
     .filter((z) => z.bookable !== false)
-    .map((z) => ({ id: z.id as string, name: z.name as string }))
+    .map((z) => ({
+      id: z.id as string,
+      name: z.name as string,
+      smoking: (z.smoking as 'smoking' | 'non-smoking' | null) ?? null,
+    }))
   return { zones, timezone: (restRes.data?.timezone as string | null) ?? null }
 }
 

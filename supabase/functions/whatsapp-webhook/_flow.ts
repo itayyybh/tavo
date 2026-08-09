@@ -75,7 +75,12 @@ export async function decideReply(
   if (errors.guestName) return notReady(state, reply(lang, 'askName', params))
   if (errors.partySize) return notReady(state, reply(lang, 'askParty', params))
   if (errors.dateTime) return notReady(state, reply(lang, 'askDateTime', params))
-  if (errors.preferredZoneId) return notReady(state, reply(lang, 'askZone', params))
+  if (errors.preferredZoneId) {
+    // A general area like "outside" that spans smoking + non-smoking zones —
+    // ask the guest to pick rather than dropping the preference.
+    const kind = d.needsSmokingChoice ? 'askSmoking' : 'askZone'
+    return notReady(state, reply(lang, kind, params))
+  }
 
   // Draft is complete. Soft duplicate warning — surfaced once; the guest can
   // confirm it's a separate booking with an affirmative reply.
