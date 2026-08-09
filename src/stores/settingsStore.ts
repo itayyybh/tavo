@@ -28,6 +28,14 @@ const loadLocale = (): Locale => {
   return isLocale(saved) ? saved : DEFAULT_LOCALE
 }
 
+/** Per-device display pref (like locale): show the booked-table marker. */
+const BOOKED_MARK_STORAGE_KEY = 'rfm-show-booked-mark'
+
+const loadBookedMark = (): boolean => {
+  if (typeof localStorage === 'undefined') return true
+  return localStorage.getItem(BOOKED_MARK_STORAGE_KEY) !== '0'
+}
+
 /** Default Seating Engine config (store-free module, shared with the server). */
 const DEFAULT_SEATING = DEFAULT_SEATING_CONFIG
 
@@ -77,6 +85,12 @@ interface SettingsState {
   /** Active app language. Drives translation + text direction (Phase: i18n). */
   locale: Locale
   /**
+   * Live Floor display: show a small mark on tables that hold a booking
+   * (reserved or upcoming). Per-device preference — persisted to localStorage,
+   * excluded from the tenant config (like `locale`).
+   */
+  showBookedMark: boolean
+  /**
    * DB hydration flag (Phase 11). Autosave is gated on this so the pre-hydration
    * defaults never overwrite a restaurant's saved settings (mirrors the layout
    * store). Locale is excluded from persistence — it's per-user, not per-tenant.
@@ -86,6 +100,7 @@ interface SettingsState {
   /** Apply a config loaded from the database. Does not touch `locale`. */
   loadConfig: (config: RestaurantSettingsConfig) => void
   setLocale: (locale: Locale) => void
+  setShowBookedMark: (on: boolean) => void
   setGridSize: (size: number) => void
   setSnapToGrid: (snap: boolean) => void
   setPathWidth: (width: number) => void
@@ -123,6 +138,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   reservationRules: DEFAULT_RESERVATION_RULES,
   bookingRestrictions: DEFAULT_BOOKING_RESTRICTIONS,
   locale: loadLocale(),
+  showBookedMark: loadBookedMark(),
   hydrated: false,
   setHydrated: (hydrated) => set({ hydrated }),
   loadConfig: (config) =>
@@ -144,6 +160,11 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     if (typeof localStorage !== 'undefined')
       localStorage.setItem(LOCALE_STORAGE_KEY, locale)
     set({ locale })
+  },
+  setShowBookedMark: (showBookedMark) => {
+    if (typeof localStorage !== 'undefined')
+      localStorage.setItem(BOOKED_MARK_STORAGE_KEY, showBookedMark ? '1' : '0')
+    set({ showBookedMark })
   },
   setGridSize: (gridSize) => set({ gridSize }),
   setSnapToGrid: (snapToGrid) => set({ snapToGrid }),

@@ -22,19 +22,46 @@
   "rules": {
     "title": "Reservation rules",
     "description": "When a booking may be placed.",
-    "latestBooking": { "label": "Latest booking time", "help": "Latest clock time a booking may be made for. Leave blank for no cutoff." },
-    "minAdvance": { "label": "Minimum advance", "help": "How far ahead a booking must be made." },
-    "allowSameDay": { "label": "Allow same-day bookings", "help": "Accept reservations for today." },
-    "allowAfterClosing": { "label": "Allow bookings after closing", "help": "Accept a booking for a time past the day's closing hour." }
+    "latestBooking": {
+      "label": "Latest booking time",
+      "help": "Latest clock time a booking may be made for. Leave blank for no cutoff."
+    },
+    "minAdvance": {
+      "label": "Minimum advance",
+      "help": "How far ahead a booking must be made."
+    },
+    "allowSameDay": {
+      "label": "Allow same-day bookings",
+      "help": "Accept reservations for today."
+    },
+    "allowAfterClosing": {
+      "label": "Allow bookings after closing",
+      "help": "Accept a booking for a time past the day's closing hour."
+    }
   },
   "party": {
     "title": "Guest & party rules",
     "description": "Accepted party sizes and how a party may be seated.",
-    "minSize": { "label": "Minimum party size", "help": "Smallest party a booking may have." },
-    "maxSize": { "label": "Maximum party size", "help": "Largest party a booking may have." },
-    "maxCombined": { "label": "Max combined tables", "help": "Most tables a single party may be merged across." },
-    "allowSplit": { "label": "Allow splitting a party", "help": "Seat one party across several separate tables." },
-    "allowAltZone": { "label": "Suggest alternative zones", "help": "Let the seating engine offer a table outside the preferred zone." }
+    "minSize": {
+      "label": "Minimum party size",
+      "help": "Smallest party a booking may have."
+    },
+    "maxSize": {
+      "label": "Maximum party size",
+      "help": "Largest party a booking may have."
+    },
+    "maxCombined": {
+      "label": "Max combined tables",
+      "help": "Most tables a single party may be merged across."
+    },
+    "allowSplit": {
+      "label": "Allow splitting a party",
+      "help": "Seat one party across several separate tables."
+    },
+    "allowAltZone": {
+      "label": "Suggest alternative zones",
+      "help": "Let the seating engine offer a table outside the preferred zone."
+    }
   },
   "defaults": {
     "title": "Default values",
@@ -43,9 +70,18 @@
   "closure": {
     "title": "Temporary closure",
     "description": "Stop all new bookings restaurant-wide.",
-    "active": { "label": "Closed to new bookings", "help": "No new reservations are accepted while this is on." },
-    "until": { "label": "Reopen date", "help": "Leave blank to stay closed until turned off." },
-    "reason": { "label": "Reason", "placeholder": "e.g. Private event" }
+    "active": {
+      "label": "Closed to new bookings",
+      "help": "No new reservations are accepted while this is on."
+    },
+    "until": {
+      "label": "Reopen date",
+      "help": "Leave blank to stay closed until turned off."
+    },
+    "reason": {
+      "label": "Reason",
+      "placeholder": "e.g. Private event"
+    }
   },
   "blocks": {
     "title": "Blocked dates",
@@ -63,19 +99,50 @@
   "floor": {
     "title": "Floor",
     "description": "Grid and drawing behaviour in the layout editor.",
-    "gridSize": { "label": "Grid size", "help": "Spacing of the editor grid, in world units." },
-    "snapToGrid": { "label": "Snap to grid", "help": "Tables and zones snap to the grid while dragging." },
-    "pathWidth": { "label": "Keep-clear brush width", "help": "Default width of freehand keep-clear paths." }
+    "gridSize": {
+      "label": "Grid size",
+      "help": "Spacing of the editor grid, in world units."
+    },
+    "snapToGrid": {
+      "label": "Snap to grid",
+      "help": "Tables and zones snap to the grid while dragging."
+    },
+    "pathWidth": {
+      "label": "Keep-clear brush width",
+      "help": "Default width of freehand keep-clear paths."
+    }
   },
   "seating": {
     "title": "Seating rules",
     "description": "How the floor turns over and when a booking blocks a table.",
-    "autoTurnover": { "label": "Automatic turnover", "help": "A cleaning table returns to available on its own after the buffer." },
-    "turnoverBuffer": { "label": "Turnover buffer", "help": "Minutes reserved between two bookings on the same table." },
-    "defaultStay": { "label": "Default stay", "help": "Stay time a new booking gets by default." },
-    "maxStay": { "label": "Maximum stay", "help": "Hard cap on how long a booking may hold a table." },
-    "reservedLookahead": { "label": "Reserved look-ahead", "help": "A table reads reserved only once a booking is due within this window." },
-    "waitlist": { "label": "Waiting list", "help": "Show the waiting-list rail on the Live Floor." }
+    "autoTurnover": {
+      "label": "Automatic turnover",
+      "help": "A cleaning table returns to available on its own after the buffer."
+    },
+    "turnoverBuffer": {
+      "label": "Turnover buffer",
+      "help": "Minutes reserved between two bookings on the same table."
+    },
+    "defaultStay": {
+      "label": "Default stay",
+      "help": "Stay time a new booking gets by default."
+    },
+    "maxStay": {
+      "label": "Maximum stay",
+      "help": "Hard cap on how long a booking may hold a table."
+    },
+    "reservedLookahead": {
+      "label": "Reserved look-ahead",
+      "help": "A table reads reserved only once a booking is due within this window."
+    },
+    "waitlist": {
+      "label": "Waiting list",
+      "help": "Show the waiting-list rail on the Live Floor."
+    },
+    "bookedMark": {
+      "label": "Booked-table marker",
+      "help": "Show a small mark on tables that hold a booking (reserved or upcoming). Per-device."
+    }
   },
   "zones": {
     "title": "Zone settings",
@@ -111,7 +178,10 @@
     "you": "(you)",
     "unknown": "Unknown user",
     "remove": "Remove",
-    "role": { "owner": "Owner", "manager": "Manager" },
+    "role": {
+      "owner": "Owner",
+      "manager": "Manager"
+    },
     "removeConfirm": {
       "title": "Remove member",
       "body": "Remove {{name}} from this restaurant? They lose access immediately.",
@@ -138,11 +208,26 @@
     "title": "Table rules",
     "description": "How the seating engine combines tables and picks a fit.",
     "seats": "seats",
-    "crossZone": { "label": "Allow cross-zone combining", "help": "Let a merge borrow tables from another zone." },
-    "maxCombined": { "label": "Max combined tables", "help": "Most tables one merge may span. Shared with Reservations." },
-    "maxUnderfill": { "label": "Max empty seats", "help": "How many seats a table/merge may exceed the party by." },
-    "exactFit": { "label": "Prefer a tight fit", "help": "Weight toward the smallest table that fits (less wasted capacity)." },
-    "fewer": { "label": "Prefer fewer tables", "help": "Weight toward a single table over a merge when both fit." }
+    "crossZone": {
+      "label": "Allow cross-zone combining",
+      "help": "Let a merge borrow tables from another zone."
+    },
+    "maxCombined": {
+      "label": "Max combined tables",
+      "help": "Most tables one merge may span. Shared with Reservations."
+    },
+    "maxUnderfill": {
+      "label": "Max empty seats",
+      "help": "How many seats a table/merge may exceed the party by."
+    },
+    "exactFit": {
+      "label": "Prefer a tight fit",
+      "help": "Weight toward the smallest table that fits (less wasted capacity)."
+    },
+    "fewer": {
+      "label": "Prefer fewer tables",
+      "help": "Weight toward a single table over a merge when both fit."
+    }
   },
   "preferredCombos": {
     "title": "Preferred large-party combos",
@@ -165,8 +250,14 @@
   "profile": {
     "title": "Restaurant profile",
     "description": "Identity used across the app.",
-    "name": { "label": "Restaurant name", "help": "Shown in the header and on invites." },
-    "timezone": { "label": "Time zone", "help": "Used for scheduling. Leave blank to follow this device." },
+    "name": {
+      "label": "Restaurant name",
+      "help": "Shown in the header and on invites."
+    },
+    "timezone": {
+      "label": "Time zone",
+      "help": "Used for scheduling. Leave blank to follow this device."
+    },
     "timezoneAuto": "Follow this device",
     "save": "Save profile",
     "saving": "Saving…",

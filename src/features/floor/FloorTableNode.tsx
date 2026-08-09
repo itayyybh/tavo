@@ -1,9 +1,10 @@
 import { useRef, type RefObject } from 'react'
-import { Circle, Group, Rect, Text } from 'react-konva'
+import { Circle, Group, Line, Rect, Text } from 'react-konva'
 import type Konva from 'konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { FloorTableStatus, TableType, Vec2 } from '@/types'
 import { mixHex } from '@/utils'
+import { useSettingsStore } from '@/stores'
 import type { EffectiveTable, TableUrgency } from '@/services/floor'
 import type { FloorCanvasColors } from './hooks/useFloorColors'
 import { useNodeColorTween } from './hooks/useNodeColorTween'
@@ -11,6 +12,10 @@ import { useNodePositionGlide } from './hooks/useNodePositionGlide'
 
 /** How far a table body is tinted toward its status color (0 = surface, 1 = full). */
 export const FLOOR_TINT = 0.22
+
+/** Reserved-table mark: dash length, and how far above the label it sits (world px). */
+const RESERVED_MARK = 8
+const RESERVED_MARK_Y = 12
 
 /**
  * Reserved-table ramp: as a booking nears, escalate through DISCRETE, vivid
@@ -79,6 +84,7 @@ export function FloorTableNode({
 }: FloorTableNodeProps) {
   const { base, status, position, rotation } = et
   const { x: w, y: h } = base.size
+  const showBookedMark = useSettingsStore((s) => s.showBookedMark)
   const shape = type?.shape ?? 'rectangle'
   const round = shape === 'round'
 
@@ -201,6 +207,20 @@ export function FloorTableNode({
       {!merged && (
         // Counter-rotated so captions stay upright as the table rotates.
         <Group x={w / 2} y={h / 2} rotation={-rotation} listening={false}>
+          {showBookedMark && (status === 'reserved' || !!et.upcomingReservationId) && (
+            // A small '-' just above the label marks a table that holds a booking
+            // — shown for ANY upcoming reservation, however far off (a far booking
+            // leaves the table `available` with only `upcomingReservationId` set),
+            // and independent of the urgency color ramp.
+            <Line
+              points={[-RESERVED_MARK / 2, -RESERVED_MARK_Y, RESERVED_MARK / 2, -RESERVED_MARK_Y]}
+              stroke={colors.status.reserved}
+              strokeWidth={2}
+              lineCap="round"
+              listening={false}
+              perfectDrawEnabled={false}
+            />
+          )}
           <Text
             text={primary}
             x={-w / 2}

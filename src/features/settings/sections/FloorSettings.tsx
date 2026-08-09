@@ -29,6 +29,8 @@ export function FloorSettings() {
   const setReservedLookaheadMin = useSettingsStore((s) => s.setReservedLookaheadMin)
   const waitlistEnabled = useSettingsStore((s) => s.waitlistEnabled)
   const setWaitlistEnabled = useSettingsStore((s) => s.setWaitlistEnabled)
+  const showBookedMark = useSettingsStore((s) => s.showBookedMark)
+  const setShowBookedMark = useSettingsStore((s) => s.setShowBookedMark)
 
   // Table rules (Seating Engine config).
   const merge = useSettingsStore((s) => s.seating.merge)
@@ -81,6 +83,10 @@ export function FloorSettings() {
         <SettingsDivider />
         <SettingRow label={t('seating.waitlist.label')} help={t('seating.waitlist.help')} htmlFor="set-wait">
           <Toggle id="set-wait" checked={waitlistEnabled} onChange={setWaitlistEnabled} aria-label={t('seating.waitlist.label')} />
+        </SettingRow>
+        <SettingsDivider />
+        <SettingRow label={t('seating.bookedMark.label')} help={t('seating.bookedMark.help')} htmlFor="set-bookedmark">
+          <Toggle id="set-bookedmark" checked={showBookedMark} onChange={setShowBookedMark} aria-label={t('seating.bookedMark.label')} />
         </SettingRow>
       </SettingsSection>
 
