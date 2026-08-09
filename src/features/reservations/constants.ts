@@ -10,7 +10,7 @@ import type { ReservationStatus } from '@/types'
  * Statuses surfaced in the UI right now. The data model keeps all 8 for Phase 7,
  * but hosts currently only work with Confirmed (auto on creation) and Arrived.
  */
-export const ACTIVE_UI_STATUSES: ReservationStatus[] = ['confirmed', 'arrived']
+export const ACTIVE_UI_STATUSES: ReservationStatus[] = ['pending', 'confirmed', 'arrived']
 
 /** Common service durations (minutes). Configurable — not restaurant rules. */
 export const DURATION_VALUES = [60, 90, 120, 150, 180] as const
