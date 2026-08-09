@@ -23,6 +23,7 @@ interface UIState {
   viewport: Viewport
   stageSize: { width: number; height: number }
   toggleTheme: () => void
+  setTheme: (theme: Theme) => void
   setTool: (tool: EditorTool) => void
   setSelection: (ids: string[]) => void
   toggleSelection: (id: string, additive: boolean) => void
@@ -34,8 +35,40 @@ interface UIState {
   setStageSize: (size: { width: number; height: number }) => void
 }
 
+const THEME_KEY = 'floor-manager.theme'
+
+/**
+ * Resolve the startup theme: an explicit prior choice wins; otherwise honor the
+ * OS preference so the app opens in the mode the manager already runs their
+ * device in. SSR-safe (falls back to light when there's no window).
+ */
+function initialTheme(): Theme {
+  if (typeof window === 'undefined') return 'light'
+  const saved = window.localStorage.getItem(THEME_KEY)
+  if (saved === 'light' || saved === 'dark') return saved
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+}
+
+/**
+ * Apply the theme to the document root AND persist it — synchronously, from the
+ * store action, so the `.dark` class is flipped BEFORE React re-renders. The
+ * Konva canvas reads its colors from these CSS vars via `getComputedStyle` during
+ * render (they can't be Tailwind classes); if the class only toggled in a
+ * post-render effect, the canvas would read the previous theme's values and lag
+ * one flip behind (black tables in light mode, and vice-versa).
+ */
+function applyTheme(theme: Theme): Theme {
+  if (typeof window !== 'undefined') {
+    document.documentElement.classList.toggle('dark', theme === 'dark')
+    window.localStorage.setItem(THEME_KEY, theme)
+  }
+  return theme
+}
+
+const startupTheme = applyTheme(initialTheme())
+
 export const useUIStore = create<UIState>((set) => ({
-  theme: 'light',
+  theme: startupTheme,
   tool: 'select',
   selectedTableIds: [],
   selectedObstacleId: null,
@@ -45,7 +78,8 @@ export const useUIStore = create<UIState>((set) => ({
   stageSize: { width: 0, height: 0 },
 
   toggleTheme: () =>
-    set((state) => ({ theme: state.theme === 'light' ? 'dark' : 'light' })),
+    set((state) => ({ theme: applyTheme(state.theme === 'light' ? 'dark' : 'light') })),
+  setTheme: (theme) => set({ theme: applyTheme(theme) }),
   setTool: (tool) => set({ tool }),
 
   setSelection: (ids) =>

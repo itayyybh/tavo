@@ -39,13 +39,17 @@ export function Dialog({ open, onClose, title, size = 'md', children }: DialogPr
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2, ease: 'easeOut' }}
         >
-          <div className="absolute inset-0 bg-ink/40" onClick={onClose} aria-hidden />
+          <div
+            className="absolute inset-0 bg-black/40 dark:bg-black/60"
+            onClick={onClose}
+            aria-hidden
+          />
           <motion.div
             role="dialog"
             aria-modal
             aria-label={title}
             className={cn(
-              'relative z-10 max-h-[90vh] w-full overflow-y-auto rounded-xl border border-line bg-surface p-6 shadow-[var(--shadow-soft)]',
+              'relative z-10 max-h-[90vh] w-full overflow-y-auto rounded-xl border border-line bg-surface-3 p-6 shadow-[var(--shadow-soft)]',
               sizeClass[size],
             )}
             initial={{ opacity: 0, scale: 0.98, y: 8 }}

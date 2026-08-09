@@ -12,6 +12,8 @@ export interface CanvasColors {
   /** Selection accent (Figma-like blue) for canvas selection borders/glows. */
   accent: string
   status: Record<TableStatus, string>
+  /** True in dark mode — lets canvas shapes adapt fills that don't flip via CSS. */
+  isDark: boolean
 }
 
 function readVar(name: string): string {
@@ -36,6 +38,7 @@ export function useCanvasColors(): CanvasColors {
       surface: readVar('--color-surface'),
       surface2: readVar('--color-surface-2'),
       accent: readVar('--color-accent'),
+      isDark: theme === 'dark',
       status: {
         available: readVar('--color-status-available'),
         reserved: readVar('--color-status-reserved'),
