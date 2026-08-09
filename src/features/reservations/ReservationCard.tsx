@@ -34,7 +34,8 @@ function ReservationCardBase({
 }: ReservationCardProps) {
   const { t } = useTranslation('reservations')
   const labels = useReservationLabels()
-  const { guestName, partySize, dateTime, status, occasion, preferences } = reservation
+  const { guestName, partySize, dateTime, status, occasion, preferences, source } =
+    reservation
   const vip = preferences?.vip
 
   return (
@@ -67,6 +68,14 @@ function ReservationCardBase({
         </div>
         <div className="mt-0.5 flex items-center gap-2 text-xs text-muted">
           <span className="tabular-nums">{t('card.guest', { count: partySize })}</span>
+          {source === 'whatsapp' && (
+            <span className="inline-flex items-center gap-1 rounded-full border border-black/5 bg-[#25D366]/15 px-2 py-0.5 text-[10px] font-medium text-neutral-900">
+              <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor" aria-hidden>
+                <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22h.004c5.46 0 9.91-4.45 9.91-9.91C21.95 6.45 17.5 2 12.04 2Zm5.8 14.03c-.24.68-1.4 1.3-1.94 1.34-.5.05-1.12.24-3.66-.77-3.08-1.21-5.05-4.34-5.2-4.54-.15-.2-1.24-1.65-1.24-3.15 0-1.5.79-2.24 1.07-2.54.28-.3.61-.38.81-.38.2 0 .4 0 .58.01.19.01.44-.07.68.52.24.6.83 2.07.9 2.22.07.15.12.32.02.52-.1.2-.15.32-.3.5-.15.17-.31.39-.44.52-.15.15-.3.31-.13.6.17.3.76 1.25 1.63 2.02 1.12.99 2.06 1.3 2.36 1.45.3.15.47.12.65-.07.18-.2.75-.87.95-1.17.2-.3.4-.25.68-.15.28.1 1.76.83 2.06.98.3.15.5.22.58.35.07.13.07.72-.17 1.4Z" />
+              </svg>
+              {labels.source('whatsapp')}
+            </span>
+          )}
           {zoneName && (
             <span
               className="rounded-full border border-black/5 px-2 py-0.5 text-[10px] font-medium text-neutral-900"

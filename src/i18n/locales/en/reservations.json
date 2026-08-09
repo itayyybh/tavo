@@ -42,7 +42,8 @@
     "phone": "Phone",
     "walk_in": "Walk-In",
     "website": "Website",
-    "google": "Google"
+    "google": "Google",
+    "whatsapp": "WhatsApp"
   },
   "occasion": {
     "birthday": "Birthday",
