@@ -275,4 +275,55 @@ describe('optimizeAssignments', () => {
     expect(moveFor(plan!, 'A')!.toTableIds).toEqual(['T1'])
     expect(moveFor(plan!, 'C')).toBeUndefined()
   })
+
+  it('shares one table across two time-disjoint bookings to free the target', () => {
+    // Only ONE deuce exists. A parks on the 8-top early (20:00–20:30); B holds
+    // the deuce late (21:00–21:30). Their windows don't collide, so the deuce can
+    // seat BOTH — A relocates onto it beside B, freeing the 8-top for the party.
+    // A flat one-booking-per-table model would fail here for lack of a spare.
+    const tables = [table('8', BIG), table('1', SMALL)]
+    const floor = floorOf(tables)
+    const a = res('A', 2, {
+      assignedTableIds: ['T8'],
+      assignmentSource: 'auto',
+      dateTime: '2026-08-12T20:00:00',
+      estimatedDuration: 30,
+    })
+    const b = res('B', 2, {
+      assignedTableIds: ['T1'],
+      assignmentSource: 'auto',
+      dateTime: '2026-08-12T21:00:00',
+      estimatedDuration: 30,
+    })
+    const target = res('target', 8, { estimatedDuration: 120 })
+
+    const plan = optimizeAssignments(target, floor, [a, b, target])
+
+    expect(plan).not.toBeNull()
+    expect(moveFor(plan!, 'target')!.toTableIds).toEqual(['T8'])
+    // A moved onto the shared deuce; B stayed put.
+    expect(moveFor(plan!, 'A')!.toTableIds).toEqual(['T1'])
+    expect(moveFor(plan!, 'B')).toBeUndefined()
+  })
+
+  it('never double-books a table for two overlapping bookings', () => {
+    // Same two-table floor, but A and B now overlap in time. A must leave the
+    // 8-top for the party, yet the only deuce is held by B during a colliding
+    // window — they can't share, there's nowhere else, so there is no plan.
+    const tables = [table('8', BIG), table('1', SMALL)]
+    const floor = floorOf(tables)
+    const a = res('A', 2, {
+      assignedTableIds: ['T8'],
+      assignmentSource: 'auto',
+      estimatedDuration: 120,
+    })
+    const b = res('B', 2, {
+      assignedTableIds: ['T1'],
+      assignmentSource: 'auto',
+      estimatedDuration: 120,
+    })
+    const target = res('target', 8)
+
+    expect(optimizeAssignments(target, floor, [a, b, target])).toBeNull()
+  })
 })

@@ -15,10 +15,11 @@
  *   manually, is never reshuffled — a manual assignment is pinned.
  * - Only reservations whose time window overlaps the target's (± turnover
  *   buffer) are considered — the ones actually in the way.
- * - Within that set, the search treats every reservation as mutually exclusive
- *   on tables (conservative): a produced plan is always valid, though a tighter
- *   packing that relies on two members not overlapping each other may be missed.
- *   That's a Step-1 simplification, not a correctness gap.
+ * - Within that set the search is time-aware: a table may serve several members
+ *   in one plan when their windows are pairwise compatible (don't collide once
+ *   padded by the turnover buffer), so one deuce can hold an early and a late
+ *   booking. This finds tighter packings than a flat one-member-per-table model
+ *   while never double-booking a table for overlapping windows.
  *
  * Feasibility and rules are NOT re-implemented: candidate generation
  * (`generateCandidates`), hard constraints (`canSeat`), and time-window
@@ -162,22 +163,40 @@ export function optimizeAssignments(
   }
 
   // Depth-first assignment: give every reservation a candidate whose tables are
-  // disjoint from those already taken in this placement. First solution wins;
-  // ordering above makes it a low-move one.
+  // free for ITS window. A table may serve several members in one plan as long
+  // as they're pairwise time-compatible (their windows don't collide once padded
+  // by the turnover buffer) — so one deuce can seat an early and a late booking,
+  // freeing other tables for the target. First solution wins; the ranking above
+  // makes it a low-move one.
   const chosen = new Map<ID, ID[]>()
-  const used = new Set<ID>()
+  const occupants = new Map<ID, Reservation[]>()
   let branches = 0
+
+  const collidesAt = (tableId: ID, r: Reservation): boolean =>
+    (occupants.get(tableId) ?? []).some((o) => windowsCollide(r, o, buffer))
+
+  const occupy = (tableId: ID, r: Reservation) => {
+    const here = occupants.get(tableId)
+    if (here) here.push(r)
+    else occupants.set(tableId, [r])
+  }
+  const release = (tableId: ID, r: Reservation) => {
+    const here = occupants.get(tableId)
+    if (!here) return
+    here.splice(here.indexOf(r), 1)
+    if (here.length === 0) occupants.delete(tableId)
+  }
 
   const search = (i: number): boolean => {
     if (i === toPlace.length) return true
     if (++branches > branchCap) return false
     const r = toPlace[i]
     for (const c of pool.get(r.id)!) {
-      if (c.tableIds.some((id) => used.has(id))) continue
-      for (const id of c.tableIds) used.add(id)
+      if (c.tableIds.some((id) => collidesAt(id, r))) continue
+      for (const id of c.tableIds) occupy(id, r)
       chosen.set(r.id, c.tableIds)
       if (search(i + 1)) return true
-      for (const id of c.tableIds) used.delete(id)
+      for (const id of c.tableIds) release(id, r)
       chosen.delete(r.id)
     }
     return false

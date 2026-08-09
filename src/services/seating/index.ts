@@ -23,6 +23,7 @@ export {
   type RepackPlan,
   type AssignmentMove,
 } from './optimizeAssignments'
+export { planSheetRepack, type SheetRepackPlan } from './planSheetRepack'
 export {
   tableFootprint,
   centerDistance,
