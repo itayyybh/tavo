@@ -6,6 +6,7 @@ import { dirForLocale } from '@/i18n/config'
 import { useSessionStore, useSettingsStore, useUIStore } from '@/stores'
 import { AccountMenu, useCan } from '@/features/auth'
 import { LanguageToggle } from '@/components/LanguageToggle'
+import { Toaster } from '@/components/ui'
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   [
@@ -98,6 +99,7 @@ export default function App() {
       <main className="min-h-0 flex-1 overflow-auto bg-surface-2">
         <Outlet />
       </main>
+      <Toaster />
     </div>
   )
 }

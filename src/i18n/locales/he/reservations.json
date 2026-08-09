@@ -144,7 +144,8 @@
     "repackBody": "שיבוץ מחדש של {{count}} הזמנות אחרות כדי לפנות מקום:",
     "repackSeat": "הושב {{name}} ב־{{tables}}",
     "repackMove": "העבר {{name}} מ־{{from}} ל־{{to}}",
-    "repackApply": "החל ושמור"
+    "repackApply": "החל ושמור",
+    "repackApplied": "הושב {{name}} · הועברו {{count}} הזמנות"
   },
   "reason": {
     "exactFit": "התאמה מדויקת",
@@ -250,8 +251,11 @@
     "title": "מיטוב הושבה",
     "body": "שיבוץ מחדש של הזמנות זמניות כדי להושיב {{count}} סועדים שאינם נכנסים כרגע:",
     "cancel": "ביטול",
-    "apply": "החל שיבוץ"
+    "apply": "החל שיבוץ",
+    "applied": "מיטוב · הושבו {{count}} סועדים בשיבוץ מחדש"
   },
   "seedRepackDemo": "דמו שיבוץ",
-  "seedRepackDemoUnavailable": "הרצפה הזו לא מתאימה לדמו (צריך שולחן גדול + שולחן קטן פנוי באותו אזור)."
+  "seedRepackDemoUnavailable": "הרצפה הזו לא מתאימה לדמו (צריך שולחן גדול + שולחן קטן פנוי באותו אזור).",
+  "assignAllDone": "הושבו {{count}} הזמנות",
+  "assignAllDoneRepack": "הושבו {{count}} · {{repack}} בשיבוץ מחדש"
 }
