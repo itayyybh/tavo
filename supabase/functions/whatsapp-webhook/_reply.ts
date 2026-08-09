@@ -100,6 +100,73 @@ export function reply(lang: Lang, kind: ReplyKind, params: ReplyParams = {}): st
   return set[kind](params)
 }
 
+/** The engine's locale-free reason descriptor for an unavailable slot. */
+export interface Reason {
+  key: string
+  params?: Record<string, string | number>
+}
+
+type ReasonParams = Record<string, string | number>
+
+/**
+ * Specific guest-facing messages for the CONFIGURED booking limits — party size
+ * and time — so the bot states the actual rule ("latest booking is 20:30",
+ * "largest party is 20") instead of a vague "no table". Keyed by the engine's
+ * booking-rule code (reason.key = `rules.<code>`). Physical no-fit reasons
+ * (reason.<x>) aren't listed and fall back to the generic unavailable message.
+ */
+const RULE_MESSAGES: Record<Lang, Record<string, (p: ReasonParams) => string>> = {
+  en: {
+    partyTooLarge: (p) => `Sorry, the largest party we can book is ${p.max}.`,
+    partyTooSmall: (p) => `Bookings are for at least ${p.min} guest(s).`,
+    afterLatest: (p) => `Our latest booking time is ${p.time}. Could you come earlier?`,
+    afterClosing: (p) => `We close at ${p.time} that day. Would an earlier time work?`,
+    afterLastSeating: (p) => `Our last seating is at ${p.time}. Something earlier?`,
+    beforeOpening: (p) => `We open at ${p.from} that day. Would a later time work?`,
+    closedDay: () => "We're closed that day. Would another day work?",
+    noSameDay: () => "We can't take same-day bookings — please pick another day.",
+    tooSoon: (p) => `Bookings need at least ${p.minutes} minutes' notice.`,
+    closed: () => 'Bookings are closed right now.',
+    closedUntil: (p) => `Bookings are closed until ${p.until}.`,
+    blockedDate: () => "That date isn't available for bookings.",
+    zoneClosed: (p) => `${p.zone} is closed for bookings — would another area work?`,
+  },
+  he: {
+    partyTooLarge: (p) => `מצטערים, גודל הקבוצה המרבי להזמנה הוא ${p.max}.`,
+    partyTooSmall: (p) => `ההזמנה היא לפחות ל־${p.min} סועדים.`,
+    afterLatest: (p) => `שעת ההזמנה האחרונה שלנו היא ${p.time}. אפשר מוקדם יותר?`,
+    afterClosing: (p) => `אנחנו סוגרים ב־${p.time} ביום זה. אולי שעה מוקדמת יותר?`,
+    afterLastSeating: (p) => `ההושבה האחרונה שלנו ב־${p.time}. משהו מוקדם יותר?`,
+    beforeOpening: (p) => `אנחנו נפתחים ב־${p.from} ביום זה. אולי שעה מאוחרת יותר?`,
+    closedDay: () => 'אנחנו סגורים ביום זה. אולי יום אחר?',
+    noSameDay: () => 'לא ניתן להזמין לאותו יום — בחרו יום אחר.',
+    tooSoon: (p) => `יש להזמין לפחות ${p.minutes} דקות מראש.`,
+    closed: () => 'ההזמנות סגורות כרגע.',
+    closedUntil: (p) => `ההזמנות סגורות עד ${p.until}.`,
+    blockedDate: () => 'התאריך הזה אינו זמין להזמנות.',
+    zoneClosed: (p) => `${p.zone} סגור להזמנות — אולי אזור אחר?`,
+  },
+}
+
+/**
+ * Message for an unavailable slot. When the engine rejected on a configured
+ * booking rule (party size / time), state that specific limit; otherwise fall
+ * back to the generic "no table, try another time".
+ */
+export function unavailableReply(
+  lang: Lang,
+  reason: Reason | undefined,
+  params: ReplyParams = {},
+): string {
+  if (reason?.key?.startsWith('rules.')) {
+    const code = reason.key.slice('rules.'.length)
+    const set = RULE_MESSAGES[lang] ?? RULE_MESSAGES.en
+    const msg = set[code]
+    if (msg) return msg(reason.params ?? {})
+  }
+  return reply(lang, 'unavailable', params)
+}
+
 /**
  * True when the guest's message is an affirmative confirmation. The Hebrew
  * alternation deliberately omits `\b` — JS word boundaries are ASCII-only, so

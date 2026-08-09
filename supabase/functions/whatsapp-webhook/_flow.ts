@@ -19,7 +19,13 @@ import {
 import { insertPendingReservation } from './_insert.ts'
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { markStatus, type ConversationState, type RestaurantContext } from './_store.ts'
-import { isAffirmative, reply, type Lang, type ReplyParams } from './_reply.ts'
+import {
+  isAffirmative,
+  reply,
+  unavailableReply,
+  type Lang,
+  type ReplyParams,
+} from './_reply.ts'
 
 /** Default booking length when the guest doesn't specify one (mirrors the form's mid default). */
 const DEFAULT_DURATION_MIN = 90
@@ -108,7 +114,7 @@ export async function decideReply(
     zoneId: d.preferredZoneId!,
   })
   if (!availability.available) {
-    return notReady(state, reply(lang, 'unavailable', params))
+    return notReady(state, unavailableReply(lang, availability.reason, params))
   }
 
   // Everything checks out — ask the guest to confirm. An affirmative reply now
@@ -147,7 +153,7 @@ export async function confirmBooking(
     zoneId: d.preferredZoneId!,
   })
   if (!availability.available) {
-    return notReady(state, reply(lang, 'unavailable', params))
+    return notReady(state, unavailableReply(lang, availability.reason, params))
   }
 
   await insertPendingReservation(supabase, restaurantId, d)
