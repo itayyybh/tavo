@@ -28,11 +28,13 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getProvider } from './_provider.ts'
 import type { InboundMessage } from './_provider.ts'
+import { extractDraft } from './_extract.ts'
 import {
   loadOrCreateConversation,
+  loadRestaurantContext,
   resolveRestaurantId,
   saveState,
-  type Conversation,
+  type DraftFields,
 } from './_store.ts'
 
 const DEFAULT_TIMEOUT_MIN = 45
@@ -102,10 +104,18 @@ async function handleMessage(
 
   convo.state.transcript.push({ role: 'guest', text: msg.text, at: msg.timestamp })
 
-  // TODO (step 6): LLM extraction into convo.state.draft using the restaurant's
-  // zones + rules as context; then (step 7) validate + availability + duplicate
-  // check; then (step 8) insert on confirm and send the confirmation.
-  const reply = placeholderReply(convo)
+  // Extract structured booking fields from the conversation, grounded in the
+  // restaurant's real zones + timezone. The phone is the WhatsApp number, not
+  // something the model guesses.
+  const ctx = await loadRestaurantContext(supabase, restaurantId)
+  convo.state.draft = await extractDraft(convo.state.transcript, convo.state.draft, ctx)
+  convo.state.draft.phone = msg.from
+
+  // TODO (step 7): validate the assembled draft, run the availability engine and
+  // duplicate check, and reply with i18n templates in the restaurant's language;
+  // (step 8) insert on confirm and send the confirmation. For now, ask for the
+  // next missing field so the multi-turn flow is exercisable.
+  const reply = interimReply(convo.state.draft)
 
   convo.state.transcript.push({
     role: 'bot',
@@ -118,12 +128,14 @@ async function handleMessage(
 }
 
 /**
- * Temporary acknowledgement so the channel is testable end-to-end before the LLM
- * lands. Replaced in step 6 by extraction-driven, template-based replies.
+ * Interim reply: acknowledge what was understood and ask for the next missing
+ * required field. Deliberately plain English — step 7 replaces this with
+ * localized templates that also reflect the availability check.
  */
-function placeholderReply(convo: Conversation): string {
-  const first = convo.state.transcript.filter((t) => t.role === 'guest').length === 1
-  return first
-    ? "Hi! Thanks for reaching out — our booking assistant is coming online shortly."
-    : "Got your message — the booking assistant will be able to complete this soon."
+function interimReply(draft: DraftFields): string {
+  if (!draft.guestName) return "Happy to help with a booking! What name should it be under?"
+  if (!draft.partySize) return `Thanks ${draft.guestName}. How many people?`
+  if (!draft.dateTime) return "Great — what date and time would you like?"
+  if (!draft.preferredZoneId) return "Any seating area preference?"
+  return "Got everything — I'll confirm availability and get back to you shortly."
 }

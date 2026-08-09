@@ -154,6 +154,44 @@ export async function markStatus(
   if (error) throw error
 }
 
+/** A bookable zone the guest can be offered / can ask for by name. */
+export interface ZoneRef {
+  id: string
+  name: string
+}
+
+/** Restaurant context the LLM needs to talk about real zones and resolve times. */
+export interface RestaurantContext {
+  zones: ZoneRef[]
+  /** IANA timezone (e.g. "Asia/Jerusalem"); null falls back to UTC upstream. */
+  timezone: string | null
+}
+
+/**
+ * Load the conversation context: the restaurant's bookable zones (so the bot can
+ * map "outside" to a real zone id and never invent one) and its timezone (so a
+ * relative time like "tonight 8pm" resolves correctly). A zone with
+ * `bookable = false` is out of rotation and excluded.
+ */
+export async function loadRestaurantContext(
+  supabase: SupabaseClient,
+  restaurantId: string,
+): Promise<RestaurantContext> {
+  const [zonesRes, restRes] = await Promise.all([
+    supabase
+      .from('zones')
+      .select('id, name, bookable')
+      .eq('restaurant_id', restaurantId),
+    supabase.from('restaurants').select('timezone').eq('id', restaurantId).maybeSingle(),
+  ])
+  if (zonesRes.error) throw zonesRes.error
+  if (restRes.error) throw restRes.error
+  const zones = (zonesRes.data ?? [])
+    .filter((z) => z.bookable !== false)
+    .map((z) => ({ id: z.id as string, name: z.name as string }))
+  return { zones, timezone: (restRes.data?.timezone as string | null) ?? null }
+}
+
 /** Guard against a malformed/legacy state blob. */
 function normalizeState(raw: unknown): ConversationState {
   const s = (raw ?? {}) as Partial<ConversationState>
