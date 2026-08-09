@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import { useReservationStore } from '@/stores'
 import { useSeatingFloor } from '@/hooks/useSeatingFloor'
 import { optimizeAssignments, suggestSeating } from '@/services/seating'
@@ -27,15 +27,33 @@ export function useRepackDemo() {
   const reservations = useReservationStore((s) => s.reservations)
   const addReservation = useReservationStore((s) => s.addReservation)
 
-  const demo = useMemo(
+  const result = useMemo(
     () => stageRepackDemo(floor, reservations),
     [floor, reservations],
   )
 
-  const seed = useCallback(() => demo?.forEach(addReservation), [demo, addReservation])
+  // Surface WHY the demo can't be staged — the tooltip is terse, so log the full
+  // per-zone breakdown for debugging.
+  useEffect(() => {
+    if (import.meta.env.DEV && !result.news) {
+      console.warn('[repack demo] cannot stage:', result.reason)
+    }
+  }, [result])
 
-  return { seed, canDemo: !!demo }
+  const seed = useCallback(
+    () => result.news?.forEach(addReservation),
+    [result, addReservation],
+  )
+
+  return {
+    seed,
+    canDemo: !!result.news,
+    reason: result.news ? '' : result.reason,
+  }
 }
+
+/** Either the bookings to seed, or the reason no floor zone could stage a demo. */
+type DemoResult = { news: NewReservation[] } | { news: null; reason: string }
 
 const AT_8PM = () => combineDateTime(toDateKey(new Date()), '20:00')
 
@@ -64,39 +82,55 @@ const probe = (partySize: number, over: Partial<Reservation>): Reservation => {
 function stageRepackDemo(
   floor: SeatingFloor,
   existing: Reservation[],
-): NewReservation[] | null {
+): DemoResult {
   const cap = (t: Table) =>
     seatsForTable(t, floor.tableTypes.find((ty) => ty.id === t.typeId))
 
   // Stage the demo only in a real dining zone: skip nested zones (e.g. a Bar
   // inside another zone) and zones taken out of booking rotation.
   const zones = floor.zones.filter((z) => !z.parentId && z.bookable !== false)
+  if (zones.length === 0) {
+    return { news: null, reason: 'No bookable top-level dining zone on this floor.' }
+  }
+
+  const notes: string[] = []
+  const maxSpare = 2 + floor.config.maxUnderfill
 
   for (const zone of zones) {
     const zoneTables = floor.tables
       .filter((t) => t.zoneId === zone.id)
       .sort((a, b) => cap(b) - cap(a))
-    if (zoneTables.length < 2) continue
+    if (zoneTables.length < 2) {
+      notes.push(`${zone.name}: needs ≥2 tables (has ${zoneTables.length})`)
+      continue
+    }
 
     const bigT = zoneTables[0]
     const bigSize = cap(bigT)
-    if (bigSize < 3) continue
+    if (bigSize < 3) {
+      notes.push(`${zone.name}: largest table seats only ${bigSize}`)
+      continue
+    }
 
     // The spare must seat a party of 2 WITHIN the under-fill slack, or the
     // displaced hold couldn't legally move onto it.
-    const maxSpare = 2 + floor.config.maxUnderfill
     const spare = zoneTables.find(
       (t) => t.id !== bigT.id && cap(t) >= 2 && cap(t) <= maxSpare,
     )
-    if (!spare) continue
+    if (!spare) {
+      notes.push(`${zone.name}: no small spare table (seats 2–${maxSpare})`)
+      continue
+    }
 
-    // Occupy every table EXCEPT the spare with a small auto hold. With only the
-    // (too-small) spare left free the big party has no direct fit — the sole way
-    // in is to relocate the hold off bigT onto the spare, freeing bigT. Holding
-    // the rest is what blocks a lucky direct single/merge fit.
+    // Occupy every table EXCEPT the spare with an auto hold. Each hold is sized
+    // to its OWN table so it can legally sit there (and won't need to move) —
+    // except the hold on bigT, which is a party of 2 so it can relocate onto the
+    // small spare. With only the (too-small) spare free the big party has no
+    // direct fit; the one move is bigT's hold → spare, which frees bigT.
+    const holdSize = (t: Table) => (t.id === bigT.id ? 2 : cap(t))
     const blocked = zoneTables.filter((t) => t.id !== spare.id)
     const holds = blocked.map((t) =>
-      probe(2, {
+      probe(holdSize(t), {
         preferredZoneId: zone.id,
         assignedTableIds: [t.id],
         assignmentSource: 'auto',
@@ -106,9 +140,15 @@ function stageRepackDemo(
 
     // Must have NO direct fit (mirrors planSheetRepack) yet a valid repack —
     // checked against the LIVE sheet so the demo works given current bookings.
-    if (suggestSeating(party, floor, [...existing, ...holds]).length > 0) continue
+    if (suggestSeating(party, floor, [...existing, ...holds]).length > 0) {
+      notes.push(`${zone.name}: party of ${bigSize} still fits directly`)
+      continue
+    }
     const plan = optimizeAssignments(party, floor, [...existing, ...holds, party])
-    if (!plan?.moves.some((m) => m.reservationId === party.id)) continue
+    if (!plan?.moves.some((m) => m.reservationId === party.id)) {
+      notes.push(`${zone.name}: no valid repack (displaced holds can't relocate)`)
+      continue
+    }
 
     const base = {
       estimatedDuration: 120,
@@ -116,22 +156,24 @@ function stageRepackDemo(
       status: 'confirmed' as const,
       source: 'manual' as const,
     }
-    return [
-      ...blocked.map((t, i) => ({
-        ...base,
-        guestName: `Repack demo — hold ${i + 1}`,
-        partySize: 2,
-        dateTime: holds[i].dateTime,
-        assignedTableIds: [t.id],
-        assignmentSource: 'auto' as const,
-      })),
-      {
-        ...base,
-        guestName: 'Repack demo — big party',
-        partySize: bigSize,
-        dateTime: party.dateTime,
-      },
-    ]
+    return {
+      news: [
+        ...blocked.map((t, i) => ({
+          ...base,
+          guestName: `Repack demo — hold ${i + 1}`,
+          partySize: holdSize(t),
+          dateTime: holds[i].dateTime,
+          assignedTableIds: [t.id],
+          assignmentSource: 'auto' as const,
+        })),
+        {
+          ...base,
+          guestName: 'Repack demo — big party',
+          partySize: bigSize,
+          dateTime: party.dateTime,
+        },
+      ],
+    }
   }
-  return null
+  return { news: null, reason: notes.join(' · ') }
 }

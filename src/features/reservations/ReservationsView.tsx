@@ -67,7 +67,7 @@ export function ReservationsView() {
     )
   }
 
-  const { seed: seedRepackDemo, canDemo } = useRepackDemo()
+  const { seed: seedRepackDemo, canDemo, reason: repackDemoReason } = useRepackDemo()
 
   const [view, setView] = useState<ViewMode>('list')
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -160,14 +160,26 @@ export function ReservationsView() {
               <Button variant="secondary" onClick={seedSamples}>
                 {t('seed20')}
               </Button>
-              <Button
-                variant="secondary"
-                onClick={seedRepackDemo}
-                disabled={!canDemo}
-                title={canDemo ? undefined : t('seedRepackDemoUnavailable')}
+              {/* Wrapped so the reason still shows on hover — a disabled button
+                  swallows pointer events (disabled:pointer-events-none). */}
+              <span
+                title={
+                  canDemo ? undefined : repackDemoReason || t('seedRepackDemoUnavailable')
+                }
               >
-                {t('seedRepackDemo')}
-              </Button>
+                <Button
+                  variant="secondary"
+                  onClick={seedRepackDemo}
+                  disabled={!canDemo}
+                >
+                  {t('seedRepackDemo')}
+                </Button>
+              </span>
+              {!canDemo && repackDemoReason && (
+                <span className="max-w-xs text-[11px] leading-tight text-muted">
+                  {repackDemoReason}
+                </span>
+              )}
               <Button
                 variant="ghost"
                 onClick={() => setClearConfirmOpen(true)}
