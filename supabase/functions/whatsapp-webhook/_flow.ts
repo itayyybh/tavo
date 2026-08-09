@@ -16,8 +16,9 @@ import {
   checkZoneAvailability,
   loadReservationsForDuplicate,
 } from './_availability.ts'
+import { insertPendingReservation } from './_insert.ts'
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import type { ConversationState, RestaurantContext } from './_store.ts'
+import { markStatus, type ConversationState, type RestaurantContext } from './_store.ts'
 import { isAffirmative, reply, type Lang, type ReplyParams } from './_reply.ts'
 
 /** Default booking length when the guest doesn't specify one (mirrors the form's mid default). */
@@ -109,6 +110,45 @@ export async function decideReply(
   // finalizes the booking (step 8).
   state.awaitingConfirm = true
   return { text: reply(lang, 'confirmPrompt', params), readyToBook: true }
+}
+
+/**
+ * Finalize a booking after the guest confirms the details. Re-checks
+ * availability (the slot could have been taken since the prompt), inserts a
+ * PENDING reservation — a request the host accepts on the Floor, never
+ * auto-reserved, no table assigned — and marks the conversation confirmed.
+ * Called only when the previous turn set awaitingConfirm and this message is
+ * affirmative.
+ */
+export async function confirmBooking(
+  supabase: SupabaseClient,
+  restaurantId: string,
+  conversationId: string,
+  state: ConversationState,
+  ctx: RestaurantContext,
+  lang: Lang,
+): Promise<Decision> {
+  const d = state.draft
+  const zoneName = ctx.zones.find((z) => z.id === d.preferredZoneId)?.name
+  const when = d.dateTime ? formatWhen(d.dateTime, ctx.timezone, lang) : undefined
+  const params: ReplyParams = { name: d.guestName, partySize: d.partySize, when, zone: zoneName }
+
+  // Guard: re-run the real availability check in case the slot filled since the
+  // confirm prompt was sent.
+  const availability = await checkZoneAvailability(supabase, restaurantId, {
+    partySize: d.partySize!,
+    dateTime: d.dateTime!,
+    estimatedDuration: d.estimatedDuration ?? DEFAULT_DURATION_MIN,
+    zoneId: d.preferredZoneId!,
+  })
+  if (!availability.available) {
+    return notReady(state, reply(lang, 'unavailable', params))
+  }
+
+  await insertPendingReservation(supabase, restaurantId, d)
+  await markStatus(supabase, conversationId, 'confirmed')
+  state.awaitingConfirm = false
+  return { text: reply(lang, 'received', params), readyToBook: false }
 }
 
 /** A reply that does not advance to booking; clears the confirm stage. */

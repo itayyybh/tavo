@@ -29,8 +29,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getProvider } from './_provider.ts'
 import type { InboundMessage } from './_provider.ts'
 import { extractDraft } from './_extract.ts'
-import { decideReply } from './_flow.ts'
-import { detectLang } from './_reply.ts'
+import { confirmBooking, decideReply } from './_flow.ts'
+import { detectLang, isAffirmative } from './_reply.ts'
 import {
   loadOrCreateConversation,
   loadRestaurantContext,
@@ -123,22 +123,17 @@ async function handleMessage(
   // restaurant's real zones + timezone. The phone is the WhatsApp number, not
   // something the model guesses.
   const ctx = await loadRestaurantContext(supabase, restaurantId)
+  const wasAwaitingConfirm = convo.state.awaitingConfirm ?? false
   convo.state.draft = await extractDraft(convo.state.transcript, convo.state.draft, ctx)
   convo.state.draft.phone = msg.from
 
-  // Decide the next reply using the shared validation, availability engine, and
-  // duplicate check (mutates state: dupAck / awaitingConfirm).
-  // TODO (step 8): when decision.readyToBook and the guest replies affirmatively
-  // to the confirm prompt, insertReservation(source 'whatsapp', pending) and
-  // send the 'booked' reply; mark the conversation confirmed.
-  const decision = await decideReply(
-    supabase,
-    restaurantId,
-    convo.state,
-    ctx,
-    lang,
-    msg.text,
-  )
+  // If a confirm prompt was shown last turn and the guest just said yes, finalize
+  // the booking: insert a PENDING reservation (the host accepts it on the Floor —
+  // never auto-reserved). Otherwise advance the collection flow.
+  const decision =
+    wasAwaitingConfirm && isAffirmative(msg.text)
+      ? await confirmBooking(supabase, restaurantId, convo.id, convo.state, ctx, lang)
+      : await decideReply(supabase, restaurantId, convo.state, ctx, lang, msg.text)
 
   convo.state.transcript.push({
     role: 'bot',

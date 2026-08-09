@@ -28,7 +28,7 @@ export type ReplyKind =
   | 'unavailable'
   | 'duplicate'
   | 'confirmPrompt'
-  | 'booked'
+  | 'received'
   | 'error'
 
 /** Values interpolated into a template. */
@@ -59,9 +59,11 @@ const TEMPLATES: Record<Lang, Record<ReplyKind, Template>> = {
     confirmPrompt: (p) =>
       `Please confirm: a table for ${p.partySize}${p.zone ? ' in ' + p.zone : ''}${
         p.when ? ' on ' + p.when : ''
-      }${p.name ? ' under ' + p.name : ''}. Reply YES to book.`,
-    booked: (p) =>
-      `You're booked${p.when ? ' for ' + p.when : ''}! See you then. Reply if anything changes.`,
+      }${p.name ? ' under ' + p.name : ''}. Reply YES to send this request.`,
+    received: (p) =>
+      `Thanks${p.name ? ' ' + p.name : ''}! Your request${
+        p.when ? ' for ' + p.when : ''
+      } is in — the restaurant will confirm shortly. We'll be in touch.`,
     error: () => 'Sorry, something went wrong on our side. Please try again in a moment.',
   },
   he: {
@@ -80,8 +82,11 @@ const TEMPLATES: Record<Lang, Record<ReplyKind, Template>> = {
     confirmPrompt: (p) =>
       `לאישור: שולחן ל־${p.partySize}${p.zone ? ' ב' + p.zone : ''}${
         p.when ? ' ב' + p.when : ''
-      }${p.name ? ' על שם ' + p.name : ''}. השב/י כן כדי להזמין.`,
-    booked: (p) => `ההזמנה אושרה${p.when ? ' ל' + p.when : ''}! נתראה. כתבו לנו אם משהו משתנה.`,
+      }${p.name ? ' על שם ' + p.name : ''}. השב/י כן כדי לשלוח את הבקשה.`,
+    received: (p) =>
+      `תודה${p.name ? ' ' + p.name : ''}! הבקשה${
+        p.when ? ' ל' + p.when : ''
+      } התקבלה — המסעדה תאשר בקרוב. נחזור אליך.`,
     error: () => 'מצטערים, משהו השתבש אצלנו. נסו שוב בעוד רגע.',
   },
 }
@@ -92,8 +97,15 @@ export function reply(lang: Lang, kind: ReplyKind, params: ReplyParams = {}): st
   return set[kind](params)
 }
 
-/** True when the guest's message is an affirmative confirmation. */
+/**
+ * True when the guest's message is an affirmative confirmation. The Hebrew
+ * alternation deliberately omits `\b` — JS word boundaries are ASCII-only, so
+ * `\b` never matches after a Hebrew letter and would drop "כן".
+ */
 export function isAffirmative(text: string): boolean {
   const t = text.trim().toLowerCase()
-  return /^(yes|yep|yeah|yup|ok|okay|sure|confirm|y)\b/.test(t) || /^(כן|בסדר|אישור|מאשר|מאשרת)\b/.test(t)
+  return (
+    /^(yes|yep|yeah|yup|ok|okay|sure|confirm|y)\b/.test(t) ||
+    /^(כן|בסדר|אישור|מאשר|מאשרת)/.test(t)
+  )
 }
