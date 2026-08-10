@@ -263,6 +263,15 @@
   "profile": {
     "title": "Restaurant profile",
     "description": "Identity used across the app.",
+    "logo": {
+      "label": "Logo",
+      "help": "Shown in the header beside the restaurant name.",
+      "hint": "Square image works best. Auto-resized.",
+      "upload": "Upload",
+      "change": "Change",
+      "remove": "Remove",
+      "error": "Couldn't read that image. Try another file."
+    },
     "name": {
       "label": "Restaurant name",
       "help": "Shown in the header and on invites."

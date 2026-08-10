@@ -40,6 +40,7 @@ interface SessionState {
   userName: string | null
   restaurantId: ID | null
   restaurantName: string | null
+  restaurantLogoUrl: string | null
   role: MembershipRole | null
   /** Boot the store: resolve the persisted session and subscribe to changes. */
   init: () => void
@@ -79,6 +80,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   userName: null,
   restaurantId: null,
   restaurantName: null,
+  restaurantLogoUrl: null,
   role: null,
 
   init: () => {
@@ -91,6 +93,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
           userName: null,
           restaurantId: null,
           restaurantName: null,
+          restaurantLogoUrl: null,
           role: null,
         })
         return
@@ -101,6 +104,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
           status: 'ready',
           restaurantId: membership.restaurantId,
           restaurantName: membership.restaurantName,
+          restaurantLogoUrl: membership.restaurantLogoUrl,
           role: membership.role,
         })
       } else {
@@ -108,6 +112,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
           status: 'no_restaurant',
           restaurantId: null,
           restaurantName: null,
+          restaurantLogoUrl: null,
           role: null,
         })
       }
@@ -137,10 +142,18 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       set({
         status: 'ready',
         restaurantId: membership.restaurantId,
+        restaurantName: membership.restaurantName,
+        restaurantLogoUrl: membership.restaurantLogoUrl,
         role: membership.role,
       })
     } else {
-      set({ status: 'no_restaurant', restaurantId: null, role: null })
+      set({
+        status: 'no_restaurant',
+        restaurantId: null,
+        restaurantName: null,
+        restaurantLogoUrl: null,
+        role: null,
+      })
     }
   },
 
@@ -152,6 +165,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       userName: null,
       restaurantId: null,
       restaurantName: null,
+      restaurantLogoUrl: null,
       role: null,
     })
   },

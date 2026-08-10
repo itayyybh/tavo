@@ -1,10 +1,12 @@
-import { useMemo } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, Input, Select } from '@/components/ui'
 import { SettingRow } from '../SettingRow'
 import { SettingsSection, SettingsDivider } from '../SettingsSection'
 import { OpeningHoursEditor } from '../OpeningHoursEditor'
 import { useRestaurantProfile } from '../useRestaurantProfile'
+import { LogoMark } from '@/components/Logo'
+import { fileToSquareDataUrl } from '@/utils/image'
 
 /** IANA time zones for the profile select, or a short fallback if unavailable. */
 function timezoneOptions(): string[] {
@@ -29,14 +31,74 @@ function timezoneOptions(): string[] {
 export function RestaurantSettings() {
   const { t } = useTranslation('settings')
   const profile = useRestaurantProfile()
+  const fileInput = useRef<HTMLInputElement>(null)
+  const [logoError, setLogoError] = useState(false)
   const tzOptions = useMemo(
     () => timezoneOptions().map((tz) => ({ value: tz, label: tz })),
     [],
   )
 
+  const onPickLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = '' // allow re-picking the same file
+    if (!file) return
+    setLogoError(false)
+    try {
+      profile.setLogoUrl(await fileToSquareDataUrl(file))
+    } catch {
+      setLogoError(true)
+    }
+  }
+
   return (
     <>
       <SettingsSection title={t('profile.title')} description={t('profile.description')}>
+        <SettingRow label={t('profile.logo.label')} help={t('profile.logo.help')}>
+          <div className="flex items-center gap-4">
+            {profile.logoUrl ? (
+              <img
+                src={profile.logoUrl}
+                alt=""
+                className="h-12 w-12 rounded-lg border border-line object-cover"
+              />
+            ) : (
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-line bg-surface-2 text-muted">
+                <LogoMark className="h-6 w-6" />
+              </div>
+            )}
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <input
+                  ref={fileInput}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={onPickLogo}
+                />
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => fileInput.current?.click()}
+                >
+                  {profile.logoUrl ? t('profile.logo.change') : t('profile.logo.upload')}
+                </Button>
+                {profile.logoUrl && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => profile.setLogoUrl(null)}
+                  >
+                    {t('profile.logo.remove')}
+                  </Button>
+                )}
+              </div>
+              <span className="text-[12px] text-muted">
+                {logoError ? t('profile.logo.error') : t('profile.logo.hint')}
+              </span>
+            </div>
+          </div>
+        </SettingRow>
+        <SettingsDivider />
         <SettingRow label={t('profile.name.label')} help={t('profile.name.help')} htmlFor="set-rname">
           <Input
             id="set-rname"

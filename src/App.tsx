@@ -6,6 +6,7 @@ import { dirForLocale } from '@/i18n/config'
 import { useSessionStore, useSettingsStore, useUIStore } from '@/stores'
 import { AccountMenu, useCan } from '@/features/auth'
 import { LanguageToggle } from '@/components/LanguageToggle'
+import { Logo } from '@/components/Logo'
 import { Toaster } from '@/components/ui'
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -22,6 +23,7 @@ export default function App() {
   const { t } = useTranslation('common')
   const theme = useUIStore((s) => s.theme)
   const restaurantName = useSessionStore((s) => s.restaurantName)
+  const restaurantLogoUrl = useSessionStore((s) => s.restaurantLogoUrl)
   const navigate = useNavigate()
   const location = useLocation()
   const locale = useSettingsStore((s) => s.locale)
@@ -56,9 +58,7 @@ export default function App() {
       <header className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 border-b border-line px-6 py-3">
         {/* Left — identity. */}
         <div className="min-w-0 justify-self-start">
-          <span className="block truncate text-sm font-semibold tracking-tight text-ink">
-            {restaurantName ?? t('appName')}
-          </span>
+          <Logo label={restaurantName ?? t('appName')} src={restaurantLogoUrl} />
         </div>
 
         {/* Center — primary navigation, the visual anchor. */}
