@@ -32,7 +32,7 @@ export default function EditorPage() {
         {/* Zones: a static rail on desktop, a slide-over drawer on small screens. */}
         {panelOpen && (
           <div
-            className="absolute inset-0 z-20 bg-ink/10 md:hidden"
+            className="absolute inset-0 z-20 bg-black/30 md:hidden"
             onClick={() => setPanelOpen(false)}
           />
         )}

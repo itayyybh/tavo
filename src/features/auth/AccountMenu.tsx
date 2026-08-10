@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
-import { Badge } from '@/components/ui'
-import { useSessionStore } from '@/stores'
+import { Badge, Toggle } from '@/components/ui'
+import { useSessionStore, useUIStore } from '@/stores'
 import { InviteDialog } from './InviteDialog'
 import { useCan } from './permissions'
 
@@ -17,6 +17,8 @@ export function AccountMenu() {
   const userName = useSessionStore((s) => s.userName)
   const role = useSessionStore((s) => s.role)
   const signOut = useSessionStore((s) => s.signOut)
+  const theme = useUIStore((s) => s.theme)
+  const toggleTheme = useUIStore((s) => s.toggleTheme)
   const canInvite = useCan('inviteManager')
 
   const [menuOpen, setMenuOpen] = useState(false)
@@ -75,7 +77,7 @@ export function AccountMenu() {
             animate={{ opacity: 1, y: 0 }}
             exit={reduce ? { opacity: 0 } : { opacity: 0, y: -4 }}
             transition={{ duration: 0.15, ease: 'easeOut' }}
-            className="absolute end-0 top-full z-50 mt-2 w-60 rounded-xl border border-line bg-surface p-1 shadow-md"
+            className="absolute end-0 top-full z-50 mt-2 w-60 rounded-xl border border-line bg-surface-3 p-1 shadow-[var(--shadow-soft)]"
           >
             <div className="px-3 py-2">
               <div className="flex items-center justify-between gap-2">
@@ -85,6 +87,20 @@ export function AccountMenu() {
                 {role && <Badge className="capitalize">{role}</Badge>}
               </div>
               <span className="text-[11px] text-muted">{t('appName')}</span>
+            </div>
+
+            <div className="my-1 h-px bg-line" />
+
+            <div className="flex items-center justify-between gap-2 rounded-lg px-3 py-2">
+              <span className="flex items-center gap-2 text-sm text-ink-soft">
+                <MoonIcon />
+                {t('account.darkMode')}
+              </span>
+              <Toggle
+                checked={theme === 'dark'}
+                onChange={toggleTheme}
+                aria-label={t('account.darkMode')}
+              />
             </div>
 
             <div className="my-1 h-px bg-line" />
@@ -132,6 +148,23 @@ function MenuItem({
     >
       {children}
     </button>
+  )
+}
+
+function MoonIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4 text-muted"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+    </svg>
   )
 }
 

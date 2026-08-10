@@ -18,6 +18,9 @@
     "dark": "Dark",
     "light": "Light"
   },
+  "account": {
+    "darkMode": "Dark mode"
+  },
   "tableStatus": {
     "available": "Available",
     "reserved": "Reserved",
