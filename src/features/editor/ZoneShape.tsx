@@ -2,6 +2,7 @@ import { Group, Rect, Text } from 'react-konva'
 import type Konva from 'konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { Vec2, Zone } from '@/types'
+import { mixHex } from '@/utils'
 import type { CanvasColors } from './hooks/useCanvasColors'
 
 interface ZoneShapeProps {
@@ -31,8 +32,21 @@ export function ZoneShape({
 }: ZoneShapeProps) {
   const { x: w, y: h } = zone.size
   // Deeper nesting reads a touch stronger so a child region stands out on its parent.
-  const baseOpacity = Math.min(0.16 + depth * 0.08, 0.34)
-  const fillOpacity = selected ? Math.min(baseOpacity + 0.12, 0.44) : baseOpacity
+  //
+  // Dark mode: the stored zone hue is a light pastel — painted raw it becomes a
+  // milky wash on the near-black canvas. Instead we blend it toward the surface to
+  // a muted low-lightness tint that sits naturally on dark, and give the dashed
+  // border the zone's own (brighter) hue so the region keeps its identity. Light
+  // mode keeps the original pastel-at-low-opacity treatment. The stored color is
+  // never mutated — this is a render-time adaptation, so it stays theme-portable.
+  const baseOpacity = colors.isDark
+    ? Math.min(0.5 + depth * 0.1, 0.72)
+    : Math.min(0.16 + depth * 0.08, 0.34)
+  const fillOpacity = selected
+    ? Math.min(baseOpacity + 0.12, colors.isDark ? 0.85 : 0.44)
+    : baseOpacity
+  const fillColor = colors.isDark ? mixHex(colors.surface, zone.color, 0.3) : zone.color
+  const strokeColor = colors.isDark ? mixHex(colors.surface, zone.color, 0.6) : colors.muted
 
   return (
     <Group
@@ -52,9 +66,9 @@ export function ZoneShape({
         width={w}
         height={h}
         cornerRadius={10}
-        fill={zone.color}
+        fill={fillColor}
         opacity={fillOpacity}
-        stroke={colors.muted}
+        stroke={strokeColor}
         strokeWidth={1}
         dash={[6, 6]}
         listening={selected}

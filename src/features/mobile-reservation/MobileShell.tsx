@@ -21,7 +21,7 @@ export function MobileShell({
 }) {
   const { t } = useTranslation('reservations')
   return (
-    <div className="mx-auto flex h-full w-full max-w-md flex-col overflow-x-hidden bg-surface-2">
+    <div className="mx-auto flex h-full w-full max-w-md flex-col overflow-x-hidden bg-canvas">
       <header className="border-b border-line bg-surface">
         <div className="flex items-center justify-between px-5 py-3">
           <div className="min-w-0">

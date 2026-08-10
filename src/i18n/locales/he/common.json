@@ -18,6 +18,9 @@
     "dark": "כהה",
     "light": "בהיר"
   },
+  "account": {
+    "darkMode": "מצב כהה"
+  },
   "tableStatus": {
     "available": "פנוי",
     "reserved": "שמור",

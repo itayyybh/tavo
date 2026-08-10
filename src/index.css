@@ -13,13 +13,23 @@
     'Inter', 'Assistant', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
     Helvetica, Arial, sans-serif;
 
-  /* Neutral scale — the whole product is built on grayscale. */
+  /*
+   * Neutral scale — the whole product is built on grayscale.
+   * Elevation ladder (dark mode leans on it for depth without borders/shadows):
+   *   canvas   — app background, the surface everything sits on (darkest)
+   *   surface  — primary containers: cards, panels, inputs
+   *   surface-2 — secondary / hover / inset chips (one step lifted)
+   *   surface-3 — floating: dialogs, menus, toasts (brightest)
+   * In light mode the ladder is near-flat (elevation reads via shadow instead).
+   */
   --color-ink: #0a0a0a;
   --color-ink-soft: #404040;
   --color-muted: #737373;
   --color-line: #e5e5e5;
+  --color-canvas: #fafafa;
   --color-surface: #ffffff;
   --color-surface-2: #fafafa;
+  --color-surface-3: #ffffff;
 
   /* Table status colors — kept restrained, defined once. */
   --color-status-available: #22c55e;
@@ -51,23 +61,52 @@
   color-scheme: light;
 }
 
-/* Dark foundations — override the same tokens; every utility flips automatically. */
+/*
+ * Dark foundations — a purpose-built dark theme, not an inversion. Override the
+ * same tokens and every utility flips automatically. Depth comes from the
+ * elevation ladder (canvas → surface → surface-2 → surface-3), not heavy
+ * borders or shadows. Backgrounds are a cool near-black (never pure #000).
+ */
 .dark {
   color-scheme: dark;
 
-  --color-ink: #fafafa;
-  --color-ink-soft: #d4d4d4;
-  --color-muted: #a3a3a3;
-  --color-line: #262626;
-  --color-surface: #0a0a0a;
-  --color-surface-2: #171717;
+  /* Text — near-white primary, never pure white; muted stays ≥4.5:1 readable. */
+  --color-ink: #f2f4f7;
+  --color-ink-soft: #c6ccd4;
+  --color-muted: #8b929e;
+  /* Borders — very subtle, cool, low presence. */
+  --color-line: #232a33;
+  /* Elevation ladder — even, restrained steps. */
+  --color-canvas: #0b0d0f;
+  --color-surface: #111418;
+  --color-surface-2: #171c22;
+  --color-surface-3: #1e242b;
 
-  --color-status-available: #4ade80;
-  --color-status-cleaning: #fbbf24;
+  /*
+   * Status hues, retuned for dark surfaces: mid-saturation, luminous but never
+   * neon. Available reads calm; occupied carries the most attention.
+   */
+  --color-status-available: #46cd82;
+  --color-status-reserved: #5b93f6;
+  --color-status-occupied: #f2564d;
+  --color-status-cleaning: #f5b544;
+  --color-status-blocked: #6b7280;
+  --color-status-conflict: #ef559b;
 
-  --color-accent: #60a5fa;
+  /* Reservation lifecycle — mirror the status palette, brightened for dark. */
+  --color-reservation-pending: #f5b544;
+  --color-reservation-confirmed: #5b93f6;
+  --color-reservation-arrived: #22b8cf;
+  --color-reservation-seated: #46cd82;
+  --color-reservation-completed: #7c8390;
+  --color-reservation-cancelled: #f2564d;
+  --color-reservation-no_show: #e06a94;
+  --color-reservation-waitlist: #a78bfa;
 
-  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.5);
+  --color-accent: #5b93f6;
+
+  /* Shadows do less work in dark (elevation carries it); keep them soft. */
+  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.5), 0 12px 32px rgb(0 0 0 / 0.45);
 }
 
 html,
