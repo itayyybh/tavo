@@ -2,6 +2,7 @@ import type {
   BookingRestrictions,
   ID,
   OpeningHours,
+  ParsedRequest,
   Reservation,
   ReservationOccasion,
   ReservationPreferences,
@@ -47,6 +48,7 @@ export interface ReservationRow {
   source: string
   preferences: ReservationPreferences | null
   notes: string | null
+  parsed_request: ParsedRequest | null
   created_at: string
   updated_at: string
 }
@@ -70,6 +72,7 @@ export function reservationFromRow(row: ReservationRow): Reservation {
     source: row.source as ReservationSource,
     preferences: row.preferences ?? undefined,
     notes: row.notes ?? undefined,
+    parsedRequest: row.parsed_request ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -95,6 +98,7 @@ export function reservationToRow(restaurantId: ID, r: Reservation): ReservationR
     source: r.source,
     preferences: r.preferences ?? null,
     notes: r.notes ?? null,
+    parsed_request: r.parsedRequest ?? null,
     created_at: r.createdAt,
     updated_at: r.updatedAt,
   }
@@ -188,6 +192,7 @@ function bookingRestrictionsWithDefaults(
 ): BookingRestrictions {
   return {
     blocks: raw?.blocks ?? [],
+    recurring: raw?.recurring ?? [],
     closure: { ...DEFAULT_BOOKING_RESTRICTIONS.closure, ...(raw?.closure ?? {}) },
   }
 }

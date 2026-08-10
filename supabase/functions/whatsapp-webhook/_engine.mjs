@@ -596,20 +596,31 @@ function evaluateBookingRules(ctx) {
   if (Number.isNaN(at.getTime())) return out;
   const key = dateKey(at);
   const time = clock(at);
-  const closure = restrictions.closure;
-  if (closure.active && (closure.until == null || key < closure.until)) {
-    out.push({
-      field: "dateTime",
-      code: closure.until ? "closedUntil" : "closed",
-      params: closure.until ? { until: closure.until } : void 0
-    });
-  }
-  for (const b of restrictions.blocks) {
-    if (b.date !== key) continue;
-    const wholeDay = !b.from || !b.to;
-    if (wholeDay || time >= b.from && time <= b.to) {
-      out.push({ field: "dateTime", code: "blockedDate" });
-      break;
+  if (!ctx.vip) {
+    const closure = restrictions.closure;
+    if (closure.active && (closure.until == null || key < closure.until)) {
+      out.push({
+        field: "dateTime",
+        code: closure.until ? "closedUntil" : "closed",
+        params: closure.until ? { until: closure.until } : void 0
+      });
+    }
+    for (const b of restrictions.blocks) {
+      if (b.date !== key) continue;
+      const wholeDay = !b.from || !b.to;
+      if (wholeDay || time >= b.from && time <= b.to) {
+        out.push({ field: "dateTime", code: "blockedDate" });
+        break;
+      }
+    }
+    const weekday = at.getDay();
+    for (const r of restrictions.recurring ?? []) {
+      if (r.day !== weekday) continue;
+      const wholeDay = !r.from || !r.to;
+      if (wholeDay || time >= r.from && time <= r.to) {
+        out.push({ field: "dateTime", code: "blockedRecurring" });
+        break;
+      }
     }
   }
   const day2 = ctx.openingHours[at.getDay()];
@@ -703,6 +714,7 @@ var DEFAULT_RESERVATION_RULES = {
 };
 var DEFAULT_BOOKING_RESTRICTIONS = {
   blocks: [],
+  recurring: [],
   closure: { active: false, until: null }
 };
 
@@ -842,6 +854,7 @@ async function evaluateAvailability(input, data) {
     rules: { ...DEFAULT_RESERVATION_RULES, ...data.reservationRules ?? {} },
     restrictions: {
       blocks: data.bookingRestrictions?.blocks ?? [],
+      recurring: data.bookingRestrictions?.recurring ?? [],
       closure: {
         ...DEFAULT_BOOKING_RESTRICTIONS.closure,
         ...data.bookingRestrictions?.closure ?? {}
@@ -849,7 +862,8 @@ async function evaluateAvailability(input, data) {
     },
     zones: floor.zones,
     now: /* @__PURE__ */ new Date(),
-    isNew: true
+    isNew: true,
+    vip: !!input.preferences?.vip
   })[0];
   if (violation) {
     return { available: false, reason: { key: `rules.${violation.code}`, params: violation.params } };

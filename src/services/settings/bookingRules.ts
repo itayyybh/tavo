@@ -40,6 +40,13 @@ export interface BookingRuleContext {
   now: Date
   /** Lead-time rules (min-advance, same-day) apply to NEW bookings only. */
   isNew: boolean
+  /**
+   * VIP override. A VIP booking bypasses the restaurant's booking *restrictions*
+   * — temporary closure, one-off blackout dates, and recurring weekly closures —
+   * so the host can always seat a VIP through a closed slot. Operational limits
+   * (opening hours, party size, lead time) still apply.
+   */
+  vip?: boolean
 }
 
 /** Local "YYYY-MM-DD" for a date. */
@@ -64,23 +71,37 @@ export function evaluateBookingRules(ctx: BookingRuleContext): BookingRuleViolat
   const key = dateKey(at)
   const time = clock(at)
 
-  // 1. Temporary closure — restaurant-wide kill switch.
-  const closure = restrictions.closure
-  if (closure.active && (closure.until == null || key < closure.until)) {
-    out.push({
-      field: 'dateTime',
-      code: closure.until ? 'closedUntil' : 'closed',
-      params: closure.until ? { until: closure.until } : undefined,
-    })
-  }
+  // Steps 1–2b are booking *restrictions* a VIP is allowed to bypass.
+  if (!ctx.vip) {
+    // 1. Temporary closure — restaurant-wide kill switch.
+    const closure = restrictions.closure
+    if (closure.active && (closure.until == null || key < closure.until)) {
+      out.push({
+        field: 'dateTime',
+        code: closure.until ? 'closedUntil' : 'closed',
+        params: closure.until ? { until: closure.until } : undefined,
+      })
+    }
 
-  // 2. Blackout dates — whole day, or a window within it.
-  for (const b of restrictions.blocks) {
-    if (b.date !== key) continue
-    const wholeDay = !b.from || !b.to
-    if (wholeDay || (time >= b.from! && time <= b.to!)) {
-      out.push({ field: 'dateTime', code: 'blockedDate' })
-      break
+    // 2. Blackout dates — whole day, or a window within it.
+    for (const b of restrictions.blocks) {
+      if (b.date !== key) continue
+      const wholeDay = !b.from || !b.to
+      if (wholeDay || (time >= b.from! && time <= b.to!)) {
+        out.push({ field: 'dateTime', code: 'blockedDate' })
+        break
+      }
+    }
+
+    // 2b. Recurring weekly blackouts — this weekday, whole day or a window.
+    const weekday = at.getDay() as Weekday
+    for (const r of restrictions.recurring ?? []) {
+      if (r.day !== weekday) continue
+      const wholeDay = !r.from || !r.to
+      if (wholeDay || (time >= r.from! && time <= r.to!)) {
+        out.push({ field: 'dateTime', code: 'blockedRecurring' })
+        break
+      }
     }
   }
 

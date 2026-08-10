@@ -96,6 +96,19 @@
     "remove": "Remove",
     "empty": "No blocked dates."
   },
+  "recurring": {
+    "title": "Recurring closures",
+    "description": "Block the same weekdays every week — all day or a time window.",
+    "days": "Days",
+    "from": "From",
+    "to": "To",
+    "reason": "Reason",
+    "reasonPlaceholder": "Optional note",
+    "add": "Add closure",
+    "allDay": "All day",
+    "remove": "Remove",
+    "empty": "No recurring closures."
+  },
   "floor": {
     "title": "Floor",
     "description": "Grid and drawing behaviour in the layout editor.",

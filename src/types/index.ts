@@ -191,6 +191,23 @@ export interface ReservationPreferences {
 }
 
 /**
+ * Special seating requests parsed from a reservation's free-text `notes` by the
+ * AI notes parser (edge function `parse-request`). Everything here is a SOFT
+ * preference: the scorer boosts a candidate that satisfies a request so the
+ * engine offers it first, but never gates on it — if the requested table is
+ * needed elsewhere the party still gets seated. Fields are validated against the
+ * real floor at parse time (labels/shapes that don't exist are dropped).
+ */
+export interface ParsedRequest {
+  /** Specific tables the guest asked for, by label (e.g. ["7", "26", "33"]). */
+  tableLabels: string[]
+  /** A requested table shape, if one was mentioned. */
+  shape?: TableShape
+  /** ISO timestamp the notes were parsed — lets the UI show freshness / re-parse. */
+  parsedAt: string
+}
+
+/**
  * A reservation. Deliberately DECOUPLED from the Table Engine: `preferredZoneId`
  * and `preferredTableId` are plain id strings (soft hints), never object refs —
  * Phase 7's Seating Engine resolves them. This model never imports Table/Zone.
@@ -229,6 +246,11 @@ export interface Reservation {
   source: ReservationSource
   preferences?: ReservationPreferences
   notes?: string
+  /**
+   * Soft seating requests parsed from `notes` (AI). Consumed by the scorer as a
+   * ranking boost only — never a gate. Regenerated when the notes change.
+   */
+  parsedRequest?: ParsedRequest
   /** ISO timestamp of creation. */
   createdAt: string
   /** ISO timestamp of last edit. */
@@ -321,8 +343,13 @@ export interface SeatingWeights {
   capacityFit: number
   /** Reward matching the reservation's preferred zone. */
   zoneMatch: number
-  /** Reward including the reservation's preferred table. */
+  /**
+   * Reward including a requested table — the structured `preferredTableId` or a
+   * table parsed from the notes (`parsedRequest.tableLabels`).
+   */
   preferredTable: number
+  /** Reward a candidate whose table matches a shape parsed from the notes. */
+  requestedShape: number
   /** Prefer a single table over a merge when both fit. */
   singleTable: number
   /** Reward a merge that matches a host-preferred combo for its zone/party. */
@@ -404,8 +431,7 @@ export interface ReservationRulesConfig {
 
 /**
  * A one-off booking blackout (Phase 11 — Settings shell). Blocks a single date, or
- * a time window within it. Recurring blocks and named holiday profiles are a later
- * step — this is the one-off MVP.
+ * a time window within it. See {@link RecurringBlock} for the weekly counterpart.
  */
 export interface DateBlock {
   id: ID
@@ -429,9 +455,29 @@ export interface TemporaryClosure {
   reason?: string
 }
 
+/**
+ * A recurring weekly booking blackout. Fires every week on a single weekday,
+ * whole-day or a time window within it. Each entry carries its own window so
+ * different days can be blocked at different hours — block several days by
+ * adding one entry per day. Stored inside {@link BookingRestrictions}.
+ */
+export interface RecurringBlock {
+  id: ID
+  /** Blocked weekday (0 = Sunday). */
+  day: Weekday
+  /** Start of the blocked window "HH:mm"; null with `to` = the whole day. */
+  from: string | null
+  /** End of the blocked window "HH:mm"; null with `from` = the whole day. */
+  to: string | null
+  /** Optional host note (why the block exists). */
+  reason?: string
+}
+
 /** Booking restrictions (Phase 11 — Settings shell): blackout dates + closure. */
 export interface BookingRestrictions {
   blocks: DateBlock[]
+  /** Recurring weekly blackouts (one entry per weekday). */
+  recurring: RecurringBlock[]
   closure: TemporaryClosure
 }
 

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, Input, Select } from '@/components/ui'
 import { useLayoutStore, useReservationStore, useSettingsStore } from '@/stores'
@@ -19,6 +19,7 @@ import {
   type ReservationErrors,
 } from '@/utils'
 import type {
+  ParsedRequest,
   Reservation,
   ReservationOccasion,
   ReservationPreferences,
@@ -28,6 +29,7 @@ import type {
 import type { NewReservation } from '@/stores/reservationStore'
 import { useSeatingFloor } from '@/hooks/useSeatingFloor'
 import { zoneHasFit } from '@/services/seating'
+import { parseNotes } from '@/services/requests/parseNotes'
 import { evaluateBookingRules } from '@/services/settings/bookingRules'
 import { cn } from '@/utils'
 import { DEFAULT_PARTY_SIZE } from './constants'
@@ -48,6 +50,8 @@ interface FormState {
   status: ReservationStatus
   notes: string
   prefs: ReservationPreferences
+  /** Soft requests parsed from `notes` (AI) — previewed as chips, saved on submit. */
+  parsedRequest?: ParsedRequest
 }
 
 /** Preference toggles shown as chips; labels resolve from `pref.<key>`. */
@@ -80,6 +84,7 @@ function buildInitialState(
       status: initial.status,
       notes: initial.notes ?? '',
       prefs: { ...initial.preferences },
+      parsedRequest: initial.parsedRequest,
     }
   }
   return {
@@ -141,6 +146,31 @@ export function ReservationForm({ initial, onSubmit, onCancel }: ReservationForm
   const togglePref = (key: keyof ReservationPreferences) =>
     setForm((f) => ({ ...f, prefs: { ...f.prefs, [key]: !f.prefs[key] } }))
 
+  // AI notes parser: detect SOFT seating requests (specific tables, shape) from
+  // the free-text notes. Runs on blur so the host sees what was detected before
+  // saving; the result rides along on submit and feeds the seating scorer (a
+  // ranking boost, never a gate).
+  const [parsing, setParsing] = useState(false)
+  // Notes already parsed — skip a redundant call when blur fires without an edit.
+  const lastParsed = useRef(initial?.notes?.trim() ?? '')
+  const runParse = async () => {
+    const text = form.notes.trim()
+    if (!text) {
+      set('parsedRequest', undefined)
+      lastParsed.current = ''
+      return
+    }
+    if (text === lastParsed.current) return
+    lastParsed.current = text
+    setParsing(true)
+    try {
+      const result = await parseNotes(text)
+      setForm((f) => ({ ...f, parsedRequest: result ?? undefined }))
+    } finally {
+      setParsing(false)
+    }
+  }
+
   // Zone options show total seating so the host sees each zone's size.
   const zoneOptions = useMemo(
     () =>
@@ -166,7 +196,7 @@ export function ReservationForm({ initial, onSubmit, onCancel }: ReservationForm
     )
   }, [reservations, form.guestName, form.partySize, dateTime, initial?.id])
 
-  const submit = () => {
+  const submit = async () => {
     const draft = {
       guestName: form.guestName,
       phone: form.phone,
@@ -194,6 +224,7 @@ export function ReservationForm({ initial, onSubmit, onCancel }: ReservationForm
         zones,
         now: new Date(),
         isNew: !initial,
+        vip: !!form.prefs.vip,
       })
       for (const v of violations) {
         if (!found[v.field]) found[v.field] = t(`rules.${v.code}`, v.params)
@@ -278,6 +309,23 @@ export function ReservationForm({ initial, onSubmit, onCancel }: ReservationForm
     setErrors(found)
     if (!isValidDraft(found)) return
 
+    // Ensure the notes are parsed before saving — covers a fast save where the
+    // on-blur parse hasn't returned yet (or never fired). Only re-parses when the
+    // notes changed since the last parse, so a normal save adds no latency.
+    const notesText = form.notes.trim()
+    let parsedRequest = form.parsedRequest
+    if (notesText) {
+      // Re-parse when the notes changed, or when they've never been parsed
+      // (legacy rows saved before parsing existed / before it was working).
+      if (notesText !== lastParsed.current || !parsedRequest) {
+        lastParsed.current = notesText
+        parsedRequest = (await parseNotes(notesText)) ?? undefined
+        setForm((f) => ({ ...f, parsedRequest }))
+      }
+    } else {
+      parsedRequest = undefined
+    }
+
     // Drop empty optional fields so we don't store noise.
     const prefs = Object.fromEntries(
       Object.entries(form.prefs).filter(([, v]) => v),
@@ -295,7 +343,9 @@ export function ReservationForm({ initial, onSubmit, onCancel }: ReservationForm
       status: form.status,
       source: form.source,
       preferences: Object.keys(prefs).length ? prefs : undefined,
-      notes: form.notes.trim() || undefined,
+      notes: notesText || undefined,
+      // Only keep parsed requests while there are notes to have parsed them from.
+      parsedRequest: notesText ? parsedRequest : undefined,
     }
     onSubmit(payload)
   }
@@ -412,7 +462,8 @@ export function ReservationForm({ initial, onSubmit, onCancel }: ReservationForm
             label={t('form.notes')}
             value={form.notes}
             onChange={(e) => set('notes', e.target.value)}
-            placeholder={t('form.optional')}
+            onBlur={runParse}
+            placeholder={t('form.notesRequestPlaceholder')}
           />
         </div>
 
@@ -451,6 +502,47 @@ export function ReservationForm({ initial, onSubmit, onCancel }: ReservationForm
             placeholder={t('form.allergiesPlaceholder')}
           />
         </div>
+
+        {/* Detected soft requests, parsed from the notes by AI. Advisory: the
+            seating engine offers a matching table first but never forces it. */}
+        {(parsing || form.parsedRequest) && (
+          <div className="mt-4 flex flex-col gap-1.5">
+            <span className="text-sm font-medium text-ink">
+              {t('form.detectedRequests')}
+            </span>
+            <span className="text-xs text-muted">{t('form.detectedHint')}</span>
+            {parsing ? (
+              <span className="mt-1 text-xs text-muted">{t('form.detecting')}</span>
+            ) : (
+              form.parsedRequest && (
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  {form.parsedRequest.tableLabels.map((label) => (
+                    <span
+                      key={label}
+                      className="rounded-full border border-ink bg-ink/5 px-3 py-1 text-xs font-medium text-ink"
+                    >
+                      {t('form.reqTable', { label })}
+                    </span>
+                  ))}
+                  {form.parsedRequest.shape && (
+                    <span className="rounded-full border border-ink bg-ink/5 px-3 py-1 text-xs font-medium text-ink">
+                      {t('form.reqShape', {
+                        shape: t(`shape.${form.parsedRequest.shape}`),
+                      })}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => set('parsedRequest', undefined)}
+                    className="text-xs text-muted transition-colors hover:text-ink"
+                  >
+                    {t('form.clearRequests')}
+                  </button>
+                </div>
+              )
+            )}
+          </div>
+        )}
       </div>
 
       <div className="flex justify-end gap-2">

@@ -4,6 +4,7 @@
     "closed": "ההזמנות סגורות כרגע.",
     "closedUntil": "ההזמנות סגורות עד {{until}}.",
     "blockedDate": "התאריך הזה חסום להזמנות.",
+    "blockedRecurring": "היום והשעה האלה סגורים להזמנות.",
     "closedDay": "המסעדה סגורה ביום זה.",
     "beforeOpening": "לפני הפתיחה — המסעדה נפתחת ב־{{from}}.",
     "afterClosing": "אחרי הסגירה — המסעדה נסגרת ב־{{time}}.",
@@ -75,6 +76,11 @@
     "windowSeat": "ליד חלון",
     "smoking": "עישון"
   },
+  "shape": {
+    "round": "עגול",
+    "square": "מרובע",
+    "rectangle": "מלבני"
+  },
   "form": {
     "guestName": "שם האורח",
     "guestNamePlaceholder": "לדוגמה: דנה לוי",
@@ -91,6 +97,13 @@
     "none": "ללא",
     "source": "מקור",
     "notes": "הערות",
+    "notesRequestPlaceholder": "בקשות, אלרגיות, אירוע… (למשל שולחן 7, שולחן עגול)",
+    "detectedRequests": "בקשות שזוהו",
+    "detectedHint": "יוצעו ראשונים בהושבה — משוחררים אם השולחן נדרש למקום אחר.",
+    "detecting": "קורא הערות…",
+    "reqTable": "שולחן {{label}}",
+    "reqShape": "שולחן {{shape}}",
+    "clearRequests": "נקה",
     "preferences": "העדפות",
     "allergiesPlaceholder": "אלרגיות (רשות)",
     "cancel": "ביטול",
@@ -154,6 +167,7 @@
     "preferredZone": "אזור מועדף",
     "bringToPreferredZone": "הבא שולחן לאזור המועדף",
     "requestedTable": "שולחן מבוקש",
+    "requestedShape": "שולחן $t(shape.{{shape}}) מבוקש",
     "singleTable": "שולחן יחיד",
     "mergeOf": "צירוף של {{count}}",
     "preferredCombo": "צירוף מועדף",

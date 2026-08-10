@@ -485,9 +485,18 @@ function scoreCandidate(reservation, candidate, floor) {
     score += weights.zoneMatch * 0.6;
     reasons.push({ key: "reason.bringToPreferredZone" });
   }
-  if (reservation.preferredTableId && candidate.tableIds.includes(reservation.preferredTableId)) {
+  const requestedLabels = reservation.parsedRequest?.tableLabels ?? [];
+  const matchesRequestedTable = !!reservation.preferredTableId && candidate.tableIds.includes(reservation.preferredTableId) || requestedLabels.length > 0 && candidate.tables.some((table) => requestedLabels.includes(table.label));
+  if (matchesRequestedTable) {
     score += weights.preferredTable;
     reasons.push({ key: "reason.requestedTable" });
+  }
+  const requestedShape = reservation.parsedRequest?.shape;
+  if (requestedShape && candidate.tables.some(
+    (table) => floor.tableTypes.find((ty) => ty.id === table.typeId)?.shape === requestedShape
+  )) {
+    score += weights.requestedShape;
+    reasons.push({ key: "reason.requestedShape", params: { shape: requestedShape } });
   }
   if (candidate.kind === "single") {
     score += weights.singleTable;
@@ -511,10 +520,20 @@ function scoreCandidate(reservation, candidate, floor) {
   return { candidate, score, reasons };
 }
 
+// src/services/seating/ruleScorer.ts
+var ruleScorer = {
+  rank(reservation, candidates, floor) {
+    return candidates.map((candidate) => scoreCandidate(reservation, candidate, floor)).sort((a, b) => b.score - a.score);
+  }
+};
+
 // src/services/seating/suggest.ts
 var DEFAULT_SUGGESTION_LIMIT = 5;
-function suggestSeating(reservation, floor, others = [], limit = DEFAULT_SUGGESTION_LIMIT) {
-  return generateCandidates(reservation, floor, others).filter((candidate) => canSeat(reservation, candidate, floor, others).ok).map((candidate) => scoreCandidate(reservation, candidate, floor)).sort((a, b) => b.score - a.score).slice(0, limit);
+function suggestSeating(reservation, floor, others = [], limit = DEFAULT_SUGGESTION_LIMIT, scorer = ruleScorer) {
+  const feasible = generateCandidates(reservation, floor, others).filter(
+    (candidate) => canSeat(reservation, candidate, floor, others).ok
+  );
+  return scorer.rank(reservation, feasible, floor).slice(0, limit);
 }
 function explainNoFit(reservation, floor, others = []) {
   const candidates = generateCandidates(reservation, floor, others);
@@ -577,20 +596,31 @@ function evaluateBookingRules(ctx) {
   if (Number.isNaN(at.getTime())) return out;
   const key = dateKey(at);
   const time = clock(at);
-  const closure = restrictions.closure;
-  if (closure.active && (closure.until == null || key < closure.until)) {
-    out.push({
-      field: "dateTime",
-      code: closure.until ? "closedUntil" : "closed",
-      params: closure.until ? { until: closure.until } : void 0
-    });
-  }
-  for (const b of restrictions.blocks) {
-    if (b.date !== key) continue;
-    const wholeDay = !b.from || !b.to;
-    if (wholeDay || time >= b.from && time <= b.to) {
-      out.push({ field: "dateTime", code: "blockedDate" });
-      break;
+  if (!ctx.vip) {
+    const closure = restrictions.closure;
+    if (closure.active && (closure.until == null || key < closure.until)) {
+      out.push({
+        field: "dateTime",
+        code: closure.until ? "closedUntil" : "closed",
+        params: closure.until ? { until: closure.until } : void 0
+      });
+    }
+    for (const b of restrictions.blocks) {
+      if (b.date !== key) continue;
+      const wholeDay = !b.from || !b.to;
+      if (wholeDay || time >= b.from && time <= b.to) {
+        out.push({ field: "dateTime", code: "blockedDate" });
+        break;
+      }
+    }
+    const weekday = at.getDay();
+    for (const r of restrictions.recurring ?? []) {
+      if (r.day !== weekday) continue;
+      const wholeDay = !r.from || !r.to;
+      if (wholeDay || time >= r.from && time <= r.to) {
+        out.push({ field: "dateTime", code: "blockedRecurring" });
+        break;
+      }
     }
   }
   const day2 = ctx.openingHours[at.getDay()];
@@ -684,6 +714,7 @@ var DEFAULT_RESERVATION_RULES = {
 };
 var DEFAULT_BOOKING_RESTRICTIONS = {
   blocks: [],
+  recurring: [],
   closure: { active: false, until: null }
 };
 
@@ -769,7 +800,12 @@ var DEFAULT_SEATING_CONFIG = {
   weights: {
     capacityFit: 10,
     zoneMatch: 6,
-    preferredTable: 8,
+    // Deliberately above the sum of the other weights so a REQUESTED table
+    // (preferredTableId, or a table parsed from the notes) wins over a tighter
+    // fit / preferred zone / combo whenever it's a feasible option. Still soft:
+    // an infeasible table (wrong size, occupied, forbidden) is never offered.
+    preferredTable: 40,
+    requestedShape: 5,
     singleTable: 3,
     preferredCombo: 12
   }
@@ -788,11 +824,13 @@ function reservationFromRow(row) {
     preferredZoneId: row.preferred_zone_id ?? void 0,
     preferredTableId: row.preferred_table_id ?? void 0,
     assignedTableIds: row.assigned_table_ids ?? void 0,
+    assignmentSource: row.assignment_source ?? void 0,
     occasion: row.occasion ?? void 0,
     status: row.status,
     source: row.source,
     preferences: row.preferences ?? void 0,
     notes: row.notes ?? void 0,
+    parsedRequest: row.parsed_request ?? void 0,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -816,6 +854,7 @@ async function evaluateAvailability(input, data) {
     rules: { ...DEFAULT_RESERVATION_RULES, ...data.reservationRules ?? {} },
     restrictions: {
       blocks: data.bookingRestrictions?.blocks ?? [],
+      recurring: data.bookingRestrictions?.recurring ?? [],
       closure: {
         ...DEFAULT_BOOKING_RESTRICTIONS.closure,
         ...data.bookingRestrictions?.closure ?? {}
@@ -823,7 +862,8 @@ async function evaluateAvailability(input, data) {
     },
     zones: floor.zones,
     now: /* @__PURE__ */ new Date(),
-    isNew: true
+    isNew: true,
+    vip: !!input.preferences?.vip
   })[0];
   if (violation) {
     return { available: false, reason: { key: `rules.${violation.code}`, params: violation.params } };

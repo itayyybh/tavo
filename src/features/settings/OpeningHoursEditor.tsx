@@ -2,16 +2,8 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Toggle } from '@/components/ui'
 import { useSettingsStore } from '@/stores'
-import type { Weekday } from '@/types'
 import { TimeField } from './TimeField'
-
-const WEEKDAYS: Weekday[] = [0, 1, 2, 3, 4, 5, 6]
-
-/** Localised long weekday name. 2023-01-01 (UTC) was a Sunday, so it anchors 0. */
-function weekdayLabel(weekday: Weekday, locale: string): string {
-  const date = new Date(Date.UTC(2023, 0, 1 + weekday))
-  return new Intl.DateTimeFormat(locale, { weekday: 'long', timeZone: 'UTC' }).format(date)
-}
+import { WEEKDAYS, weekdayLabel } from './weekday'
 
 /**
  * Weekly opening-hours editor (Phase 11 — Settings shell). One row per weekday:

@@ -4,6 +4,7 @@
     "closed": "Bookings are closed right now.",
     "closedUntil": "Bookings are closed until {{until}}.",
     "blockedDate": "That date is blocked for bookings.",
+    "blockedRecurring": "That day and time is closed for bookings.",
     "closedDay": "The restaurant is closed that day.",
     "beforeOpening": "Before opening — the restaurant opens at {{from}}.",
     "afterClosing": "After closing — the restaurant closes at {{time}}.",
@@ -75,6 +76,11 @@
     "windowSeat": "Window Seat",
     "smoking": "Smoking"
   },
+  "shape": {
+    "round": "round",
+    "square": "square",
+    "rectangle": "rectangular"
+  },
   "form": {
     "guestName": "Guest name",
     "guestNamePlaceholder": "e.g. Dana Levi",
@@ -91,6 +97,13 @@
     "none": "None",
     "source": "Source",
     "notes": "Notes",
+    "notesRequestPlaceholder": "Requests, allergies, occasion… (e.g. table 7, round table)",
+    "detectedRequests": "Detected requests",
+    "detectedHint": "Offered first when seating — freed if the table's needed elsewhere.",
+    "detecting": "Reading notes…",
+    "reqTable": "Table {{label}}",
+    "reqShape": "{{shape}} table",
+    "clearRequests": "Clear",
     "preferences": "Preferences",
     "allergiesPlaceholder": "Allergies (optional)",
     "cancel": "Cancel",
@@ -154,6 +167,7 @@
     "preferredZone": "Preferred zone",
     "bringToPreferredZone": "Bring to preferred zone",
     "requestedTable": "Requested table",
+    "requestedShape": "Requested $t(shape.{{shape}}) table",
     "singleTable": "Single table",
     "mergeOf": "Merge of {{count}}",
     "preferredCombo": "Preferred combo",

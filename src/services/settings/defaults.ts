@@ -45,5 +45,6 @@ export const DEFAULT_RESERVATION_RULES: ReservationRulesConfig = {
 /** Default booking restrictions — nothing blocked, not closed. */
 export const DEFAULT_BOOKING_RESTRICTIONS: BookingRestrictions = {
   blocks: [],
+  recurring: [],
   closure: { active: false, until: null },
 }
