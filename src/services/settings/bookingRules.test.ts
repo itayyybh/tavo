@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import { evaluateBookingRules, type BookingRuleContext } from './bookingRules'
-import type { DayHours, OpeningHours, ReservationRulesConfig, Zone } from '@/types'
+import type {
+  BookingRestrictions,
+  DayHours,
+  OpeningHours,
+  ReservationRulesConfig,
+  Zone,
+} from '@/types'
 
 /**
  * Booking-rule enforcement tests (Phase 11). Exercises the pure evaluator that
@@ -22,7 +28,17 @@ const defRules: ReservationRulesConfig = {
   allowAltZoneSuggestions: true,
 }
 
-const noRestrictions = { blocks: [], closure: { active: false, until: null } }
+const noRestrictions: BookingRestrictions = {
+  blocks: [],
+  recurring: [],
+  closure: { active: false, until: null },
+}
+
+/** Restrictions builder — spreads over the empty default. */
+const restr = (over: Partial<BookingRestrictions> = {}): BookingRestrictions => ({
+  ...noRestrictions,
+  ...over,
+})
 
 const zones: Zone[] = [
   { id: 'z1', name: 'Inside', color: '#fff', position: { x: 0, y: 0 }, size: { x: 1, y: 1 } },
@@ -56,28 +72,63 @@ describe('evaluateBookingRules', () => {
 
   describe('temporary closure', () => {
     it('blocks when active indefinitely', () => {
-      expect(codesFor(base({ restrictions: { blocks: [], closure: { active: true, until: null } } }))).toEqual(['closed'])
+      expect(codesFor(base({ restrictions: restr({ closure: { active: true, until: null } }) }))).toEqual(['closed'])
     })
     it('blocks a booking before the reopen date', () => {
-      expect(codesFor(base({ restrictions: { blocks: [], closure: { active: true, until: '2026-08-20' } } }))).toEqual(['closedUntil'])
+      expect(codesFor(base({ restrictions: restr({ closure: { active: true, until: '2026-08-20' } }) }))).toEqual(['closedUntil'])
     })
     it('allows a booking on/after the reopen date', () => {
-      expect(codesFor(base({ restrictions: { blocks: [], closure: { active: true, until: '2026-08-10' } } }))).toEqual([])
+      expect(codesFor(base({ restrictions: restr({ closure: { active: true, until: '2026-08-10' } }) }))).toEqual([])
     })
   })
 
   describe('blackout dates', () => {
     it('blocks a whole-day blackout on the booking date', () => {
-      expect(codesFor(base({ restrictions: { blocks: [{ id: 'b', date: '2026-08-12', from: null, to: null }], closure: noRestrictions.closure } }))).toEqual(['blockedDate'])
+      expect(codesFor(base({ restrictions: restr({ blocks: [{ id: 'b', date: '2026-08-12', from: null, to: null }] }) }))).toEqual(['blockedDate'])
     })
     it('ignores a blackout on a different date', () => {
-      expect(codesFor(base({ restrictions: { blocks: [{ id: 'b', date: '2026-08-13', from: null, to: null }], closure: noRestrictions.closure } }))).toEqual([])
+      expect(codesFor(base({ restrictions: restr({ blocks: [{ id: 'b', date: '2026-08-13', from: null, to: null }] }) }))).toEqual([])
     })
     it('blocks when the booking falls inside a blocked window', () => {
-      expect(codesFor(base({ restrictions: { blocks: [{ id: 'b', date: '2026-08-12', from: '18:00', to: '20:00' }], closure: noRestrictions.closure } }))).toEqual(['blockedDate'])
+      expect(codesFor(base({ restrictions: restr({ blocks: [{ id: 'b', date: '2026-08-12', from: '18:00', to: '20:00' }] }) }))).toEqual(['blockedDate'])
     })
     it('allows when the booking is outside the blocked window', () => {
-      expect(codesFor(base({ restrictions: { blocks: [{ id: 'b', date: '2026-08-12', from: '20:00', to: '22:00' }], closure: noRestrictions.closure } }))).toEqual([])
+      expect(codesFor(base({ restrictions: restr({ blocks: [{ id: 'b', date: '2026-08-12', from: '20:00', to: '22:00' }] }) }))).toEqual([])
+    })
+  })
+
+  describe('recurring closures', () => {
+    // Base booking is a Wednesday (weekday 3) at 19:00.
+    it('blocks a whole-day recurring closure on that weekday', () => {
+      expect(codesFor(base({ restrictions: restr({ recurring: [{ id: 'r', day: 3, from: null, to: null }] }) }))).toEqual(['blockedRecurring'])
+    })
+    it('ignores a recurring closure on a different weekday', () => {
+      expect(codesFor(base({ restrictions: restr({ recurring: [{ id: 'r', day: 1, from: null, to: null }] }) }))).toEqual([])
+    })
+    it('blocks when the booking falls inside a recurring window', () => {
+      expect(codesFor(base({ restrictions: restr({ recurring: [{ id: 'r', day: 3, from: '18:00', to: '20:00' }] }) }))).toEqual(['blockedRecurring'])
+    })
+    it('allows when the booking is outside the recurring window', () => {
+      expect(codesFor(base({ restrictions: restr({ recurring: [{ id: 'r', day: 3, from: '20:00', to: '22:00' }] }) }))).toEqual([])
+    })
+  })
+
+  describe('VIP override', () => {
+    const blockedEverything = restr({
+      closure: { active: true, until: null },
+      blocks: [{ id: 'b', date: '2026-08-12', from: null, to: null }],
+      recurring: [{ id: 'r', day: 3, from: null, to: null }],
+    })
+    it('bypasses closure, blackout, and recurring for a VIP', () => {
+      expect(codesFor(base({ restrictions: blockedEverything, vip: true }))).toEqual([])
+    })
+    it('still enforces the same restrictions for a non-VIP', () => {
+      expect(codesFor(base({ restrictions: blockedEverything }))).toEqual(
+        ['blockedDate', 'blockedRecurring', 'closed'].sort(),
+      )
+    })
+    it('does not let a VIP bypass party-size limits', () => {
+      expect(codesFor(base({ partySize: 99, rules: { ...defRules, maxPartySize: 4 }, vip: true }))).toEqual(['partyTooLarge'])
     })
   })
 

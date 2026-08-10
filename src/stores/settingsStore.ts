@@ -5,6 +5,7 @@ import type {
   DayHours,
   MergeConfig,
   OpeningHours,
+  RecurringBlock,
   ReservationRulesConfig,
   RestaurantSettingsConfig,
   SeatingConfig,
@@ -116,6 +117,10 @@ interface SettingsState {
   addDateBlock: (block: Omit<DateBlock, 'id'>) => void
   /** Remove a blackout by id. */
   removeDateBlock: (id: string) => void
+  /** Add a recurring weekly blackout (an id is generated). */
+  addRecurringBlock: (block: Omit<RecurringBlock, 'id'>) => void
+  /** Remove a recurring blackout by id. */
+  removeRecurringBlock: (id: string) => void
   /** Patch the temporary-closure switch (one field or many). */
   setClosure: (patch: Partial<TemporaryClosure>) => void
   /** Patch the merge rule config (one field or many). */
@@ -197,6 +202,23 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       bookingRestrictions: {
         ...s.bookingRestrictions,
         blocks: s.bookingRestrictions.blocks.filter((b) => b.id !== id),
+      },
+    })),
+  addRecurringBlock: (block) =>
+    set((s) => ({
+      bookingRestrictions: {
+        ...s.bookingRestrictions,
+        recurring: [
+          ...s.bookingRestrictions.recurring,
+          { ...block, id: crypto.randomUUID() },
+        ],
+      },
+    })),
+  removeRecurringBlock: (id) =>
+    set((s) => ({
+      bookingRestrictions: {
+        ...s.bookingRestrictions,
+        recurring: s.bookingRestrictions.recurring.filter((b) => b.id !== id),
       },
     })),
   setClosure: (patch) =>

@@ -82,6 +82,7 @@ export async function evaluateAvailability(
     rules: { ...DEFAULT_RESERVATION_RULES, ...(data.reservationRules ?? {}) },
     restrictions: {
       blocks: data.bookingRestrictions?.blocks ?? [],
+      recurring: data.bookingRestrictions?.recurring ?? [],
       closure: {
         ...DEFAULT_BOOKING_RESTRICTIONS.closure,
         ...(data.bookingRestrictions?.closure ?? {}),
@@ -90,6 +91,7 @@ export async function evaluateAvailability(
     zones: floor.zones,
     now: new Date(),
     isNew: true,
+    vip: !!input.preferences?.vip,
   })[0]
   if (violation) {
     return { available: false, reason: { key: `rules.${violation.code}`, params: violation.params } }

@@ -95,6 +95,7 @@ export function MobileReservationForm() {
       zones,
       now: new Date(),
       isNew: true,
+      vip: !!prefs.vip,
     })
     if (violations.length > 0) {
       const v = violations[0]

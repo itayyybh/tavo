@@ -2,9 +2,11 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, Input, Text, Toggle } from '@/components/ui'
 import { useSettingsStore } from '@/stores'
+import type { Weekday } from '@/types'
 import { SettingRow } from './SettingRow'
 import { TimeField } from './TimeField'
 import { SettingsSection, SettingsDivider } from './SettingsSection'
+import { WEEKDAYS, weekdayLabel } from './weekday'
 
 /** Native date input, styled to the design system. Empty value = "". */
 function DateField({
@@ -39,16 +41,63 @@ function DateField({
 export function BookingRestrictionsEditor() {
   const { t } = useTranslation('settings')
   const locale = useSettingsStore((s) => s.locale)
-  const { blocks, closure } = useSettingsStore((s) => s.bookingRestrictions)
+  const { blocks, recurring, closure } = useSettingsStore((s) => s.bookingRestrictions)
   const setClosure = useSettingsStore((s) => s.setClosure)
   const addDateBlock = useSettingsStore((s) => s.addDateBlock)
   const removeDateBlock = useSettingsStore((s) => s.removeDateBlock)
+  const addRecurringBlock = useSettingsStore((s) => s.addRecurringBlock)
+  const removeRecurringBlock = useSettingsStore((s) => s.removeRecurringBlock)
 
   // Add-a-block draft.
   const [date, setDate] = useState('')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [reason, setReason] = useState('')
+
+  // Add-a-recurring-block draft.
+  const [days, setDays] = useState<Set<Weekday>>(new Set())
+  const [rFrom, setRFrom] = useState('')
+  const [rTo, setRTo] = useState('')
+  const [rReason, setRReason] = useState('')
+
+  const dayLabels = useMemo(
+    () => WEEKDAYS.map((d) => weekdayLabel(d, locale)),
+    [locale],
+  )
+
+  // Recurring rows sorted by weekday, then by start time.
+  const sortedRecurring = useMemo(
+    () =>
+      [...recurring].sort(
+        (a, b) => a.day - b.day || (a.from ?? '').localeCompare(b.from ?? ''),
+      ),
+    [recurring],
+  )
+
+  const toggleDay = (d: Weekday) =>
+    setDays((prev) => {
+      const next = new Set(prev)
+      next.has(d) ? next.delete(d) : next.add(d)
+      return next
+    })
+
+  // Fan the selected weekdays out into one entry each, sharing the window.
+  const addRecurring = () => {
+    if (days.size === 0) return
+    for (const d of WEEKDAYS) {
+      if (!days.has(d)) continue
+      addRecurringBlock({
+        day: d,
+        from: rFrom || null,
+        to: rTo || null,
+        reason: rReason.trim() || undefined,
+      })
+    }
+    setDays(new Set())
+    setRFrom('')
+    setRTo('')
+    setRReason('')
+  }
 
   const fmtDate = useMemo(
     () => new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }),
@@ -166,6 +215,88 @@ export function BookingRestrictionsEditor() {
                   className="shrink-0 text-[13px] text-muted transition-colors hover:text-status-occupied"
                 >
                   {t('blocks.remove')}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </SettingsSection>
+
+      <SettingsSection title={t('recurring.title')} description={t('recurring.description')}>
+        {/* Add a recurring block */}
+        <div className="flex flex-wrap items-end gap-3 pb-1">
+          <div className="flex flex-col gap-1 text-[13px] text-muted">
+            {t('recurring.days')}
+            <div className="flex flex-wrap gap-1.5">
+              {WEEKDAYS.map((d, i) => {
+                const on = days.has(d)
+                return (
+                  <button
+                    key={d}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => toggleDay(d)}
+                    className={
+                      on
+                        ? 'h-9 rounded-lg border border-ink bg-ink px-3 text-sm text-surface transition-colors'
+                        : 'h-9 rounded-lg border border-line bg-surface px-3 text-sm text-ink transition-colors hover:border-ink/30'
+                    }
+                  >
+                    {dayLabels[i].slice(0, 3)}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+          <label className="flex flex-col gap-1 text-[13px] text-muted">
+            {t('recurring.from')}
+            <TimeField value={rFrom} onChange={setRFrom} aria-label={t('recurring.from')} />
+          </label>
+          <label className="flex flex-col gap-1 text-[13px] text-muted">
+            {t('recurring.to')}
+            <TimeField value={rTo} onChange={setRTo} aria-label={t('recurring.to')} />
+          </label>
+          <label className="flex min-w-[10rem] flex-1 flex-col gap-1 text-[13px] text-muted">
+            {t('recurring.reason')}
+            <Input
+              value={rReason}
+              onChange={(e) => setRReason(e.target.value)}
+              placeholder={t('recurring.reasonPlaceholder')}
+            />
+          </label>
+          <Button variant="secondary" onClick={addRecurring} disabled={days.size === 0}>
+            {t('recurring.add')}
+          </Button>
+        </div>
+
+        {sortedRecurring.length > 0 && <SettingsDivider />}
+
+        {sortedRecurring.length === 0 ? (
+          <Text muted className="pt-2 text-[13px]">
+            {t('recurring.empty')}
+          </Text>
+        ) : (
+          <div className="flex flex-col">
+            {sortedRecurring.map((r) => (
+              <div
+                key={r.id}
+                className="flex items-center justify-between gap-4 border-t border-line py-3 first:border-t-0"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm text-ink">
+                    {dayLabels[r.day]}
+                    <span className="ms-2 text-muted">
+                      {r.from && r.to ? `${r.from}–${r.to}` : t('recurring.allDay')}
+                    </span>
+                  </p>
+                  {r.reason && <p className="truncate text-[13px] text-muted">{r.reason}</p>}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeRecurringBlock(r.id)}
+                  className="shrink-0 text-[13px] text-muted transition-colors hover:text-status-occupied"
+                >
+                  {t('recurring.remove')}
                 </button>
               </div>
             ))}
