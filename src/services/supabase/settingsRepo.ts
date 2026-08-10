@@ -42,6 +42,8 @@ export async function saveSettings(
 export interface RestaurantProfile {
   name: string
   timezone: string | null
+  /** Small square logo as a data URL, or null to fall back to the Tavo mark. */
+  logoUrl: string | null
 }
 
 /** Read the restaurant's profile (name + timezone). */
@@ -50,12 +52,16 @@ export async function loadRestaurantProfile(
 ): Promise<RestaurantProfile | null> {
   const { data, error } = await supabase
     .from('restaurants')
-    .select('name, timezone')
+    .select('name, timezone, logo_url')
     .eq('id', restaurantId)
     .maybeSingle()
   if (error) throw error
   if (!data) return null
-  return { name: data.name as string, timezone: (data.timezone as string | null) ?? null }
+  return {
+    name: data.name as string,
+    timezone: (data.timezone as string | null) ?? null,
+    logoUrl: (data.logo_url as string | null) ?? null,
+  }
 }
 
 /** Owner-only profile edit via the security-definer RPC. */
@@ -67,6 +73,7 @@ export async function updateRestaurantProfile(
     p_restaurant_id: restaurantId,
     p_name: profile.name,
     p_timezone: profile.timezone,
+    p_logo_url: profile.logoUrl,
   })
   if (error) throw error
 }

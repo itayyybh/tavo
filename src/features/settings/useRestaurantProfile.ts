@@ -18,6 +18,7 @@ export function useRestaurantProfile() {
 
   const [name, setName] = useState('')
   const [timezone, setTimezone] = useState<string>('')
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [saveState, setSaveState] = useState<SaveState>('idle')
 
@@ -29,6 +30,7 @@ export function useRestaurantProfile() {
         if (cancelled || !profile) return
         setName(profile.name)
         setTimezone(profile.timezone ?? '')
+        setLogoUrl(profile.logoUrl)
         setLoaded(true)
       })
       .catch((err) => {
@@ -47,6 +49,7 @@ export function useRestaurantProfile() {
       await updateRestaurantProfile(restaurantId, {
         name: name.trim(),
         timezone: timezone || null,
+        logoUrl,
       })
       await refreshMembership()
       setSaveState('saved')
@@ -57,5 +60,15 @@ export function useRestaurantProfile() {
     }
   }
 
-  return { name, setName, timezone, setTimezone, loaded, saveState, save }
+  return {
+    name,
+    setName,
+    timezone,
+    setTimezone,
+    logoUrl,
+    setLogoUrl,
+    loaded,
+    saveState,
+    save,
+  }
 }
