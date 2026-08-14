@@ -67,6 +67,26 @@ export interface EffectiveTable {
    * the clash instead of silently hiding a booking. See `findAssignmentConflicts`.
    */
   conflict?: boolean
+  /**
+   * Set when a seating suggestion is being PREVIEWED on this table (Phase 12) — a
+   * hypothetical assignment the host is comparing before committing, never
+   * persisted. `color` is the previewed option's accent; `contested` is true when
+   * more than one previewed option wants this table (only one could be seated).
+   * Drawn as a dashed overlay on top of the table's real status.
+   */
+  preview?: { color: string; contested: boolean }
+}
+
+/**
+ * A hypothetical seating option overlaid on the floor for preview (Phase 12) —
+ * "how would this look" without writing an assignment. Purely a view input to
+ * `deriveFloorState`; the real reservations are never touched.
+ */
+export interface FloorPreview {
+  /** Tables the option would occupy. */
+  tableIds: ID[]
+  /** Distinct accent color for this option (lets several be compared at once). */
+  color: string
 }
 
 /** The whole floor resolved for the current shift. */

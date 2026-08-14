@@ -10,7 +10,7 @@
  */
 import type { FloorSnapshot, FloorTableStatus, ID, Reservation, Table } from '@/types'
 import { findAssignmentConflicts } from '@/utils'
-import type { EffectiveFloor, EffectiveTable, TableUrgency } from './types'
+import type { EffectiveFloor, EffectiveTable, FloorPreview, TableUrgency } from './types'
 
 /** Reservation statuses that reserve (but haven't yet occupied) their tables. */
 const RESERVING_STATUSES: Reservation['status'][] = ['confirmed', 'arrived']
@@ -41,6 +41,12 @@ export interface DeriveFloorInput {
   reservedLookaheadMin: number
   /** Turnover buffer (minutes) — pads windows when detecting double-books. */
   turnoverBufferMin: number
+  /**
+   * Hypothetical seating options to overlay for preview (Phase 12) — tables the
+   * host is comparing before committing. Marks the affected tables with a dashed
+   * accent overlay; does NOT change their real status. Empty in normal operation.
+   */
+  previews?: FloorPreview[]
   /** Injectable for tests; defaults to the real clock. */
   now?: number
 }
@@ -56,6 +62,7 @@ export function deriveFloorState({
   snapshot,
   reservedLookaheadMin,
   turnoverBufferMin,
+  previews = [],
   now = Date.now(),
 }: DeriveFloorInput): EffectiveFloor {
   const {
@@ -83,6 +90,17 @@ export function deriveFloorState({
   // Tables double-booked across overlapping windows — flagged so the floor shows
   // the clash rather than silently hiding whichever booking loses the map race.
   const conflictTables = findAssignmentConflicts(reservations, turnoverBufferMin).tableIds
+
+  // table id → the preview overlay it carries. First option to claim a table owns
+  // its color; a second claimant marks it `contested` (only one could be seated).
+  const previewByTable = new Map<ID, { color: string; contested: boolean }>()
+  for (const p of previews) {
+    for (const tableId of p.tableIds) {
+      const existing = previewByTable.get(tableId)
+      if (existing) existing.contested = true
+      else previewByTable.set(tableId, { color: p.color, contested: false })
+    }
+  }
 
   // table id → the reservation holding it, split by how soon it's due.
   // `arrived` is always "due now" regardless of dateTime (the guest is here).
@@ -180,6 +198,7 @@ export function deriveFloorState({
       mergedGroupId: runtimeMergeId ?? base.mergedGroupId,
       isRuntimeMerge: runtimeMergeId != null,
       conflict: conflictTables.has(base.id) || undefined,
+      preview: previewByTable.get(base.id),
     }
   })
 
