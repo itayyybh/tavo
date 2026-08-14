@@ -2,8 +2,15 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
 import { Button, Panel, Text } from '@/components/ui'
-import { useReservationStore, useDecisionLogStore, useToastStore } from '@/stores'
+import {
+  useReservationStore,
+  useDecisionLogStore,
+  useToastStore,
+  usePreviewStore,
+  isPreviewed,
+} from '@/stores'
 import { useSeatingFloor } from '@/hooks/useSeatingFloor'
+import { useEffectiveFloor } from '@/features/floor/hooks/useEffectiveFloor'
 import {
   suggestSeating,
   explainNoFit,
@@ -13,6 +20,7 @@ import {
 import type { ID, Reservation } from '@/types'
 import { cn } from '@/utils'
 import { RepackSuggestion } from './RepackSuggestion'
+import { MiniFloor } from './MiniFloor'
 
 interface SeatingPanelProps {
   reservation: Reservation
@@ -34,6 +42,17 @@ export function SeatingPanel({ reservation }: SeatingPanelProps) {
   const recordAccept = useDecisionLogStore((s) => s.recordAccept)
   const logRepack = useDecisionLogStore((s) => s.logRepack)
   const notify = useToastStore((s) => s.notify)
+  const previews = usePreviewStore((s) => s.previews)
+  const togglePreview = usePreviewStore((s) => s.toggle)
+  const clearPreviews = usePreviewStore((s) => s.clear)
+  const effective = useEffectiveFloor()
+
+  // Previews scoped to THIS booking (the store keeps only one booking's at a time,
+  // but a preview left over from the Live Floor could belong to another).
+  const myPreviews = useMemo(
+    () => previews.filter((p) => p.reservationId === reservation.id),
+    [previews, reservation.id],
+  )
 
   // Labels + zone names for display, resolved once from the floor snapshot.
   const tableLabel = useMemo(
@@ -117,6 +136,8 @@ export function SeatingPanel({ reservation }: SeatingPanelProps) {
     // Host explicitly chose this option → pin it (manual): the repack optimizer
     // and auto-assign must never silently relocate it.
     assignTable(reservation.id, s.candidate.tableIds, 'manual')
+    // The booking is now really reserved — the hypothetical previews are moot.
+    clearPreviews()
   }
 
   return (
@@ -138,6 +159,20 @@ export function SeatingPanel({ reservation }: SeatingPanelProps) {
           >
             {t('seating.clear')}
           </Button>
+        </div>
+      )}
+
+      {myPreviews.length > 0 && (
+        <div className="mb-3 flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <Text className="text-[10px] font-semibold uppercase tracking-wide text-muted">
+              {t('seating.previewComparing', { count: myPreviews.length })}
+            </Text>
+            <Button size="sm" variant="ghost" onClick={clearPreviews}>
+              {t('seating.previewClear')}
+            </Button>
+          </div>
+          <MiniFloor effective={effective} tableTypes={floor.tableTypes} />
         </div>
       )}
 
@@ -211,14 +246,47 @@ export function SeatingPanel({ reservation }: SeatingPanelProps) {
                       </div>
                     )}
                   </div>
-                  <Button
-                    size="sm"
-                    variant={chosen ? 'secondary' : 'primary'}
-                    disabled={chosen}
-                    onClick={() => accept(s)}
-                  >
-                    {chosen ? t('seating.reservedBtn') : t('seating.reserve')}
-                  </Button>
+                  <div className="flex shrink-0 flex-col items-end gap-1.5">
+                    <Button
+                      size="sm"
+                      variant={chosen ? 'secondary' : 'primary'}
+                      disabled={chosen}
+                      onClick={() => accept(s)}
+                    >
+                      {chosen ? t('seating.reservedBtn') : t('seating.reserve')}
+                    </Button>
+                    {(() => {
+                      const previewing = isPreviewed(
+                        previews,
+                        reservation.id,
+                        s.candidate.tableIds,
+                      )
+                      const color = myPreviews.find((p) =>
+                        isPreviewed([p], reservation.id, s.candidate.tableIds),
+                      )?.color
+                      return (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() =>
+                            togglePreview(reservation.id, s.candidate.tableIds)
+                          }
+                        >
+                          <span className="flex items-center gap-1.5">
+                            {previewing && color && (
+                              <span
+                                className="h-2 w-2 rounded-full"
+                                style={{ backgroundColor: color }}
+                              />
+                            )}
+                            {previewing
+                              ? t('seating.previewing')
+                              : t('seating.preview')}
+                          </span>
+                        </Button>
+                      )
+                    })()}
+                  </div>
                 </div>
 
                 <div className="mt-2 flex flex-wrap gap-1">

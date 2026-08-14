@@ -8,4 +8,4 @@ export {
   type ClusterResult,
   type Placement,
 } from './arrange'
-export type { EffectiveFloor, EffectiveTable, TableUrgency } from './types'
+export type { EffectiveFloor, EffectiveTable, FloorPreview, TableUrgency } from './types'

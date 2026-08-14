@@ -97,18 +97,43 @@ export function FloorTableNode({
   const statusColor = ramp ? colors.status[ramp.colorKey] : colors.status[status]
   const tint = FLOOR_TINT + (ramp?.tint ?? 0)
 
-  // A double-book overrides the border with the alarm hue + a dashed stroke, so
-  // the clash is unmissable regardless of the table's underlying status.
+  // A hypothetical assignment the host is comparing (Phase 12): a dashed accent
+  // outline layered on top of the table's real status. A `contested` table (wanted
+  // by two previewed options) drops to a neutral hue — only one could be seated.
+  const previewColor = et.preview
+    ? et.preview.contested
+      ? colors.muted
+      : et.preview.color
+    : undefined
+
+  // Border precedence: a real double-book alarm wins over everything; a preview
+  // overlay next (it's the host's active focus); then selection, then status.
   const border = conflict
     ? colors.conflict
-    : selected
-      ? colors.accent
-      : isActive
-        ? statusColor
-        : colors.line
-  const borderWidth = conflict ? 2.5 : selected || isActive ? 2 + (ramp?.border ?? 0) : 1.5
-  // Whole body painted a solid tint of the status color (flat, no alpha).
-  const bodyFill = isActive ? mixHex(colors.surface, statusColor, tint) : colors.surface
+    : previewColor
+      ? previewColor
+      : selected
+        ? colors.accent
+        : isActive
+          ? statusColor
+          : colors.line
+  const borderWidth = conflict
+    ? 2.5
+    : previewColor
+      ? 2
+      : selected || isActive
+        ? 2 + (ramp?.border ?? 0)
+        : 1.5
+  // A dashed stroke marks both the alarm and a preview (neither is a committed
+  // status); the preview uses a tighter dash so the two never read alike.
+  const dash = conflict ? [7, 4] : previewColor ? [6, 4] : undefined
+  // Whole body painted a solid tint of the status color (flat, no alpha). A
+  // preview on an otherwise-free table gets a faint accent wash so it reads held.
+  const bodyFill = isActive
+    ? mixHex(colors.surface, statusColor, tint)
+    : previewColor
+      ? mixHex(colors.surface, previewColor, FLOOR_TINT)
+      : colors.surface
 
   const dotX = round ? w / 2 + (Math.min(w, h) / 2 - 7) * 0.707 : w - 9
   const dotY = round ? h / 2 - (Math.min(w, h) / 2 - 7) * 0.707 : 9
@@ -134,7 +159,7 @@ export function FloorTableNode({
       fill={bodyFill}
       stroke={border}
       strokeWidth={borderWidth}
-      dash={conflict ? [7, 4] : undefined}
+      dash={dash}
       shadowColor="#000000"
       shadowBlur={6}
       shadowOffset={{ x: 0, y: 2 }}
@@ -151,7 +176,7 @@ export function FloorTableNode({
       fill={bodyFill}
       stroke={border}
       strokeWidth={borderWidth}
-      dash={conflict ? [7, 4] : undefined}
+      dash={dash}
       shadowColor="#000000"
       shadowBlur={6}
       shadowOffset={{ x: 0, y: 2 }}
