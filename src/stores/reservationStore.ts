@@ -3,6 +3,7 @@ import type { ID, Reservation, ReservationStatus } from '@/types'
 import { createId } from '@/utils'
 import {
   deleteAllReservations,
+  deleteArchivedReservations,
   deleteReservation,
   insertReservation,
   updateReservation as repoUpdate,
@@ -22,6 +23,13 @@ import { useSessionStore } from './sessionStore'
  * local-only). Realtime patches arrive via `upsertLocal`/`removeLocal`, which
  * intentionally do NOT persist — they'd otherwise echo back to the database.
  *
+ * History: reservations are split into two collections — `reservations` (the
+ * live service) and `archived` (History). Archiving (host delete, or the
+ * end-of-day sweep) moves a row between them via a plain write-through UPDATE
+ * (the `archived` flag), so nothing is destroyed and restore is trivial. Every
+ * existing consumer reads `reservations` and therefore keeps seeing only the
+ * active set, unchanged.
+ *
  * Search / filter / sort live in `@/utils` as pure functions.
  */
 
@@ -34,7 +42,10 @@ export type ReservationPatch = Partial<
 >
 
 interface ReservationState {
+  /** The live service — active (non-archived) reservations. */
   reservations: Reservation[]
+  /** History — archived reservations (host-deleted or swept at end of day). */
+  archived: Reservation[]
   addReservation: (input: NewReservation) => Reservation
   updateReservation: (id: ID, patch: ReservationPatch) => void
   setStatus: (id: ID, status: ReservationStatus) => void
@@ -51,11 +62,23 @@ interface ReservationState {
   assignTable: (id: ID, tableIds: ID[], source?: 'manual' | 'auto') => void
   /** Clear a reservation's table assignment. */
   clearAssignment: (id: ID) => void
-  removeReservation: (id: ID) => void
   /**
-   * Delete every reservation (Clear All) — write-through, unlike `replaceAll`.
-   * Clears local state and deletes the rows in the database so a reload doesn't
-   * rehydrate them.
+   * Host delete — a SOFT delete: moves the reservation to History (recoverable),
+   * not a permanent removal. Restore it, or purge it with `hardDelete`.
+   */
+  removeReservation: (id: ID) => void
+  /** Archive several reservations at once (the end-of-day sweep). */
+  archiveMany: (ids: ID[], reason: Reservation['archiveReason']) => void
+  /** Bring an archived reservation back into the live service. Clears its old
+   * table assignment (a past day's tables are stale) and resets it to confirmed. */
+  restoreReservation: (id: ID) => void
+  /** Permanently delete a reservation (History → gone). No recovery. */
+  hardDelete: (id: ID) => void
+  /** Permanently delete EVERY archived reservation — empty History. No recovery. */
+  clearArchived: () => void
+  /**
+   * Delete every reservation, active AND archived (Clear All) — a hard,
+   * write-through wipe used by admin/dev tooling, unlike `replaceAll`.
    */
   clearAll: () => void
   /** Replace the whole collection — used to hydrate from the database. */
@@ -78,6 +101,7 @@ const persist = (op: Promise<unknown>) => {
 
 export const useReservationStore = create<ReservationState>((set) => ({
   reservations: [],
+  archived: [],
 
   addReservation: (input) => {
     const stamp = now()
@@ -156,33 +180,117 @@ export const useReservationStore = create<ReservationState>((set) => ({
   },
 
   removeReservation: (id) => {
+    let moved: Reservation | undefined
+    set((state) => {
+      const target = state.reservations.find((r) => r.id === id)
+      if (!target) return state
+      moved = {
+        ...target,
+        archived: true,
+        archivedAt: now(),
+        archiveReason: 'deleted',
+        updatedAt: now(),
+      }
+      return {
+        reservations: state.reservations.filter((r) => r.id !== id),
+        archived: [...state.archived, moved],
+      }
+    })
+    const rid = activeRestaurant()
+    if (rid && moved) persist(repoUpdate(rid, moved))
+  },
+
+  archiveMany: (ids, reason) => {
+    if (ids.length === 0) return
+    const idSet = new Set(ids)
+    const stamp = now()
+    let moved: Reservation[] = []
+    set((state) => {
+      moved = state.reservations
+        .filter((r) => idSet.has(r.id))
+        .map((r) => ({
+          ...r,
+          archived: true,
+          archivedAt: stamp,
+          archiveReason: reason,
+          updatedAt: stamp,
+        }))
+      if (moved.length === 0) return state
+      return {
+        reservations: state.reservations.filter((r) => !idSet.has(r.id)),
+        archived: [...state.archived, ...moved],
+      }
+    })
+    const rid = activeRestaurant()
+    if (rid) for (const r of moved) persist(repoUpdate(rid, r))
+  },
+
+  restoreReservation: (id) => {
+    let restored: Reservation | undefined
+    set((state) => {
+      const target = state.archived.find((r) => r.id === id)
+      if (!target) return state
+      // A past day's tables/time are stale — return unassigned and confirmed.
+      restored = {
+        ...target,
+        archived: false,
+        archivedAt: undefined,
+        archiveReason: undefined,
+        assignedTableIds: undefined,
+        assignmentSource: undefined,
+        status: 'confirmed',
+        updatedAt: now(),
+      }
+      return {
+        archived: state.archived.filter((r) => r.id !== id),
+        reservations: [...state.reservations, restored],
+      }
+    })
+    const rid = activeRestaurant()
+    if (rid && restored) persist(repoUpdate(rid, restored))
+  },
+
+  hardDelete: (id) => {
     set((state) => ({
       reservations: state.reservations.filter((r) => r.id !== id),
+      archived: state.archived.filter((r) => r.id !== id),
     }))
     const rid = activeRestaurant()
     if (rid) persist(deleteReservation(rid, id))
   },
 
+  clearArchived: () => {
+    set({ archived: [] })
+    const rid = activeRestaurant()
+    if (rid) persist(deleteArchivedReservations(rid))
+  },
+
   clearAll: () => {
-    set({ reservations: [] })
+    set({ reservations: [], archived: [] })
     const rid = activeRestaurant()
     if (rid) persist(deleteAllReservations(rid))
   },
 
-  replaceAll: (reservations) => set({ reservations }),
+  replaceAll: (all) =>
+    set({
+      reservations: all.filter((r) => !r.archived),
+      archived: all.filter((r) => r.archived),
+    }),
 
   upsertLocal: (reservation) =>
     set((state) => {
-      const exists = state.reservations.some((r) => r.id === reservation.id)
-      return {
-        reservations: exists
-          ? state.reservations.map((r) => (r.id === reservation.id ? reservation : r))
-          : [...state.reservations, reservation],
-      }
+      // Drop any prior copy from both buckets, then place by its archived flag —
+      // this handles a realtime archive/restore that flips which bucket it's in.
+      const reservations = state.reservations.filter((r) => r.id !== reservation.id)
+      const archived = state.archived.filter((r) => r.id !== reservation.id)
+      if (reservation.archived) archived.push(reservation)
+      else reservations.push(reservation)
+      return { reservations, archived }
     }),
 
   removeLocal: (id) =>
     set((state) => ({
       reservations: state.reservations.filter((r) => r.id !== id),
+      archived: state.archived.filter((r) => r.id !== id),
     })),
 }))

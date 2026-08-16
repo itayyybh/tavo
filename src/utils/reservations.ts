@@ -1,5 +1,5 @@
 import type { ID, Reservation, ReservationStatus } from '@/types'
-import { isOnDay, minutesOfDay } from './datetime'
+import { isOnDay, minutesOfDay, toDateKey } from './datetime'
 
 /**
  * Pure reservation domain helpers — labels, the status workflow, and
@@ -36,6 +36,44 @@ export const TERMINAL_STATUSES: ReservationStatus[] = [
 /** True when a reservation is still part of the live service (not terminal). */
 export function isActiveStatus(status: ReservationStatus): boolean {
   return !TERMINAL_STATUSES.includes(status)
+}
+
+// ---------------------------------------------------------------------------
+// History / end-of-day — pure helpers.
+// ---------------------------------------------------------------------------
+
+/** Local `YYYY-MM-DD` service day of a reservation (from its `dateTime`). */
+export function serviceDayOf(r: Reservation): string {
+  return toDateKey(new Date(r.dateTime))
+}
+
+/** Epoch-ms end of a reservation's booked window (start + estimated duration). */
+export function reservationEnd(r: Reservation): number {
+  return Date.parse(r.dateTime) + r.estimatedDuration * 60_000
+}
+
+/**
+ * Ids to sweep into History at end-of-day, or `[]` if the day isn't over yet.
+ *
+ * The service is "done" only when, among the non-archived bookings for today or
+ * any earlier day, EVERY one is terminal (completed/cancelled/no_show) AND the
+ * latest booked window has already passed. This deliberately never fires
+ * mid-service (a still-pending or still-seated booking blocks it) and never
+ * touches future days. Pure — the caller archives the returned ids.
+ */
+export function endOfDayArchivableIds(
+  reservations: Reservation[],
+  now: number = Date.now(),
+): ID[] {
+  const today = toDateKey(new Date(now))
+  const candidates = reservations.filter(
+    (r) => !r.archived && serviceDayOf(r) <= today,
+  )
+  if (candidates.length === 0) return []
+  if (candidates.some((r) => isActiveStatus(r.status))) return []
+  const lastEnd = Math.max(...candidates.map(reservationEnd))
+  if (now <= lastEnd) return []
+  return candidates.map((r) => r.id)
 }
 
 export function canTransition(from: ReservationStatus, to: ReservationStatus): boolean {

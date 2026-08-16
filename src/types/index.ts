@@ -251,6 +251,17 @@ export interface Reservation {
    * ranking boost only — never a gate. Regenerated when the notes change.
    */
   parsedRequest?: ParsedRequest
+  /**
+   * Archived — moved to History rather than living in the active service. Set by
+   * a host delete (recoverable) or the end-of-day sweep. Active surfaces filter
+   * these out; the History surface shows them and can restore or purge them.
+   * Undefined/false = active.
+   */
+  archived?: boolean
+  /** ISO timestamp the reservation was archived. Undefined while active. */
+  archivedAt?: string
+  /** Why it was archived: a host delete, or the automatic end-of-day sweep. */
+  archiveReason?: 'deleted' | 'end_of_day'
   /** ISO timestamp of creation. */
   createdAt: string
   /** ISO timestamp of last edit. */

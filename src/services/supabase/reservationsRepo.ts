@@ -73,3 +73,13 @@ export async function deleteAllReservations(restaurantId: ID): Promise<void> {
     .eq('restaurant_id', restaurantId)
   if (error) throw error
 }
+
+/** Permanently delete every ARCHIVED reservation — empty History. One round-trip. */
+export async function deleteArchivedReservations(restaurantId: ID): Promise<void> {
+  const { error } = await supabase
+    .from('reservations')
+    .delete()
+    .eq('restaurant_id', restaurantId)
+    .eq('archived', true)
+  if (error) throw error
+}

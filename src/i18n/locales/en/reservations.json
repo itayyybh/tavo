@@ -192,10 +192,43 @@
     "free": " · {{count}} seats free"
   },
   "delete": {
-    "title": "Delete reservation",
-    "body": "Permanently delete the reservation for <name>{{name}}</name> (party of {{size}})? This can't be undone.",
+    "title": "Delete forever",
+    "body": "Permanently delete <name>{{name}}</name>'s reservation (party of {{size}})? This removes it from History for good — it can't be undone.",
     "keep": "Keep",
-    "delete": "Delete"
+    "confirm": "Delete forever"
+  },
+  "remove": {
+    "title": "Move to History",
+    "body": "Move <name>{{name}}</name>'s reservation (party of {{size}}) to History? You can restore it anytime.",
+    "keep": "Keep",
+    "confirm": "Move to History"
+  },
+  "history": {
+    "title": "History",
+    "count_one": "{{count}} reservation",
+    "count_other": "{{count}} reservations",
+    "searchPlaceholder": "Search history by name or phone…",
+    "emptyTitle": "Nothing in History yet",
+    "emptyBody": "Deleted and past reservations land here — restore or remove them anytime.",
+    "partyAt": "Party of {{size}} · {{time}}",
+    "restore": "Restore",
+    "deleteForever": "Delete forever",
+    "reason": {
+      "deleted": "Deleted",
+      "end_of_day": "End of day"
+    },
+    "clearAll": "Delete all",
+    "clearAllConfirm": {
+      "title": "Delete all history",
+      "body_one": "Permanently delete the {{count}} reservation in History? This can't be undone.",
+      "body_other": "Permanently delete all {{count}} reservations in History? This can't be undone.",
+      "keep": "Keep",
+      "confirm": "Delete all"
+    }
+  },
+  "endOfDay": {
+    "swept_one": "Service ended — {{count}} reservation moved to History, floor reset.",
+    "swept_other": "Service ended — {{count}} reservations moved to History, floor reset."
   },
   "clearAllConfirm": {
     "title": "Clear all reservations",
