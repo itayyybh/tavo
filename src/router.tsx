@@ -8,6 +8,7 @@ import { DEFAULT_SECTION } from '@/features/settings/settingsNav'
 const FloorPage = lazy(() => import('@/pages/FloorPage'))
 const EditorPage = lazy(() => import('@/pages/EditorPage'))
 const ReservationsPage = lazy(() => import('@/pages/ReservationsPage'))
+const HistoryPage = lazy(() => import('@/pages/HistoryPage'))
 const SettingsPage = lazy(() => import('@/pages/SettingsPage'))
 const MobilePage = lazy(() => import('@/pages/MobilePage'))
 
@@ -32,6 +33,7 @@ export const router = createBrowserRouter([
         ),
       },
       { path: 'reservations', element: withSuspense(<ReservationsPage />) },
+      { path: 'history', element: withSuspense(<HistoryPage />) },
       {
         path: 'settings',
         element: (

@@ -68,6 +68,14 @@ interface FloorState extends FloorSnapshot {
    * seatings, their owned merges, and host `blocked` marks are left untouched.
    */
   restoreDefault: () => void
+  /**
+   * End-of-day reset: wipe the ENTIRE runtime layer back to the base layout —
+   * every seating, runtime merge, status override (incl. `blocked`), turnover,
+   * and furniture move cleared. Unlike `restoreDefault` (which preserves active
+   * seatings and host `blocked` marks), this is the clean slate for a new
+   * service, run once the day's bookings are all done.
+   */
+  resetService: () => void
   /** Replace the whole runtime layer — used to hydrate from storage. */
   replaceAll: (snapshot: FloorSnapshot) => void
 }
@@ -435,6 +443,16 @@ export const useFloorStore = create<FloorState>((set, get) => ({
         statusOverrides,
         cleaningSince: {},
       }
+    }),
+
+  resetService: () =>
+    set({
+      seatings: [],
+      runtimeMerges: [],
+      statusOverrides: {},
+      cleaningSince: {},
+      positionOverrides: {},
+      rotationOverrides: {},
     }),
 
   replaceAll: (snapshot) => set({ ...snapshot }),

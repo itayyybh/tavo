@@ -74,6 +74,9 @@ export default function App() {
           <NavLink to="/reservations" className={navLinkClass}>
             {t('nav.reservations')}
           </NavLink>
+          <NavLink to="/history" className={navLinkClass}>
+            {t('nav.history')}
+          </NavLink>
         </nav>
 
         {/* Right — utilities, muted. */}

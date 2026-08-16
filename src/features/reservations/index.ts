@@ -1,4 +1,5 @@
 export { ReservationsView } from './ReservationsView'
+export { HistoryView } from './HistoryView'
 export { ReservationList } from './ReservationList'
 export { ReservationCard } from './ReservationCard'
 export { ReservationTimeline } from './ReservationTimeline'

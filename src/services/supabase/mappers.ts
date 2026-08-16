@@ -49,6 +49,9 @@ export interface ReservationRow {
   preferences: ReservationPreferences | null
   notes: string | null
   parsed_request: ParsedRequest | null
+  archived: boolean | null
+  archived_at: string | null
+  archive_reason: string | null
   created_at: string
   updated_at: string
 }
@@ -73,6 +76,10 @@ export function reservationFromRow(row: ReservationRow): Reservation {
     preferences: row.preferences ?? undefined,
     notes: row.notes ?? undefined,
     parsedRequest: row.parsed_request ?? undefined,
+    archived: row.archived ?? undefined,
+    archivedAt: row.archived_at ?? undefined,
+    archiveReason:
+      (row.archive_reason as Reservation['archiveReason'] | null) ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -99,6 +106,9 @@ export function reservationToRow(restaurantId: ID, r: Reservation): ReservationR
     preferences: r.preferences ?? null,
     notes: r.notes ?? null,
     parsed_request: r.parsedRequest ?? null,
+    archived: r.archived ?? false,
+    archived_at: r.archivedAt ?? null,
+    archive_reason: r.archiveReason ?? null,
     created_at: r.createdAt,
     updated_at: r.updatedAt,
   }

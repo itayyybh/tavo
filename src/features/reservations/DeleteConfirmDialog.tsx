@@ -7,39 +7,47 @@ interface DeleteConfirmDialogProps {
   reservation: Reservation | null
   onClose: () => void
   onConfirm: (id: string) => void
+  /**
+   * `false` (default) — a soft delete that moves the reservation to History and
+   * can be restored. `true` — a permanent purge from History, no recovery. Only
+   * the copy + button emphasis change; the caller supplies the actual action.
+   */
+  permanent?: boolean
 }
 
-/** Confirmation for permanently deleting a reservation. */
+/** Confirmation for removing a reservation (soft to History, or a permanent purge). */
 export function DeleteConfirmDialog({
   reservation,
   onClose,
   onConfirm,
+  permanent = false,
 }: DeleteConfirmDialogProps) {
   const { t } = useTranslation('reservations')
+  const k = permanent ? 'delete' : 'remove'
   return (
-    <Dialog open={!!reservation} onClose={onClose} title={t('delete.title')}>
+    <Dialog open={!!reservation} onClose={onClose} title={t(`${k}.title`)}>
       {reservation && (
         <div className="flex flex-col gap-5">
           <Text muted>
             <Trans
               t={t}
-              i18nKey="delete.body"
+              i18nKey={`${k}.body`}
               values={{ name: reservation.guestName, size: reservation.partySize }}
               components={{ name: <span className="font-medium text-ink" /> }}
             />
           </Text>
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={onClose}>
-              {t('delete.keep')}
+              {t(`${k}.keep`)}
             </Button>
             <Button
-              variant="danger"
+              variant={permanent ? 'danger' : 'primary'}
               onClick={() => {
                 onConfirm(reservation.id)
                 onClose()
               }}
             >
-              {t('delete.delete')}
+              {t(`${k}.confirm`)}
             </Button>
           </div>
         </div>
