@@ -3,6 +3,7 @@ import type { ID, Reservation, ReservationStatus } from '@/types'
 import { createId } from '@/utils'
 import {
   deleteAllReservations,
+  deleteArchivedReservations,
   deleteReservation,
   insertReservation,
   updateReservation as repoUpdate,
@@ -73,6 +74,8 @@ interface ReservationState {
   restoreReservation: (id: ID) => void
   /** Permanently delete a reservation (History → gone). No recovery. */
   hardDelete: (id: ID) => void
+  /** Permanently delete EVERY archived reservation — empty History. No recovery. */
+  clearArchived: () => void
   /**
    * Delete every reservation, active AND archived (Clear All) — a hard,
    * write-through wipe used by admin/dev tooling, unlike `replaceAll`.
@@ -254,6 +257,12 @@ export const useReservationStore = create<ReservationState>((set) => ({
     }))
     const rid = activeRestaurant()
     if (rid) persist(deleteReservation(rid, id))
+  },
+
+  clearArchived: () => {
+    set({ archived: [] })
+    const rid = activeRestaurant()
+    if (rid) persist(deleteArchivedReservations(rid))
   },
 
   clearAll: () => {

@@ -1,6 +1,13 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, Heading, Input, ReservationStatusBadge, Text } from '@/components/ui'
+import {
+  Button,
+  Dialog,
+  Heading,
+  Input,
+  ReservationStatusBadge,
+  Text,
+} from '@/components/ui'
 import { useReservationStore } from '@/stores'
 import type { Reservation } from '@/types'
 import { formatDate, formatTime, matchesQuery, serviceDayOf } from '@/utils'
@@ -24,9 +31,11 @@ export function HistoryView() {
   const archived = useReservationStore((s) => s.archived)
   const restore = useReservationStore((s) => s.restoreReservation)
   const hardDelete = useReservationStore((s) => s.hardDelete)
+  const clearArchived = useReservationStore((s) => s.clearArchived)
 
   const [query, setQuery] = useState('')
   const [purgeTarget, setPurgeTarget] = useState<Reservation | null>(null)
+  const [clearAllOpen, setClearAllOpen] = useState(false)
 
   const groups = useMemo<DayGroup[]>(() => {
     const filtered = archived.filter((r) => matchesQuery(r, query))
@@ -48,11 +57,18 @@ export function HistoryView() {
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 p-6">
-      <div className="flex items-end justify-between">
+      <div className="flex items-end justify-between gap-3">
         <Heading level={1}>{t('history.title')}</Heading>
-        <Text muted className="text-sm tabular-nums">
-          {t('history.count', { count: archived.length })}
-        </Text>
+        <div className="flex items-center gap-3">
+          <Text muted className="text-sm tabular-nums">
+            {t('history.count', { count: archived.length })}
+          </Text>
+          {archived.length > 0 && (
+            <Button variant="danger" size="sm" onClick={() => setClearAllOpen(true)}>
+              {t('history.clearAll')}
+            </Button>
+          )}
+        </div>
       </div>
 
       <Input
@@ -124,6 +140,32 @@ export function HistoryView() {
         onClose={() => setPurgeTarget(null)}
         onConfirm={hardDelete}
       />
+
+      <Dialog
+        open={clearAllOpen}
+        onClose={() => setClearAllOpen(false)}
+        title={t('history.clearAllConfirm.title')}
+      >
+        <div className="flex flex-col gap-5">
+          <Text muted>
+            {t('history.clearAllConfirm.body', { count: archived.length })}
+          </Text>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setClearAllOpen(false)}>
+              {t('history.clearAllConfirm.keep')}
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => {
+                clearArchived()
+                setClearAllOpen(false)
+              }}
+            >
+              {t('history.clearAllConfirm.confirm')}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
     </div>
   )
 }

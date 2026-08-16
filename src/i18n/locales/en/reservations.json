@@ -216,6 +216,14 @@
     "reason": {
       "deleted": "Deleted",
       "end_of_day": "End of day"
+    },
+    "clearAll": "Delete all",
+    "clearAllConfirm": {
+      "title": "Delete all history",
+      "body_one": "Permanently delete the {{count}} reservation in History? This can't be undone.",
+      "body_other": "Permanently delete all {{count}} reservations in History? This can't be undone.",
+      "keep": "Keep",
+      "confirm": "Delete all"
     }
   },
   "endOfDay": {
