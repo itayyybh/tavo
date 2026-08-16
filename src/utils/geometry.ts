@@ -55,6 +55,85 @@ export function aabb(center: Vec2, size: Vec2) {
 
 type Rect = { x: number; y: number; width: number; height: number }
 
+export type Bounds = Rect
+
+/** Union AABB of a set of rects, or null if empty. */
+export function boundsOf(rects: Rect[]): Bounds | null {
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+  for (const r of rects) {
+    minX = Math.min(minX, r.x)
+    minY = Math.min(minY, r.y)
+    maxX = Math.max(maxX, r.x + r.width)
+    maxY = Math.max(maxY, r.y + r.height)
+  }
+  if (minX === Infinity) return null
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
+}
+
+/**
+ * Clamp a camera pan so the content `bounds` can't be dragged off into empty
+ * space forever. `margin` is how much content (screen px) must stay on-screen at
+ * the extremes — panning stops once the far content edge is `margin` px from the
+ * opposite viewport edge. Falls back to free pan when there's no content.
+ */
+export function clampPan(
+  pan: Vec2,
+  bounds: Bounds | null,
+  size: { width: number; height: number },
+  zoom: number,
+  margin: number,
+): Vec2 {
+  if (!bounds || bounds.width <= 0 || bounds.height <= 0) return pan
+  const minX = margin - (bounds.x + bounds.width) * zoom
+  const maxX = size.width - margin - bounds.x * zoom
+  const minY = margin - (bounds.y + bounds.height) * zoom
+  const maxY = size.height - margin - bounds.y * zoom
+  return {
+    // When content is smaller than the viewport the bounds invert; ordering the
+    // limits keeps a valid (if looser) range either way.
+    x: clamp(pan.x, Math.min(minX, maxX), Math.max(minX, maxX)),
+    y: clamp(pan.y, Math.min(minY, maxY), Math.max(minY, maxY)),
+  }
+}
+
+export interface FitOptions {
+  minZoom: number
+  maxZoom: number
+  /** Screen-space breathing room (px) kept around the content. */
+  padding: number
+}
+
+/**
+ * Frame `bounds` centered within a screen of `size`: the zoom that fits the
+ * content (clamped) plus the pan that centers it. Returns null on empty/zero
+ * input so callers can no-op. Shared by the editor and Live Floor cameras.
+ */
+export function fitBounds(
+  bounds: Bounds | null,
+  size: { width: number; height: number },
+  { minZoom, maxZoom, padding }: FitOptions,
+): Viewport | null {
+  if (!bounds || bounds.width <= 0 || bounds.height <= 0) return null
+  if (size.width <= 0 || size.height <= 0) return null
+  const zoom = clamp(
+    Math.min(
+      (size.width - padding * 2) / bounds.width,
+      (size.height - padding * 2) / bounds.height,
+    ),
+    minZoom,
+    maxZoom,
+  )
+  const cx = bounds.x + bounds.width / 2
+  const cy = bounds.y + bounds.height / 2
+  return {
+    zoom,
+    pan: { x: size.width / 2 - cx * zoom, y: size.height / 2 - cy * zoom },
+  }
+}
+
 /** Overlapping area of two axis-aligned rects (0 if they only touch or are apart). */
 export function overlapArea(a: Rect, b: Rect): number {
   const ox = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x)

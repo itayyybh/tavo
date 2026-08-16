@@ -19,18 +19,12 @@ interface FloorTableMenuProps {
   tablesLabel?: string
   /** Time window / party size / next booking, when occupied. */
   occupancy?: Occupancy
-  /** Show the rotate action (hidden for a merged member). */
-  canRotate: boolean
-  /** Show the split action (a runtime-merged table). */
-  canSplit: boolean
   /** Show "move to storage" — a free table the host is pulling off the floor. */
   canStore: boolean
   onBlock: () => void
   onUnblock: () => void
   onFinishCleaning: () => void
   onClear: () => void
-  onRotate: () => void
-  onSplit: () => void
   onStore: () => void
   onClose: () => void
 }
@@ -49,15 +43,11 @@ export function FloorTableMenu({
   reservationName,
   tablesLabel,
   occupancy,
-  canRotate,
-  canSplit,
   canStore,
   onBlock,
   onUnblock,
   onFinishCleaning,
   onClear,
-  onRotate,
-  onSplit,
   onStore,
   onClose,
 }: FloorTableMenuProps) {
@@ -132,16 +122,6 @@ export function FloorTableMenu({
               Block
             </button>
           )
-        )}
-        {canSplit && (
-          <button className={action} onClick={onSplit}>
-            Split
-          </button>
-        )}
-        {canRotate && (
-          <button className={action} onClick={onRotate}>
-            Rotate 90°
-          </button>
         )}
         {canStore && (
           <button className={`${action} text-muted`} onClick={onStore}>

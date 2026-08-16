@@ -30,6 +30,7 @@ import { SelectionTransformer } from './SelectionTransformer'
 import { ObstacleTransformer } from './ObstacleTransformer'
 import { ZoneTransformer } from './ZoneTransformer'
 import { useCanvasColors } from './hooks/useCanvasColors'
+import { useEditorFit } from './hooks/useEditorFit'
 
 const MIN_ZOOM = 0.25
 const MAX_ZOOM = 4
@@ -106,6 +107,21 @@ export function EditorCanvas() {
   const zonesIndex = useMemo(() => zonesById(zones), [zones])
 
   useEffect(() => setStageSize(size), [size, setStageSize])
+
+  // Frame the layout when the editor first opens with a real size. Guarded so it
+  // runs at most once per mount, and only while the camera is still untouched
+  // (default zoom/pan) — returning to the editor after panning/zooming keeps the
+  // host's view. The toolbar's Fit button re-frames on demand.
+  const fitContent = useEditorFit()
+  const didAutoFit = useRef(false)
+  useEffect(() => {
+    if (didAutoFit.current) return
+    if (size.width <= 0 || size.height <= 0) return
+    if (tables.length === 0 && zones.length === 0) return
+    didAutoFit.current = true
+    const { zoom, pan } = viewport
+    if (zoom === 1 && pan.x === 0 && pan.y === 0) fitContent(size)
+  }, [size, tables, zones, viewport, fitContent])
 
   // Briefly flash a note; a fresh call resets the dismiss timer.
   const flashNotice = useCallback((msg: string) => {
