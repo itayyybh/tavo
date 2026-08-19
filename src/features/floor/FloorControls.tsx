@@ -12,6 +12,18 @@ interface FloorControlsProps {
   onFinishAllCleaning: () => void
   autoTurnover: boolean
   onToggleAutoTurnover: () => void
+  // Selection actions — mirror the editor toolbar so a touchscreen host can merge,
+  // split, rotate and undo without a keyboard.
+  onMerge: () => void
+  canMerge: boolean
+  onSplit: () => void
+  canSplit: boolean
+  onRotate: () => void
+  canRotate: boolean
+  onUndo: () => void
+  canUndo: boolean
+  onRedo: () => void
+  canRedo: boolean
 }
 
 /** Status pills shown in the occupancy legend, in reading order. */
@@ -25,6 +37,12 @@ const LEGEND: FloorTableStatus[] = [
 
 const chip =
   'rounded-full border px-3 py-1 text-xs font-medium transition-colors whitespace-nowrap'
+
+// Selection-action buttons (Merge/Split/Rotate/Undo/Redo). Enabled = tappable
+// ink text; disabled = muted and non-interactive — same affordance as the editor.
+const action =
+  'rounded-lg px-2.5 py-1 text-xs font-medium whitespace-nowrap transition-colors ' +
+  'text-ink hover:bg-line/60 disabled:cursor-default disabled:text-muted/40 disabled:hover:bg-transparent'
 
 /**
  * Live Floor header: zone focus on the left (All + one chip per zone), an
@@ -41,6 +59,16 @@ export function FloorControls({
   onFinishAllCleaning,
   autoTurnover,
   onToggleAutoTurnover,
+  onMerge,
+  canMerge,
+  onSplit,
+  canSplit,
+  onRotate,
+  canRotate,
+  onUndo,
+  canUndo,
+  onRedo,
+  canRedo,
 }: FloorControlsProps) {
   const cleaningCount = summary.counts.cleaning
   return (
@@ -77,6 +105,25 @@ export function FloorControls({
       </div>
 
       <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5">
+          <button onClick={onMerge} disabled={!canMerge} className={action}>
+            Merge
+          </button>
+          <button onClick={onSplit} disabled={!canSplit} className={action}>
+            Split
+          </button>
+          <button onClick={onRotate} disabled={!canRotate} className={action}>
+            Rotate
+          </button>
+          <span className="mx-0.5 h-5 w-px bg-line" />
+          <button onClick={onUndo} disabled={!canUndo} className={action} title="Undo (⌘Z)">
+            Undo
+          </button>
+          <button onClick={onRedo} disabled={!canRedo} className={action} title="Redo (⇧⌘Z)">
+            Redo
+          </button>
+        </div>
+        <span className="mx-0.5 h-5 w-px bg-line" />
         <div className="flex items-center gap-2.5">
           {LEGEND.map((status) => (
             <span

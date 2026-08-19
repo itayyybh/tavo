@@ -5,6 +5,7 @@ import { useHistoryStore, useLayoutStore, useSettingsStore, useUIStore } from '@
 import { clamp, screenToWorld, snapPoint } from '@/utils'
 import { parseLayoutFile, serializeLayout } from '@/services/layoutStorage'
 import { duplicateSelection } from './hooks/useEditorShortcuts'
+import { useEditorFit } from './hooks/useEditorFit'
 
 const MIN_ZOOM = 0.25
 const MAX_ZOOM = 4
@@ -38,6 +39,7 @@ export function Toolbar({ onToggleZones }: ToolbarProps) {
   const viewport = useUIStore((s) => s.viewport)
   const stageSize = useUIStore((s) => s.stageSize)
   const setViewport = useUIStore((s) => s.setViewport)
+  const fitContent = useEditorFit()
   const selectedIds = useUIStore((s) => s.selectedTableIds)
   const selectedObstacleId = useUIStore((s) => s.selectedObstacleId)
   const clearSelection = useUIStore((s) => s.clearSelection)
@@ -240,6 +242,9 @@ export function Toolbar({ onToggleZones }: ToolbarProps) {
       </button>
       <Button size="sm" variant="ghost" onClick={() => zoomBy(1.2)}>
         +
+      </Button>
+      <Button size="sm" variant="ghost" onClick={() => fitContent()} title={t('fitTitle')}>
+        {t('fit')}
       </Button>
 
       <span className="mx-1 h-5 w-px bg-line" />

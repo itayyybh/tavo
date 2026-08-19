@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Layer, Stage } from 'react-konva'
+import { Layer, Rect, Stage } from 'react-konva'
 import type Konva from 'konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import {
@@ -13,6 +13,8 @@ import {
 import { useContainerSize } from '@/hooks/useContainerSize'
 import {
   aabb,
+  boundsOf,
+  clamp,
   formatTime,
   groupCapacity,
   isActiveStatus,
@@ -26,7 +28,7 @@ import {
   zoneDescendantIds,
   zonesById,
 } from '@/utils'
-import type { MergedGroup, Reservation, Table } from '@/types'
+import type { MergedGroup, Reservation, Table, Vec2 } from '@/types'
 import { ZoneShape } from '@/features/editor/ZoneShape'
 import { ObstacleShape } from '@/features/editor/ObstacleShape'
 import { MergedHulls } from '@/features/editor/MergedHulls'
@@ -43,25 +45,24 @@ import { useAutoTurnover } from './hooks/useAutoTurnover'
 
 const noop = () => {}
 
+// Match the floor camera's zoom bounds (useFloorCamera) for pinch-zoom.
+const MIN_ZOOM = 0.2
+const MAX_ZOOM = 4
+
+interface Marquee {
+  start: Vec2
+  end: Vec2
+}
+
 /** World-space union box of tables (effective positions) and zones. */
 function contentBounds(
   tables: { position: { x: number; y: number }; base: Table }[],
   zones: { position: { x: number; y: number }; size: { x: number; y: number } }[],
 ): Bounds | null {
-  let minX = Infinity
-  let minY = Infinity
-  let maxX = -Infinity
-  let maxY = -Infinity
-  const add = (box: { x: number; y: number; width: number; height: number }) => {
-    minX = Math.min(minX, box.x)
-    minY = Math.min(minY, box.y)
-    maxX = Math.max(maxX, box.x + box.width)
-    maxY = Math.max(maxY, box.y + box.height)
-  }
-  for (const t of tables) add(aabb(t.position, t.base.size))
-  for (const z of zones) add(aabb(z.position, z.size))
-  if (minX === Infinity) return null
-  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
+  return boundsOf([
+    ...tables.map((t) => aabb(t.position, t.base.size)),
+    ...zones.map((z) => aabb(z.position, z.size)),
+  ])
 }
 
 /**
@@ -99,6 +100,10 @@ export function FloorCanvas() {
   const mergeTables = useFloorStore((s) => s.mergeTables)
   const splitRuntime = useFloorStore((s) => s.splitRuntime)
   const restoreDefault = useFloorStore((s) => s.restoreDefault)
+  const undo = useFloorStore((s) => s.undo)
+  const redo = useFloorStore((s) => s.redo)
+  const canUndo = useFloorStore((s) => s.past.length > 0)
+  const canRedo = useFloorStore((s) => s.future.length > 0)
   const storeTables = useLayoutStore((s) => s.storeTables)
   const autoTurnover = useSettingsStore((s) => s.autoTurnover)
   const setAutoTurnover = useSettingsStore((s) => s.setAutoTurnover)
@@ -107,12 +112,21 @@ export function FloorCanvas() {
   const gridSize = useSettingsStore((s) => s.gridSize)
   useAutoTurnover()
 
-  const { viewport, handleWheel, commitPan, fit } = useFloorCamera(stageRef)
+  const { viewport, handleWheel, commitPan, setCamera, fit, setFrame, dragBound } =
+    useFloorCamera(stageRef)
   // Selection drives the per-table action menu (when one is selected) and manual
   // merge (when several are). Shift-click adds; `selectTable` is defined below,
   // once merged-group membership (`hullGroups`) is known.
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const clearSelection = useCallback(() => setSelectedIds([]), [])
+
+  // Marquee box-select (mouse + one-finger touch), Space-to-pan, and pinch-zoom —
+  // the same interaction model as the editor, so multi-select + merge work on a
+  // touchscreen without a keyboard.
+  const [marquee, setMarquee] = useState<Marquee | null>(null)
+  const [spaceDown, setSpaceDown] = useState(false)
+  const lastPinchDist = useRef(0)
+  const lastPinchCenter = useRef<Vec2 | null>(null)
 
   // Transient top-center notice — a merge that couldn't be auto-placed, or a
   // rejected reservation drop (not available / not enough seats).
@@ -266,6 +280,8 @@ export function FloorCanvas() {
   // pan/zoom is preserved between those events.
   const didInitialFit = useRef(false)
   const lastFocus = useRef<string | null>(null)
+  // Keep the camera's pan-bounds in sync with the visible content + stage size.
+  useEffect(() => setFrame(bounds, size), [bounds, size, setFrame])
   useEffect(() => {
     if (size.width <= 0 || size.height <= 0 || !bounds) return
     const focusChanged = lastFocus.current !== focusedZoneId
@@ -348,6 +364,103 @@ export function FloorCanvas() {
     if (e.target !== e.target.getStage()) return
     const stage = stageRef.current
     if (stage) commitPan({ x: stage.x(), y: stage.y() })
+  }
+
+  // Marquee box-select. Shared by mouse and one-finger touch: start on empty
+  // canvas, grow while dragging, and on release select every table whose center
+  // falls inside (expanded to whole merged groups). A tiny box is a plain tap →
+  // clear the selection.
+  const startMarquee = () => {
+    const pointer = stageRef.current?.getPointerPosition()
+    if (!pointer) return
+    const world = screenToWorld(pointer, viewport)
+    setMarquee({ start: world, end: world })
+  }
+  const moveMarquee = () => {
+    if (!marquee) return
+    const pointer = stageRef.current?.getPointerPosition()
+    if (!pointer) return
+    setMarquee({ ...marquee, end: screenToWorld(pointer, viewport) })
+  }
+  const endMarquee = (additive: boolean) => {
+    if (!marquee) return
+    const rect = {
+      x: Math.min(marquee.start.x, marquee.end.x),
+      y: Math.min(marquee.start.y, marquee.end.y),
+      width: Math.abs(marquee.end.x - marquee.start.x),
+      height: Math.abs(marquee.end.y - marquee.start.y),
+    }
+    setMarquee(null)
+    if (rect.width < 4 && rect.height < 4) {
+      clearSelection()
+      return
+    }
+    const hits = visibleEffective
+      .filter((et) => pointInRect(et.position, rect))
+      .flatMap((et) => expandGroups(et.base.id))
+    setSelectedIds(additive ? [...new Set([...selectedIds, ...hits])] : [...new Set(hits)])
+  }
+
+  const handleStageMouseDown = (e: KonvaEventObject<MouseEvent>) => {
+    if (spaceDown) return
+    if (e.target !== e.target.getStage()) return
+    startMarquee()
+  }
+  const handleStageMouseUp = (e: KonvaEventObject<MouseEvent>) => {
+    if (marquee) endMarquee(e.evt.shiftKey)
+  }
+
+  // Touch: one finger on empty canvas marquee-selects; two fingers pinch-zoom and
+  // pan by the midpoint's travel (mirrors the editor). Space isn't available on a
+  // touchscreen, so panning lives on the second finger.
+  const handleTouchStart = (e: KonvaEventObject<TouchEvent>) => {
+    const stage = stageRef.current
+    if (!stage) return
+    if (e.evt.touches.length >= 2) {
+      setMarquee(null)
+      stage.draggable(false)
+      return
+    }
+    if (e.target === stage && !spaceDown) startMarquee()
+  }
+  const handleTouchMove = (e: KonvaEventObject<TouchEvent>) => {
+    const stage = stageRef.current
+    const touches = e.evt.touches
+    if (!stage) return
+    if (touches.length < 2) {
+      if (marquee) {
+        e.evt.preventDefault()
+        moveMarquee()
+      }
+      return
+    }
+    e.evt.preventDefault()
+    stage.draggable(false)
+    const box = stage.container().getBoundingClientRect()
+    const p1 = { x: touches[0].clientX - box.left, y: touches[0].clientY - box.top }
+    const p2 = { x: touches[1].clientX - box.left, y: touches[1].clientY - box.top }
+    const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y)
+    const center = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }
+    if (!lastPinchDist.current || !lastPinchCenter.current) {
+      lastPinchDist.current = dist
+      lastPinchCenter.current = center
+      return
+    }
+    const newZoom = clamp(viewport.zoom * (dist / lastPinchDist.current), MIN_ZOOM, MAX_ZOOM)
+    const world = screenToWorld(center, viewport)
+    const pan = {
+      x: center.x - world.x * newZoom + (center.x - lastPinchCenter.current.x),
+      y: center.y - world.y * newZoom + (center.y - lastPinchCenter.current.y),
+    }
+    setCamera({ zoom: newZoom, pan })
+    lastPinchDist.current = dist
+    lastPinchCenter.current = center
+  }
+  const handleTouchEnd = () => {
+    if (marquee) endMarquee(false)
+    lastPinchDist.current = 0
+    lastPinchCenter.current = null
+    stageRef.current?.draggable(spaceDown)
   }
 
   // Real seat count for a candidate drop target: a single table's capacity, or
@@ -533,14 +646,17 @@ export function FloorCanvas() {
   }
 
   // Rotate a table 90°; a merged table rotates its whole group about its center.
-  const rotateOne = (et: (typeof effective.tables)[number]) => {
-    if (et.mergedGroupId) {
-      const group = hullGroups.find((g) => g.id === et.mergedGroupId)
-      rotateGroup(group ? group.tableIds : [et.base.id], 90)
-    } else {
-      rotateTable(et.base.id, (et.rotation + 90) % 360)
-    }
-  }
+  const rotateOne = useCallback(
+    (et: EffectiveTable) => {
+      if (et.mergedGroupId) {
+        const group = hullGroups.find((g) => g.id === et.mergedGroupId)
+        rotateGroup(group ? group.tableIds : [et.base.id], 90)
+      } else {
+        rotateTable(et.base.id, (et.rotation + 90) % 360)
+      }
+    },
+    [hullGroups, rotateGroup, rotateTable],
+  )
 
   // Merge the current selection, then tell the host if the block couldn't be
   // auto-placed (no clear spot) so they know to drag the tables together.
@@ -554,6 +670,61 @@ export function FloorCanvas() {
     if (created?.needsArrange) flashNotice('Merged — drag the tables together to arrange')
     clearSelection()
   }, [selectedIds, mergeTables, flashNotice, clearSelection])
+
+  // Toolbar actions over the current selection (also reachable via keyboard).
+  const rotateSelection = useCallback(() => {
+    if (selectedGroup) {
+      rotateGroup(selectedGroup.tableIds, 90)
+      return
+    }
+    if (selectedIds.length === 1) {
+      const et = effective.byId[selectedIds[0]]
+      if (et) rotateOne(et)
+    }
+  }, [selectedGroup, selectedIds, effective, rotateGroup, rotateOne])
+  const canRotate = !!selectedGroup || selectedIds.length === 1
+  const splitSelection = useCallback(() => {
+    if (!selectedRuntimeMerge) return
+    splitRuntime(selectedRuntimeMerge.id)
+    clearSelection()
+  }, [selectedRuntimeMerge, splitRuntime, clearSelection])
+
+  // Space toggles pan mode (like the editor); the stage becomes draggable while
+  // held so a drag pans instead of drawing a marquee.
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && !(e.target instanceof HTMLInputElement)) setSpaceDown(true)
+    }
+    const up = (e: KeyboardEvent) => {
+      if (e.code === 'Space') setSpaceDown(false)
+    }
+    window.addEventListener('keydown', down)
+    window.addEventListener('keyup', up)
+    return () => {
+      window.removeEventListener('keydown', down)
+      window.removeEventListener('keyup', up)
+    }
+  }, [])
+
+  // Undo/redo of manual floor edits — ⌘/Ctrl+Z, and ⇧⌘Z / Ctrl+Y to redo.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return
+      const el = e.target
+      if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return
+      const key = e.key.toLowerCase()
+      if (key === 'z') {
+        e.preventDefault()
+        if (e.shiftKey) redo()
+        else undo()
+      } else if (key === 'y') {
+        e.preventDefault()
+        redo()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [undo, redo])
 
   // `r` rotates the selected table (or merged group) — a floor shortcut.
   useEffect(() => {
@@ -613,11 +784,21 @@ export function FloorCanvas() {
         onFinishAllCleaning={finishAllCleaning}
         autoTurnover={autoTurnover}
         onToggleAutoTurnover={() => setAutoTurnover(!autoTurnover)}
+        onMerge={mergeSelection}
+        canMerge={canMerge}
+        onSplit={splitSelection}
+        canSplit={!!selectedRuntimeMerge}
+        onRotate={rotateSelection}
+        canRotate={canRotate}
+        onUndo={undo}
+        canUndo={canUndo}
+        onRedo={redo}
+        canRedo={canRedo}
       />
       <div
         ref={containerRef}
         className="relative min-h-0 flex-1 bg-[#ececeb] dark:bg-[#0d1013]"
-        style={{ touchAction: 'none' }}
+        style={{ touchAction: 'none', cursor: spaceDown ? 'grab' : 'default' }}
         onDragOver={(e) => {
           e.preventDefault()
           e.dataTransfer.dropEffect = 'move'
@@ -632,12 +813,16 @@ export function FloorCanvas() {
           scaleY={viewport.zoom}
           x={viewport.pan.x}
           y={viewport.pan.y}
-          draggable
+          draggable={spaceDown}
+          dragBoundFunc={dragBound}
           onWheel={handleWheel}
           onDragEnd={handleStagePan}
-          onClick={(e) => {
-            if (e.target === e.target.getStage()) clearSelection()
-          }}
+          onMouseDown={handleStageMouseDown}
+          onMouseMove={moveMarquee}
+          onMouseUp={handleStageMouseUp}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
         >
           {/* Backdrop: zones + obstacles, never interactive. */}
           <Layer listening={false}>
@@ -715,6 +900,20 @@ export function FloorCanvas() {
               tintByStatus
               memberLabels={memberLabels}
             />
+            {marquee && (
+              <Rect
+                x={Math.min(marquee.start.x, marquee.end.x)}
+                y={Math.min(marquee.start.y, marquee.end.y)}
+                width={Math.abs(marquee.end.x - marquee.start.x)}
+                height={Math.abs(marquee.end.y - marquee.start.y)}
+                fill={colors.ink}
+                opacity={0.06}
+                stroke={colors.muted}
+                strokeWidth={1 / viewport.zoom}
+                perfectDrawEnabled={false}
+                listening={false}
+              />
+            )}
           </Layer>
         </Stage>
 
@@ -724,8 +923,6 @@ export function FloorCanvas() {
             reservationName={menuRes?.guestName}
             tablesLabel={menuMembers.length > 1 ? menuLabel : undefined}
             occupancy={occupancy}
-            canRotate
-            canSplit={!!selectedRuntimeMerge}
             canStore={menuMembers.every((et) => et.status === 'available')}
             onBlock={() => {
               setTableStatus(menuTable.base.id, 'blocked')
@@ -741,11 +938,6 @@ export function FloorCanvas() {
             }}
             onClear={() => {
               if (menuSeating) clearSeating(menuSeating.id)
-              clearSelection()
-            }}
-            onRotate={() => rotateOne(menuTable)}
-            onSplit={() => {
-              if (selectedRuntimeMerge) splitRuntime(selectedRuntimeMerge.id)
               clearSelection()
             }}
             onStore={() => {

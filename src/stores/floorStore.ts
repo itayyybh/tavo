@@ -78,9 +78,35 @@ interface FloorState extends FloorSnapshot {
   resetService: () => void
   /** Replace the whole runtime layer — used to hydrate from storage. */
   replaceAll: (snapshot: FloorSnapshot) => void
+
+  // Undo/redo of manual floor edits (move, rotate, merge, split, status). Seat/
+  // clear and hydration reset the stacks — they cross into the reservation engine,
+  // so undoing across them can't stay consistent. Not part of `FloorSnapshot`, so
+  // never persisted or synced (`snapshotOf` in `useFloorSync` picks only content).
+  past: FloorSnapshot[]
+  future: FloorSnapshot[]
+  /** Restore the previous manual-edit state; no-op if nothing to undo. */
+  undo: () => void
+  /** Re-apply an undone manual-edit state; no-op if nothing to redo. */
+  redo: () => void
 }
 
 const now = () => new Date().toISOString()
+
+/** Deepest history we keep — furniture drags are chatty, so cap the stack. */
+const HISTORY_LIMIT = 50
+
+/** The six content fields — the persistable/undoable slice of the floor state. */
+function pickSnapshot(s: FloorSnapshot): FloorSnapshot {
+  return {
+    seatings: s.seatings,
+    runtimeMerges: s.runtimeMerges,
+    statusOverrides: s.statusOverrides,
+    cleaningSince: s.cleaningSince,
+    positionOverrides: s.positionOverrides,
+    rotationOverrides: s.rotationOverrides,
+  }
+}
 
 /** Remove one key from a record without mutating the original. */
 function omit<V>(record: Record<ID, V>, key: ID): Record<ID, V> {
@@ -173,16 +199,30 @@ function clusterOverrides(
   return { positions, rotations, clear: arranged.clear }
 }
 
-export const useFloorStore = create<FloorState>((set, get) => ({
+export const useFloorStore = create<FloorState>((set, get) => {
+  // Push the current content onto the undo stack (clearing redo). Called at the
+  // top of each manual-edit action, just after its early-out guards.
+  const record = () => {
+    const s = get()
+    set({ past: [...s.past, pickSnapshot(s)].slice(-HISTORY_LIMIT), future: [] })
+  }
+  // Wipe both stacks — used when a seat/clear/hydration makes older manual-edit
+  // snapshots unsafe to restore (they'd desync from the reservation engine).
+  const resetHistory = () => set({ past: [], future: [] })
+
+  return {
   seatings: [],
   runtimeMerges: [],
   statusOverrides: {},
   cleaningSince: {},
   positionOverrides: {},
   rotationOverrides: {},
+  past: [],
+  future: [],
 
   seat: (reservationId, tableIds, arrange = true) => {
     if (tableIds.length === 0) return
+    resetHistory()
     const seating: Seating = {
       id: createId(),
       reservationId,
@@ -260,6 +300,7 @@ export const useFloorStore = create<FloorState>((set, get) => ({
   clear: (seatingId) => {
     const seating = get().seatings.find((s) => s.id === seatingId)
     if (!seating) return
+    resetHistory()
     set((state) => {
       // Tables enter turnover; the party's merge is split and its tables snap back
       // to their base position/rotation.
@@ -296,7 +337,9 @@ export const useFloorStore = create<FloorState>((set, get) => ({
     }
   },
 
-  finishCleaning: (tableId) =>
+  finishCleaning: (tableId) => {
+    if (get().statusOverrides[tableId] !== 'cleaning') return
+    record()
     set((state) =>
       state.statusOverrides[tableId] === 'cleaning'
         ? {
@@ -304,9 +347,11 @@ export const useFloorStore = create<FloorState>((set, get) => ({
             cleaningSince: omit(state.cleaningSince, tableId),
           }
         : state,
-    ),
+    )
+  },
 
-  finishAllCleaning: () =>
+  finishAllCleaning: () => {
+    record()
     set((state) => {
       const statusOverrides = { ...state.statusOverrides }
       const cleaningSince = { ...state.cleaningSince }
@@ -317,9 +362,11 @@ export const useFloorStore = create<FloorState>((set, get) => ({
         }
       }
       return { statusOverrides, cleaningSince }
-    }),
+    })
+  },
 
-  setTableStatus: (tableId, status) =>
+  setTableStatus: (tableId, status) => {
+    record()
     set((state) => ({
       statusOverrides:
         status === undefined
@@ -329,14 +376,18 @@ export const useFloorStore = create<FloorState>((set, get) => ({
         status === 'cleaning'
           ? { ...state.cleaningSince, [tableId]: now() }
           : omit(state.cleaningSince, tableId),
-    })),
+    }))
+  },
 
-  moveTable: (tableId, position) =>
+  moveTable: (tableId, position) => {
+    record()
     set((state) => ({
       positionOverrides: { ...state.positionOverrides, [tableId]: position },
-    })),
+    }))
+  },
 
-  moveTablesBy: (tableIds, delta) =>
+  moveTablesBy: (tableIds, delta) => {
+    record()
     set((state) => {
       const { tables } = useLayoutStore.getState()
       const basePos = new Map(tables.map((t) => [t.id, t.position]))
@@ -356,14 +407,18 @@ export const useFloorStore = create<FloorState>((set, get) => ({
           : m,
       )
       return { positionOverrides, runtimeMerges }
-    }),
+    })
+  },
 
-  rotateTable: (tableId, rotation) =>
+  rotateTable: (tableId, rotation) => {
+    record()
     set((state) => ({
       rotationOverrides: { ...state.rotationOverrides, [tableId]: rotation },
-    })),
+    }))
+  },
 
-  rotateGroup: (tableIds, deg) =>
+  rotateGroup: (tableIds, deg) => {
+    record()
     set((state) => {
       const { tables } = useLayoutStore.getState()
       const baseById = new Map(tables.map((t) => [t.id, t]))
@@ -391,11 +446,13 @@ export const useFloorStore = create<FloorState>((set, get) => ({
         rotationOverrides[id] = (rotOf(id) + deg) % 360
       }
       return { positionOverrides, rotationOverrides }
-    }),
+    })
+  },
 
   mergeTables: (tableIds) => {
     const ids = [...new Set(tableIds)]
     if (ids.length < 2) return
+    record()
     const cluster = clusterOverrides(
       ids,
       get().positionOverrides,
@@ -412,7 +469,9 @@ export const useFloorStore = create<FloorState>((set, get) => ({
     }))
   },
 
-  splitRuntime: (mergeId) =>
+  splitRuntime: (mergeId) => {
+    if (!get().runtimeMerges.some((m) => m.id === mergeId)) return
+    record()
     set((state) => {
       const group = state.runtimeMerges.find((m) => m.id === mergeId)
       if (!group) return state
@@ -427,9 +486,11 @@ export const useFloorStore = create<FloorState>((set, get) => ({
         positionOverrides,
         rotationOverrides,
       }
-    }),
+    })
+  },
 
-  restoreDefault: () =>
+  restoreDefault: () => {
+    record()
     set((state) => {
       // Keep only cleaning-free, host-set 'blocked' overrides.
       const statusOverrides: FloorSnapshot['statusOverrides'] = {}
@@ -443,9 +504,10 @@ export const useFloorStore = create<FloorState>((set, get) => ({
         statusOverrides,
         cleaningSince: {},
       }
-    }),
+    })
+  },
 
-  resetService: () =>
+  resetService: () => {
     set({
       seatings: [],
       runtimeMerges: [],
@@ -453,7 +515,40 @@ export const useFloorStore = create<FloorState>((set, get) => ({
       cleaningSince: {},
       positionOverrides: {},
       rotationOverrides: {},
-    }),
+    })
+    resetHistory()
+  },
 
-  replaceAll: (snapshot) => set({ ...snapshot }),
-}))
+  replaceAll: (snapshot) => {
+    // Pure hydration / cross-device sync — replace content only. Deliberately does
+    // NOT touch the undo stacks: the sync layer re-applies snapshots frequently
+    // (its own echo, re-hydration), and wiping history on each would destroy a
+    // host's in-progress undo. Cross-device conflicts already resolve last-write-
+    // wins, so keeping a possibly-stale local stack is no worse. Only the
+    // reservation-coupled actions (seat/clear/resetService) reset history.
+    set({ ...snapshot })
+  },
+
+  undo: () => {
+    const s = get()
+    if (s.past.length === 0) return
+    const previous = s.past[s.past.length - 1]
+    set({
+      ...previous,
+      past: s.past.slice(0, -1),
+      future: [...s.future, pickSnapshot(s)],
+    })
+  },
+
+  redo: () => {
+    const s = get()
+    if (s.future.length === 0) return
+    const next = s.future[s.future.length - 1]
+    set({
+      ...next,
+      past: [...s.past, pickSnapshot(s)],
+      future: s.future.slice(0, -1),
+    })
+  },
+  }
+})
