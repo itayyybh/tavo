@@ -29,6 +29,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getProvider } from './_provider.ts'
 import type { InboundMessage } from './_provider.ts'
 import { extractDraft } from './_extract.ts'
+import { logExtraction } from './_extractionLog.ts'
 import { confirmBooking, decideReply } from './_flow.ts'
 import { detectLang, isAffirmative } from './_reply.ts'
 import {
@@ -124,8 +125,19 @@ async function handleMessage(
   // something the model guesses.
   const ctx = await loadRestaurantContext(supabase, restaurantId)
   const wasAwaitingConfirm = convo.state.awaitingConfirm ?? false
+  const draftBefore = convo.state.draft
   convo.state.draft = await extractDraft(convo.state.transcript, convo.state.draft, ctx)
   convo.state.draft.phone = msg.from
+
+  // Log this extraction turn (Phase 12 stretch — AI prep audit trail). Never
+  // throws, so a logging hiccup can't break the guest's conversation.
+  await logExtraction(supabase, {
+    restaurantId,
+    conversationId: convo.id,
+    transcript: convo.state.transcript,
+    draftBefore,
+    draftAfter: convo.state.draft,
+  })
 
   // If a confirm prompt was shown last turn and the guest just said yes, finalize
   // the booking: insert a PENDING reservation (the host accepts it on the Floor —
