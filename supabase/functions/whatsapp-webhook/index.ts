@@ -29,6 +29,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getProvider } from './_provider.ts'
 import type { InboundMessage } from './_provider.ts'
 import { extractDraft } from './_extract.ts'
+import { classifyIntent } from './_intent.ts'
+import { answerFromFaq } from './_faq.ts'
 import { logExtraction } from './_extractionLog.ts'
 import { confirmBooking, decideReply } from './_flow.ts'
 import { detectLang, isAffirmative } from './_reply.ts'
@@ -125,6 +127,25 @@ async function handleMessage(
   // something the model guesses.
   const ctx = await loadRestaurantContext(supabase, restaurantId)
   const wasAwaitingConfirm = convo.state.awaitingConfirm ?? false
+
+  // Route informational questions ("do you have parking?") to the FAQ/RAG path
+  // instead of the booking flow. Skipped while awaiting a booking confirmation —
+  // that turn is the guest answering our prompt, handled deterministically below.
+  if (!wasAwaitingConfirm) {
+    const intent = await classifyIntent(convo.state.transcript, ctx)
+    if (intent === 'question') {
+      const text = await answerFromFaq(supabase, restaurantId, msg.text, lang)
+      convo.state.transcript.push({
+        role: 'bot',
+        text,
+        at: new Date().toISOString(),
+      })
+      await saveState(supabase, convo.id, convo.state)
+      await provider.sendMessage({ to: msg.from, text })
+      return // not a booking — leave the draft untouched, skip extraction
+    }
+  }
+
   const draftBefore = convo.state.draft
   convo.state.draft = await extractDraft(convo.state.transcript, convo.state.draft, ctx)
   convo.state.draft.phone = msg.from
