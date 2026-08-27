@@ -5,10 +5,13 @@ import type Konva from 'konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import {
   useFloorStore,
+  useFloorPlanStore,
+  usePlanFloorStore,
   useLayoutStore,
   useReservationStore,
   useSettingsStore,
   useUIStore,
+  isPlanning,
 } from '@/stores'
 import { useContainerSize } from '@/hooks/useContainerSize'
 import {
@@ -42,6 +45,7 @@ import { useEffectiveFloor } from './hooks/useEffectiveFloor'
 import { useFloorColors } from './hooks/useFloorColors'
 import { useFloorCamera, type Bounds } from './hooks/useFloorCamera'
 import { useAutoTurnover } from './hooks/useAutoTurnover'
+import { usePlanMergeSync } from './hooks/usePlanMergeSync'
 
 const noop = () => {}
 
@@ -82,7 +86,29 @@ export function FloorCanvas() {
   const { tableTypes, zones, obstacles, mergedGroups } = useSeatingFloor()
   const effective = useEffectiveFloor()
   const reservations = useReservationStore((s) => s.reservations)
+  const assignTable = useReservationStore((s) => s.assignTable)
+  const clearAssignment = useReservationStore((s) => s.clearAssignment)
   const colors = useFloorColors()
+
+  // Plan mode: the floor is a planning canvas for `viewDate` (base layout + that
+  // day's assigned bookings, shown as reserved). Live-service edits — seating,
+  // moving, merging, blocking, cleaning — are inert here; the host plans by
+  // (re)assigning tables, which persists on the reservation.
+  const planning = useFloorPlanStore(isPlanning)
+  const viewDate = useFloorPlanStore((s) => s.viewDate)
+  const stepDay = useFloorPlanStore((s) => s.stepDay)
+  const setViewDate = useFloorPlanStore((s) => s.setViewDate)
+  const goToday = useFloorPlanStore((s) => s.goToday)
+  const togglePlanMode = useFloorPlanStore((s) => s.togglePlanMode)
+
+  // Per-day plan arrangement actions (used only while planning).
+  const movePlanTable = usePlanFloorStore((s) => s.movePlanTable)
+  const movePlanTablesBy = usePlanFloorStore((s) => s.movePlanTablesBy)
+  const rotatePlanTable = usePlanFloorStore((s) => s.rotatePlanTable)
+  const rotatePlanGroup = usePlanFloorStore((s) => s.rotatePlanGroup)
+  const mergePlan = usePlanFloorStore((s) => s.mergePlan)
+  const splitPlan = usePlanFloorStore((s) => s.splitPlan)
+  const resetPlanDay = usePlanFloorStore((s) => s.resetPlanDay)
 
   const focusedZoneId = useUIStore((s) => s.focusedZoneId)
   const setFocusedZone = useUIStore((s) => s.setFocusedZone)
@@ -111,6 +137,36 @@ export function FloorCanvas() {
   const snapToGrid = useSettingsStore((s) => s.snapToGrid)
   const gridSize = useSettingsStore((s) => s.gridSize)
   useAutoTurnover()
+  usePlanMergeSync()
+
+  // Arrangement dispatchers: while planning, edits route to the plan day's own
+  // arrangement (`planFloorStore`, keyed by `viewDate`) so they never touch the
+  // live shift; otherwise they hit the live `floorStore`. Same signatures either
+  // way, so the handlers below are agnostic.
+  const moveTableD = useCallback(
+    (id: string, pos: Vec2) =>
+      planning ? movePlanTable(viewDate, id, pos) : moveTable(id, pos),
+    [planning, viewDate, movePlanTable, moveTable],
+  )
+  const moveTablesByD = useCallback(
+    (ids: string[], delta: Vec2) =>
+      planning ? movePlanTablesBy(viewDate, ids, delta) : moveTablesBy(ids, delta),
+    [planning, viewDate, movePlanTablesBy, moveTablesBy],
+  )
+  const rotateTableD = useCallback(
+    (id: string, rot: number) =>
+      planning ? rotatePlanTable(viewDate, id, rot) : rotateTable(id, rot),
+    [planning, viewDate, rotatePlanTable, rotateTable],
+  )
+  const rotateGroupD = useCallback(
+    (ids: string[], deg: number) =>
+      planning ? rotatePlanGroup(viewDate, ids, deg) : rotateGroup(ids, deg),
+    [planning, viewDate, rotatePlanGroup, rotateGroup],
+  )
+  const splitRuntimeD = useCallback(
+    (id: string) => (planning ? splitPlan(viewDate, id) : splitRuntime(id)),
+    [planning, viewDate, splitPlan, splitRuntime],
+  )
 
   const { viewport, handleWheel, commitPan, setCamera, fit, setFrame, dragBound } =
     useFloorCamera(stageRef)
@@ -301,11 +357,15 @@ export function FloorCanvas() {
       (g) => g.tableIds.length === sel.size && g.tableIds.every((i) => sel.has(i)),
     )
   }, [selectedIds, hullGroups])
-  // Only a runtime merge can be split on the floor (base layout merges are fixed).
+  // Only a runtime merge can be split (base layout merges are fixed). In plan mode
+  // an auto-merge (`auto-*`, derived from a multi-table booking) is not a real
+  // stored merge — it's undone by unplanning the booking, not by Split.
   const selectedRuntimeMerge = selectedGroup
-    ? effective.runtimeMerges.find((m) => m.id === selectedGroup.id)
+    ? effective.runtimeMerges.find(
+        (m) => m.id === selectedGroup.id && !m.id.startsWith('auto-'),
+      )
     : undefined
-  // Merge is offered only for 2+ tables that aren't already one existing group.
+  // Merge is offered for 2+ tables that aren't already one existing group.
   const canMerge = selectedIds.length >= 2 && !selectedGroup
 
   // The action card opens for one selected table OR one fully-selected merged
@@ -335,6 +395,22 @@ export function FloorCanvas() {
   const menuRes = menuSeating
     ? reservationsById.get(menuSeating.reservationId)
     : undefined
+
+  // Plan mode: the booking planned on the selected table (its `reserved` holder),
+  // with a simple time/party detail card and an unplan action.
+  const menuPlanRes =
+    planning && menuTable?.reservationId
+      ? reservationsById.get(menuTable.reservationId)
+      : undefined
+  const planOccupancy = useMemo(() => {
+    if (!menuPlanRes) return undefined
+    const start = Date.parse(menuPlanRes.dateTime)
+    const end = start + menuPlanRes.estimatedDuration * 60_000
+    return {
+      timeRange: `${formatTime(menuPlanRes.dateTime)} – ${formatTime(new Date(end).toISOString())}`,
+      partySize: menuPlanRes.partySize,
+    }
+  }, [menuPlanRes])
 
   // Occupied-card details: the party's time window, size, and the next booking
   // assigned to any of these tables (who's coming and when).
@@ -559,6 +635,18 @@ export function FloorCanvas() {
       return
     }
 
+    // Plan mode: don't seat — pin the tables to the booking (assign). The plan
+    // persists on the reservation and drives live service when the day comes.
+    if (planning) {
+      assignTable(reservationId, targetIds, 'manual')
+      const label = targetIds
+        .map((id) => effective.byId[id]?.base.label ?? id)
+        .join(' + ')
+      flashNotice(`Planned ${reservation.guestName} at ${label}`)
+      clearSelection()
+      return
+    }
+
     // Drag-to-seat keeps the tables exactly where the host dropped them —
     // `arrange: false` so a multi-table seat never re-lays-out / moves them.
     seatReservation(reservationId, targetIds, false)
@@ -637,11 +725,11 @@ export function FloorCanvas() {
     // don't jump back and re-slide when the store commit re-renders.
     dragIds.current = new Set(movingIds)
     if (group) {
-      moveTablesBy(group.tableIds, delta)
+      moveTablesByD(group.tableIds, delta)
       // Store re-renders members at absolute coords; return the hull to origin.
       hullRefs.current.get(groupId!)?.position({ x: 0, y: 0 })
     } else {
-      moveTable(id, snapped)
+      moveTableD(id, snapped)
     }
   }
 
@@ -650,44 +738,54 @@ export function FloorCanvas() {
     (et: EffectiveTable) => {
       if (et.mergedGroupId) {
         const group = hullGroups.find((g) => g.id === et.mergedGroupId)
-        rotateGroup(group ? group.tableIds : [et.base.id], 90)
+        rotateGroupD(group ? group.tableIds : [et.base.id], 90)
       } else {
-        rotateTable(et.base.id, (et.rotation + 90) % 360)
+        rotateTableD(et.base.id, (et.rotation + 90) % 360)
       }
     },
-    [hullGroups, rotateGroup, rotateTable],
+    [hullGroups, rotateGroupD, rotateTableD],
   )
 
   // Merge the current selection, then tell the host if the block couldn't be
   // auto-placed (no clear spot) so they know to drag the tables together.
   const mergeSelection = useCallback(() => {
     const ids = selectedIds
-    mergeTables(ids)
     const key = [...ids].sort().join('+')
+    if (planning) {
+      mergePlan(viewDate, ids)
+      const created = usePlanFloorStore
+        .getState()
+        .byDay[viewDate]?.merges.find((m) => [...m.tableIds].sort().join('+') === key)
+      if (created?.needsArrange)
+        flashNotice('Merged — drag the tables together to arrange')
+      clearSelection()
+      return
+    }
+    mergeTables(ids)
     const created = useFloorStore
       .getState()
       .runtimeMerges.find((m) => [...m.tableIds].sort().join('+') === key)
     if (created?.needsArrange) flashNotice('Merged — drag the tables together to arrange')
     clearSelection()
-  }, [selectedIds, mergeTables, flashNotice, clearSelection])
+  }, [selectedIds, planning, viewDate, mergePlan, mergeTables, flashNotice, clearSelection])
 
   // Toolbar actions over the current selection (also reachable via keyboard).
   const rotateSelection = useCallback(() => {
     if (selectedGroup) {
-      rotateGroup(selectedGroup.tableIds, 90)
+      rotateGroupD(selectedGroup.tableIds, 90)
       return
     }
     if (selectedIds.length === 1) {
       const et = effective.byId[selectedIds[0]]
       if (et) rotateOne(et)
     }
-  }, [selectedGroup, selectedIds, effective, rotateGroup, rotateOne])
+  }, [selectedGroup, selectedIds, effective, rotateGroupD, rotateOne])
   const canRotate = !!selectedGroup || selectedIds.length === 1
   const splitSelection = useCallback(() => {
     if (!selectedRuntimeMerge) return
-    splitRuntime(selectedRuntimeMerge.id)
+    splitRuntimeD(selectedRuntimeMerge.id)
     clearSelection()
-  }, [selectedRuntimeMerge, splitRuntime, clearSelection])
+  }, [selectedRuntimeMerge, splitRuntimeD, clearSelection])
 
   // Space toggles pan mode (like the editor); the stage becomes draggable while
   // held so a drag pans instead of drawing a marquee.
@@ -707,7 +805,9 @@ export function FloorCanvas() {
   }, [])
 
   // Undo/redo of manual floor edits — ⌘/Ctrl+Z, and ⇧⌘Z / Ctrl+Y to redo.
+  // Inert while planning (there's no live edit to undo on a plan canvas).
   useEffect(() => {
+    if (planning) return
     const onKey = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey)) return
       const el = e.target
@@ -724,9 +824,10 @@ export function FloorCanvas() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [undo, redo])
+  }, [undo, redo, planning])
 
-  // `r` rotates the selected table (or merged group) — a floor shortcut.
+  // `r` rotates the selected table (or merged group) — a floor shortcut. Routes
+  // to the plan day's arrangement while planning, the live shift otherwise.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'r' && e.key !== 'R') return
@@ -737,17 +838,18 @@ export function FloorCanvas() {
       if (!et) return
       if (et.mergedGroupId) {
         const group = hullGroups.find((g) => g.id === et.mergedGroupId)
-        rotateGroup(group ? group.tableIds : [et.base.id], 90)
+        rotateGroupD(group ? group.tableIds : [et.base.id], 90)
       } else {
-        rotateTable(et.base.id, (et.rotation + 90) % 360)
+        rotateTableD(et.base.id, (et.rotation + 90) % 360)
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [selectedIds, effective, hullGroups, rotateTable, rotateGroup])
+  }, [selectedIds, effective, hullGroups, rotateTableD, rotateGroupD])
 
-  // `m` merges the selection, or splits it when it's exactly one runtime merge —
-  // mirrors the editor's merge shortcut, over the floor's runtime override layer.
+  // `m` merges the selection, or splits it when it's exactly one splittable runtime
+  // merge — mirrors the editor's merge shortcut, over the active arrangement layer
+  // (plan day while planning, live shift otherwise).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() !== 'm' || e.metaKey || e.ctrlKey || e.altKey) return
@@ -755,7 +857,7 @@ export function FloorCanvas() {
       if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return
       if (selectedRuntimeMerge) {
         e.preventDefault()
-        splitRuntime(selectedRuntimeMerge.id)
+        splitRuntimeD(selectedRuntimeMerge.id)
         clearSelection()
       } else if (canMerge) {
         e.preventDefault()
@@ -764,7 +866,7 @@ export function FloorCanvas() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [selectedRuntimeMerge, canMerge, mergeSelection, splitRuntime, clearSelection])
+  }, [selectedRuntimeMerge, canMerge, mergeSelection, splitRuntimeD, clearSelection])
 
   return (
     <div className="flex h-full flex-col bg-surface">
@@ -778,7 +880,8 @@ export function FloorCanvas() {
         summary={summary}
         onFit={() => fit(bounds, size)}
         onRestoreDefault={() => {
-          restoreDefault()
+          if (planning) resetPlanDay(viewDate)
+          else restoreDefault()
           clearSelection()
         }}
         onFinishAllCleaning={finishAllCleaning}
@@ -794,6 +897,12 @@ export function FloorCanvas() {
         canUndo={canUndo}
         onRedo={redo}
         canRedo={canRedo}
+        viewDate={viewDate}
+        planning={planning}
+        onStepDay={stepDay}
+        onPickDate={setViewDate}
+        onGoToday={goToday}
+        onTogglePlan={togglePlanMode}
       />
       <div
         ref={containerRef}
@@ -920,10 +1029,19 @@ export function FloorCanvas() {
         {menuTable && menuOnScreen && (
           <FloorTableMenu
             table={menuTable}
-            reservationName={menuRes?.guestName}
+            reservationName={planning ? menuPlanRes?.guestName : menuRes?.guestName}
             tablesLabel={menuMembers.length > 1 ? menuLabel : undefined}
-            occupancy={occupancy}
+            occupancy={planning ? planOccupancy : occupancy}
             canStore={menuMembers.every((et) => et.status === 'available')}
+            planMode={planning}
+            onUnassign={
+              menuPlanRes
+                ? () => {
+                    clearAssignment(menuPlanRes.id)
+                    clearSelection()
+                  }
+                : undefined
+            }
             onBlock={() => {
               setTableStatus(menuTable.base.id, 'blocked')
               clearSelection()

@@ -1,5 +1,6 @@
 import type { Zone, FloorTableStatus } from '@/types'
 import type { FloorSummary } from '@/services/floor'
+import { formatDate, todayKey } from '@/utils'
 import { statusLabel } from './status'
 
 interface FloorControlsProps {
@@ -24,6 +25,15 @@ interface FloorControlsProps {
   canUndo: boolean
   onRedo: () => void
   canRedo: boolean
+  // Plan mode — day navigation + the planning toggle. When `planning`, the floor
+  // is a read-only-of-live planning canvas for `viewDate`, so the live-service
+  // controls (merge/split/turnover/reset) are hidden.
+  viewDate: string
+  planning: boolean
+  onStepDay: (delta: number) => void
+  onPickDate: (day: string) => void
+  onGoToday: () => void
+  onTogglePlan: () => void
 }
 
 /** Status pills shown in the occupancy legend, in reading order. */
@@ -69,8 +79,16 @@ export function FloorControls({
   canUndo,
   onRedo,
   canRedo,
+  viewDate,
+  planning,
+  onStepDay,
+  onPickDate,
+  onGoToday,
+  onTogglePlan,
 }: FloorControlsProps) {
   const cleaningCount = summary.counts.cleaning
+  const today = todayKey()
+  const isToday = viewDate === today
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-2">
       <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto">
@@ -105,6 +123,57 @@ export function FloorControls({
       </div>
 
       <div className="flex items-center gap-3">
+        {/* Day navigation — step days, pick a date, or jump back to today. */}
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => onStepDay(-1)}
+            title="Previous day"
+            className={`${action} px-2`}
+          >
+            ‹
+          </button>
+          <label className="relative flex cursor-pointer items-center">
+            <span className="rounded-lg px-2 py-1 text-xs font-medium text-ink hover:bg-line/60">
+              {isToday ? 'Today' : formatDate(`${viewDate}T12:00:00`)}
+            </span>
+            <input
+              type="date"
+              value={viewDate}
+              onChange={(e) => e.target.value && onPickDate(e.target.value)}
+              className="absolute inset-0 cursor-pointer opacity-0"
+              aria-label="Pick a day to view"
+            />
+          </label>
+          <button
+            onClick={() => onStepDay(1)}
+            title="Next day"
+            className={`${action} px-2`}
+          >
+            ›
+          </button>
+          {!isToday && (
+            <button onClick={onGoToday} className={`${action} text-muted`} title="Back to today">
+              Today
+            </button>
+          )}
+        </div>
+        <button
+          onClick={onTogglePlan}
+          disabled={!isToday}
+          title={
+            isToday
+              ? 'Preview the floor without seating anyone'
+              : 'Viewing another day is always planning'
+          }
+          className={`${chip} ${
+            planning ? 'border-ink bg-ink text-surface' : 'border-line text-muted hover:text-ink'
+          } disabled:opacity-100`}
+        >
+          {planning ? 'Plan mode' : 'Plan'}
+        </button>
+        <span className="mx-0.5 h-5 w-px bg-line" />
+        {/* Arrangement controls — merge/split/rotate work in both live service and
+            plan mode (they hit the active layer). Undo/redo is live-only. */}
         <div className="flex items-center gap-1.5">
           <button onClick={onMerge} disabled={!canMerge} className={action}>
             Merge
@@ -115,13 +184,17 @@ export function FloorControls({
           <button onClick={onRotate} disabled={!canRotate} className={action}>
             Rotate
           </button>
-          <span className="mx-0.5 h-5 w-px bg-line" />
-          <button onClick={onUndo} disabled={!canUndo} className={action} title="Undo (⌘Z)">
-            Undo
-          </button>
-          <button onClick={onRedo} disabled={!canRedo} className={action} title="Redo (⇧⌘Z)">
-            Redo
-          </button>
+          {!planning && (
+            <>
+              <span className="mx-0.5 h-5 w-px bg-line" />
+              <button onClick={onUndo} disabled={!canUndo} className={action} title="Undo (⌘Z)">
+                Undo
+              </button>
+              <button onClick={onRedo} disabled={!canRedo} className={action} title="Redo (⇧⌘Z)">
+                Redo
+              </button>
+            </>
+          )}
         </div>
         <span className="mx-0.5 h-5 w-px bg-line" />
         <div className="flex items-center gap-2.5">
@@ -142,30 +215,38 @@ export function FloorControls({
         <span className="hidden text-xs text-muted sm:inline">
           {summary.occupiedSeats}/{summary.totalSeats} seats
         </span>
-        <button
-          onClick={onToggleAutoTurnover}
-          title="Auto-return cleaning tables to available after the turnover buffer"
-          className={`${chip} ${
-            autoTurnover ? 'border-ink text-ink' : 'border-line text-muted hover:text-ink'
-          }`}
-        >
-          Auto-turnover {autoTurnover ? 'on' : 'off'}
-        </button>
-        {cleaningCount > 0 && (
-          <button
-            onClick={onFinishAllCleaning}
-            title="Mark every cleaning table available"
-            className={`${chip} border-line text-muted hover:text-ink`}
-          >
-            Finish cleaning ({cleaningCount})
-          </button>
+        {!planning && (
+          <>
+            <button
+              onClick={onToggleAutoTurnover}
+              title="Auto-return cleaning tables to available after the turnover buffer"
+              className={`${chip} ${
+                autoTurnover ? 'border-ink text-ink' : 'border-line text-muted hover:text-ink'
+              }`}
+            >
+              Auto-turnover {autoTurnover ? 'on' : 'off'}
+            </button>
+            {cleaningCount > 0 && (
+              <button
+                onClick={onFinishAllCleaning}
+                title="Mark every cleaning table available"
+                className={`${chip} border-line text-muted hover:text-ink`}
+              >
+                Finish cleaning ({cleaningCount})
+              </button>
+            )}
+          </>
         )}
         <button
           onClick={onRestoreDefault}
-          title="Reset all tables to their base layout position, rotation and merges"
+          title={
+            planning
+              ? 'Clear this day’s planned arrangement (moves, rotations, merges)'
+              : 'Reset all tables to their base layout position, rotation and merges'
+          }
           className={`${chip} border-line text-muted hover:text-ink`}
         >
-          Reset layout
+          {planning ? 'Reset plan' : 'Reset layout'}
         </button>
         <button
           onClick={onFit}

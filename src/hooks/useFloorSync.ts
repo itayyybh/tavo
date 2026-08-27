@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useFloorStore, useSessionStore } from '@/stores'
+import { useFloorStore, useSessionStore, adoptTodayPlanIntoLive } from '@/stores'
 import { supabase } from '@/services/supabase/client'
 import {
   loadFloor,
@@ -89,7 +89,12 @@ export function useFloorSync() {
     let cancelled = false
     loadFloor(restaurantId)
       .then((snapshot) => {
-        if (!cancelled) applyRemote(snapshot ?? EMPTY)
+        if (cancelled) return
+        applyRemote(snapshot ?? EMPTY)
+        // The live shift is now loaded — if today was planned, adopt that plan on
+        // top of it (once per day) so the room opens pre-arranged. Autosave then
+        // persists the adoption like any other floor change.
+        adoptTodayPlanIntoLive()
       })
       .catch((err) => console.error('Floor load failed', err))
 
