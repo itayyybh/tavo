@@ -19,7 +19,9 @@ function typeOf(table: Table, types: TableType[]): TableType | undefined {
  * Combined seats across a set of tables (e.g. the members of a merged group).
  * A group's manual `seats` override wins when set. Otherwise it's computed: from
  * 3 tables up, each internal join sits where a chair would go, so every join past
- * the first costs one seat (sum of connected capacities minus member count - 1).
+ * the first costs one seat (sum of connected capacities minus member count - 2:
+ * a straight row of N tables has N-1 joins, and the two outer ends both keep a
+ * seat, so only N-2 joins actually displace a chair).
  * A 2-table merge has just one join and keeps the plain sum.
  */
 export function groupCapacity(
@@ -29,7 +31,7 @@ export function groupCapacity(
 ): number {
   if (group?.seats != null) return group.seats
   const sum = members.reduce((total, t) => total + seatsForTable(t, typeOf(t, types)), 0)
-  return members.length >= 3 ? Math.max(0, sum - (members.length - 1)) : sum
+  return members.length >= 3 ? Math.max(0, sum - (members.length - 2)) : sum
 }
 
 /**
@@ -45,7 +47,7 @@ export function hypotheticalMergeCapacity(tables: Table[], types: TableType[]): 
     (total, t) => total + (typeOf(t, types)?.connectedCapacity ?? 0),
     0,
   )
-  return tables.length >= 3 ? Math.max(0, sum - (tables.length - 1)) : sum
+  return tables.length >= 3 ? Math.max(0, sum - (tables.length - 2)) : sum
 }
 
 export interface FloorTotals {

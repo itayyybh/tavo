@@ -28,7 +28,7 @@ function hypotheticalMergeCapacity(tables, types) {
     (total, t) => total + (typeOf(t, types)?.connectedCapacity ?? 0),
     0
   );
-  return tables.length >= 3 ? Math.max(0, sum - (tables.length - 1)) : sum;
+  return tables.length >= 3 ? Math.max(0, sum - (tables.length - 2)) : sum;
 }
 
 // src/utils/reservations.ts
@@ -485,18 +485,9 @@ function scoreCandidate(reservation, candidate, floor) {
     score += weights.zoneMatch * 0.6;
     reasons.push({ key: "reason.bringToPreferredZone" });
   }
-  const requestedLabels = reservation.parsedRequest?.tableLabels ?? [];
-  const matchesRequestedTable = !!reservation.preferredTableId && candidate.tableIds.includes(reservation.preferredTableId) || requestedLabels.length > 0 && candidate.tables.some((table) => requestedLabels.includes(table.label));
-  if (matchesRequestedTable) {
+  if (reservation.preferredTableId && candidate.tableIds.includes(reservation.preferredTableId)) {
     score += weights.preferredTable;
     reasons.push({ key: "reason.requestedTable" });
-  }
-  const requestedShape = reservation.parsedRequest?.shape;
-  if (requestedShape && candidate.tables.some(
-    (table) => floor.tableTypes.find((ty) => ty.id === table.typeId)?.shape === requestedShape
-  )) {
-    score += weights.requestedShape;
-    reasons.push({ key: "reason.requestedShape", params: { shape: requestedShape } });
   }
   if (candidate.kind === "single") {
     score += weights.singleTable;
@@ -800,12 +791,7 @@ var DEFAULT_SEATING_CONFIG = {
   weights: {
     capacityFit: 10,
     zoneMatch: 6,
-    // Deliberately above the sum of the other weights so a REQUESTED table
-    // (preferredTableId, or a table parsed from the notes) wins over a tighter
-    // fit / preferred zone / combo whenever it's a feasible option. Still soft:
-    // an infeasible table (wrong size, occupied, forbidden) is never offered.
-    preferredTable: 40,
-    requestedShape: 5,
+    preferredTable: 8,
     singleTable: 3,
     preferredCombo: 12
   }
@@ -831,6 +817,9 @@ function reservationFromRow(row) {
     preferences: row.preferences ?? void 0,
     notes: row.notes ?? void 0,
     parsedRequest: row.parsed_request ?? void 0,
+    archived: row.archived ?? void 0,
+    archivedAt: row.archived_at ?? void 0,
+    archiveReason: row.archive_reason ?? void 0,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
