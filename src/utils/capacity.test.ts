@@ -33,26 +33,45 @@ describe('hypotheticalMergeCapacity', () => {
     expect(hypotheticalMergeCapacity([table('a')], types)).toBe(0)
   })
 
-  it('keeps the plain sum for a 2-table merge (single join)', () => {
-    // 3 + 3, no seat displaced.
-    expect(hypotheticalMergeCapacity([table('a'), table('b')], types)).toBe(6)
+  it('anchors on the largest table (solo) + connected for the rest, for a 2-table merge', () => {
+    // Anchor keeps its solo 4, the other adds connected 3 → 7. No join penalty
+    // for a 2-table merge.
+    expect(hypotheticalMergeCapacity([table('a'), table('b')], types)).toBe(7)
   })
 
-  it('a row of 3 connected 3-seaters seats 8, not 7 (both ends keep a seat)', () => {
-    // Regression: only joins PAST the first displace a chair, so a straight
-    // row of N tables loses N-2 seats — here 9 - 1 = 8. The prior off-by-one
-    // subtracted N-1 and wrongly returned 7.
-    expect(hypotheticalMergeCapacity([table('a'), table('b'), table('c')], types)).toBe(8)
+  it('a row of 3 seats 9: anchor solo 4 + 3 + 3, minus one interior join', () => {
+    // 4 (anchor solo) + 3 + 3 = 10, minus (N-2)=1 interior join → 9.
+    expect(hypotheticalMergeCapacity([table('a'), table('b'), table('c')], types)).toBe(9)
   })
 
   it('scales the N-2 penalty for larger rows', () => {
     const row = (n: number) => Array.from({ length: n }, (_, i) => table(`t${i}`))
-    expect(hypotheticalMergeCapacity(row(4), types)).toBe(10) // 12 - 2
-    expect(hypotheticalMergeCapacity(row(5), types)).toBe(12) // 15 - 3
+    expect(hypotheticalMergeCapacity(row(4), types)).toBe(11) // 4 + 3+3+3 - 2
+    expect(hypotheticalMergeCapacity(row(5), types)).toBe(13) // 4 + 3*4 - 3
+  })
+
+  it('a big table anchors even when smaller tables are pushed onto it', () => {
+    // The 41+141 case: a big round (solo 8, connected 4) keeps its solo when a
+    // 2-top attaches → 8 + 2 = 10, not 4 + 2 = 6.
+    const ROUND: TableType = {
+      ...SQUARE,
+      id: 'round',
+      soloCapacity: 8,
+      connectedCapacity: 4,
+    }
+    const DEUCE: TableType = {
+      ...SQUARE,
+      id: 'deuce',
+      soloCapacity: 2,
+      connectedCapacity: 2,
+    }
+    const round = table('41', { typeId: 'round' })
+    const deuce = table('141', { typeId: 'deuce' })
+    expect(hypotheticalMergeCapacity([deuce, round], [ROUND, DEUCE])).toBe(10)
   })
 
   it('never returns negative seats', () => {
-    const tiny: TableType = { ...SQUARE, id: 'tiny', connectedCapacity: 0 }
+    const tiny: TableType = { ...SQUARE, id: 'tiny', soloCapacity: 0, connectedCapacity: 0 }
     const t = (id: string): Table => table(id, { typeId: 'tiny' })
     expect(hypotheticalMergeCapacity([t('a'), t('b'), t('c')], [tiny])).toBe(0)
   })
@@ -61,13 +80,14 @@ describe('hypotheticalMergeCapacity', () => {
 describe('groupCapacity', () => {
   const merged = (id: string): Table => table(id, { mergedGroupId: 'g1' })
 
-  it('applies the same N-2 penalty to actual merged members', () => {
-    // Three merged members contribute connectedCapacity (3 each): 9 - 1 = 8.
-    expect(groupCapacity([merged('a'), merged('b'), merged('c')], types)).toBe(8)
+  it('uses the shared merge model for actual merged members', () => {
+    // Anchor solo 4 + 3 + 3 = 10, minus one interior join → 9.
+    expect(groupCapacity([merged('a'), merged('b'), merged('c')], types)).toBe(9)
   })
 
-  it('keeps the plain sum for a 2-member group', () => {
-    expect(groupCapacity([merged('a'), merged('b')], types)).toBe(6)
+  it('anchors on the largest table for a 2-member group', () => {
+    // Anchor solo 4 + connected 3 = 7.
+    expect(groupCapacity([merged('a'), merged('b')], types)).toBe(7)
   })
 
   it("honours a group's manual seat override", () => {

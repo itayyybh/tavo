@@ -16,6 +16,7 @@
  */
 import type { ID, Reservation, Table } from '@/types'
 import {
+  groupCapacity,
   hypotheticalMergeCapacity,
   isActiveStatus,
   seatsForTable,
@@ -31,10 +32,14 @@ function comboKey(ids: string[]): string {
   return [...ids].sort().join('+')
 }
 
-/** Every available single table as a candidate. */
+/**
+ * Every available LOOSE single table as a candidate. Tables belonging to a
+ * declared merged group are excluded — that group seats as one unit
+ * (`groupCandidates`), never as a fragment.
+ */
 function singleCandidates(floor: SeatingFloor): SeatCandidate[] {
   return floor.tables
-    .filter((t) => t.status === 'available')
+    .filter((t) => t.status === 'available' && !t.mergedGroupId)
     .map((t) => ({
       kind: 'single' as const,
       tableIds: [t.id],
@@ -47,9 +52,41 @@ function singleCandidates(floor: SeatingFloor): SeatCandidate[] {
     }))
 }
 
-/** Proximity-seeded, bounded merge candidates that reach the party size. */
+/**
+ * Each declared (base-layout) merged group as a single ready-made candidate. A
+ * group is a pre-formed table: the engine offers it whole, with the group's real
+ * capacity — `groupCapacity` honours the host's manual `seats` override (what the
+ * floor shows), instead of re-deriving a hypothetical merge from raw connected
+ * capacities. Only offered when EVERY member is present and available (a group
+ * seats as one unit or not at all). Without this, a group whose override exceeds
+ * its computed connected sum — e.g. a small table pushed onto a big round — is
+ * under-counted and wrongly rejected as too small for the party.
+ */
+function groupCandidates(floor: SeatingFloor): SeatCandidate[] {
+  const byId = new Map(floor.tables.map((t) => [t.id, t]))
+  const out: SeatCandidate[] = []
+  for (const group of floor.mergedGroups) {
+    const members = group.tableIds
+      .map((id) => byId.get(id))
+      .filter((t): t is Table => !!t)
+    if (members.length < 2 || members.length !== group.tableIds.length) continue
+    if (!members.every((t) => t.status === 'available')) continue
+    out.push({
+      kind: 'merge',
+      tableIds: [...group.tableIds].sort(),
+      tables: members,
+      seats: groupCapacity(members, floor.tableTypes, group),
+      zoneId: members[0].zoneId,
+    })
+  }
+  return out
+}
+
+/** Proximity-seeded, bounded merge candidates that reach the party size. Operates
+ * only on LOOSE tables — members of a declared group are a fixed unit
+ * (`groupCandidates`), never re-merged ad-hoc. */
 function mergeCandidates(reservation: Reservation, floor: SeatingFloor): SeatCandidate[] {
-  const available = floor.tables.filter((t) => t.status === 'available')
+  const available = floor.tables.filter((t) => t.status === 'available' && !t.mergedGroupId)
   const maxSize = floor.config.merge.maxMergeSize ?? Infinity
   const ctx: MergeRuleContext = {
     zones: floor.zones,
@@ -284,8 +321,10 @@ export function generateCandidates(
   floor: SeatingFloor,
   others: Reservation[] = [],
 ): SeatCandidate[] {
+  const groups = groupCandidates(floor)
   let result: SeatCandidate[] = [
     ...singleCandidates(floor),
+    ...groups,
     ...mergeCandidates(reservation, floor),
   ]
 
@@ -302,7 +341,12 @@ export function generateCandidates(
   const restrictions = largePartyRestrictions(reservation, floor)
   if (restrictions.length > 0) {
     const byZone = new Map(restrictions.map((r) => [r.zoneId, r]))
+    // A declared merged group is a permanent physical table, not an ad-hoc merge —
+    // large-party combo rules govern which tables staff may PUSH TOGETHER, so they
+    // never disqualify a table that's already built. Exempt the declared groups.
+    const groupKeys = new Set(groups.map((c) => comboKey(c.tableIds)))
     result = result.filter((c) => {
+      if (groupKeys.has(comboKey(c.tableIds))) return true
       const r = byZone.get(c.zoneId)
       return !r || r.allowedKeys.has(comboKey(c.tableIds))
     })
@@ -367,7 +411,10 @@ function bringToMergeCandidates(
   const preferred = reservation.preferredZoneId
   if (!preferred) return []
   const busy = busyTableIds(reservation, floor, others)
-  const free = floor.tables.filter((t) => t.status === 'available' && !busy.has(t.id))
+  // Loose free tables only — a declared group's member can't be brought alone.
+  const free = floor.tables.filter(
+    (t) => t.status === 'available' && !t.mergedGroupId && !busy.has(t.id),
+  )
   const inZone = free.filter((t) => t.zoneId === preferred)
   // Donors: free tables in OTHER zones that themselves permit relocation.
   const otherZone = free.filter((t) => t.zoneId !== preferred && donorOk(t.zoneId))

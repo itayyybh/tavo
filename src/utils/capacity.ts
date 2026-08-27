@@ -16,13 +16,40 @@ function typeOf(table: Table, types: TableType[]): TableType | undefined {
 }
 
 /**
+ * Seats a merge of these tables provides, from the table types.
+ *
+ * The LARGEST table (by solo capacity) anchors the merge and keeps its full SOLO
+ * capacity — it doesn't shrink to its connected value just because smaller tables
+ * are pushed onto it (a big round pushed against a 2-top still seats its whole
+ * perimeter). Every OTHER table attaches and contributes its CONNECTED capacity.
+ * Then the row penalty: from 3 tables up, each interior join past the first sits
+ * where a chair would go, costing one seat (members - 2); a 2-table merge keeps
+ * the plain sum. Never negative. 0 for fewer than 2 tables.
+ *
+ * This is the single seat model both the engine (scoring un-merged candidates)
+ * and a realized group's computed capacity use, so a suggested merge and the
+ * merged result always agree.
+ */
+function mergeSeats(tables: Table[], types: TableType[]): number {
+  if (tables.length < 2) return 0
+  const solo = (t: Table) => typeOf(t, types)?.soloCapacity ?? 0
+  const connected = (t: Table) => typeOf(t, types)?.connectedCapacity ?? 0
+  let anchor = 0
+  tables.forEach((t, i) => {
+    if (solo(t) > solo(tables[anchor])) anchor = i
+  })
+  const sum = tables.reduce(
+    (total, t, i) => total + (i === anchor ? solo(t) : connected(t)),
+    0,
+  )
+  return tables.length >= 3 ? Math.max(0, sum - (tables.length - 2)) : sum
+}
+
+/**
  * Combined seats across a set of tables (e.g. the members of a merged group).
- * A group's manual `seats` override wins when set. Otherwise it's computed: from
- * 3 tables up, each internal join sits where a chair would go, so every join past
- * the first costs one seat (sum of connected capacities minus member count - 2:
- * a straight row of N tables has N-1 joins, and the two outer ends both keep a
- * seat, so only N-2 joins actually displace a chair).
- * A 2-table merge has just one join and keeps the plain sum.
+ * A group's manual `seats` override wins when set; otherwise it's computed with
+ * the shared `mergeSeats` model (anchor keeps solo, the rest connected, minus the
+ * row penalty). A lone member falls back to its own seat count.
  */
 export function groupCapacity(
   members: Table[],
@@ -30,24 +57,19 @@ export function groupCapacity(
   group?: MergedGroup,
 ): number {
   if (group?.seats != null) return group.seats
-  const sum = members.reduce((total, t) => total + seatsForTable(t, typeOf(t, types)), 0)
-  return members.length >= 3 ? Math.max(0, sum - (members.length - 2)) : sum
+  if (members.length < 2)
+    return members.reduce((total, t) => total + seatsForTable(t, typeOf(t, types)), 0)
+  return mergeSeats(members, types)
 }
 
 /**
  * Seats a HYPOTHETICAL merge of these tables would provide — used by the seating
- * engine to score merge candidates that aren't merged yet. Unlike `groupCapacity`
- * (which reads each member's current merge state), this always treats members as
- * connected, applying the same join penalty: every join past the first costs one
- * seat for 3+ tables; a 2-table merge keeps the plain sum. 0 for fewer than 2.
+ * engine to score merge candidates that aren't merged yet. Same `mergeSeats`
+ * model as a realized group, so the suggestion and the result agree. 0 for fewer
+ * than 2 tables.
  */
 export function hypotheticalMergeCapacity(tables: Table[], types: TableType[]): number {
-  if (tables.length < 2) return 0
-  const sum = tables.reduce(
-    (total, t) => total + (typeOf(t, types)?.connectedCapacity ?? 0),
-    0,
-  )
-  return tables.length >= 3 ? Math.max(0, sum - (tables.length - 2)) : sum
+  return mergeSeats(tables, types)
 }
 
 export interface FloorTotals {

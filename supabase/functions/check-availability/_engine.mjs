@@ -22,13 +22,28 @@ function seatsForTable(table, type) {
 function typeOf(table, types) {
   return types.find((t) => t.id === table.typeId);
 }
-function hypotheticalMergeCapacity(tables, types) {
+function mergeSeats(tables, types) {
   if (tables.length < 2) return 0;
+  const solo = (t) => typeOf(t, types)?.soloCapacity ?? 0;
+  const connected = (t) => typeOf(t, types)?.connectedCapacity ?? 0;
+  let anchor = 0;
+  tables.forEach((t, i) => {
+    if (solo(t) > solo(tables[anchor])) anchor = i;
+  });
   const sum = tables.reduce(
-    (total, t) => total + (typeOf(t, types)?.connectedCapacity ?? 0),
+    (total, t, i) => total + (i === anchor ? solo(t) : connected(t)),
     0
   );
   return tables.length >= 3 ? Math.max(0, sum - (tables.length - 2)) : sum;
+}
+function groupCapacity(members, types, group) {
+  if (group?.seats != null) return group.seats;
+  if (members.length < 2)
+    return members.reduce((total, t) => total + seatsForTable(t, typeOf(t, types)), 0);
+  return mergeSeats(members, types);
+}
+function hypotheticalMergeCapacity(tables, types) {
+  return mergeSeats(tables, types);
 }
 
 // src/utils/reservations.ts
@@ -193,7 +208,7 @@ function comboKey(ids) {
   return [...ids].sort().join("+");
 }
 function singleCandidates(floor) {
-  return floor.tables.filter((t) => t.status === "available").map((t) => ({
+  return floor.tables.filter((t) => t.status === "available" && !t.mergedGroupId).map((t) => ({
     kind: "single",
     tableIds: [t.id],
     tables: [t],
@@ -204,8 +219,25 @@ function singleCandidates(floor) {
     zoneId: t.zoneId
   }));
 }
+function groupCandidates(floor) {
+  const byId = new Map(floor.tables.map((t) => [t.id, t]));
+  const out = [];
+  for (const group of floor.mergedGroups) {
+    const members = group.tableIds.map((id) => byId.get(id)).filter((t) => !!t);
+    if (members.length < 2 || members.length !== group.tableIds.length) continue;
+    if (!members.every((t) => t.status === "available")) continue;
+    out.push({
+      kind: "merge",
+      tableIds: [...group.tableIds].sort(),
+      tables: members,
+      seats: groupCapacity(members, floor.tableTypes, group),
+      zoneId: members[0].zoneId
+    });
+  }
+  return out;
+}
 function mergeCandidates(reservation, floor) {
-  const available = floor.tables.filter((t) => t.status === "available");
+  const available = floor.tables.filter((t) => t.status === "available" && !t.mergedGroupId);
   const maxSize = floor.config.merge.maxMergeSize ?? Infinity;
   const ctx = {
     zones: floor.zones,
@@ -344,8 +376,10 @@ function preferredComboInjections(reservation, floor) {
   return out;
 }
 function generateCandidates(reservation, floor, others = []) {
+  const groups = groupCandidates(floor);
   let result = [
     ...singleCandidates(floor),
+    ...groups,
     ...mergeCandidates(reservation, floor)
   ];
   for (const cand of preferredComboInjections(reservation, floor)) {
@@ -356,7 +390,9 @@ function generateCandidates(reservation, floor, others = []) {
   const restrictions = largePartyRestrictions(reservation, floor);
   if (restrictions.length > 0) {
     const byZone = new Map(restrictions.map((r) => [r.zoneId, r]));
+    const groupKeys = new Set(groups.map((c) => comboKey(c.tableIds)));
     result = result.filter((c) => {
+      if (groupKeys.has(comboKey(c.tableIds))) return true;
       const r = byZone.get(c.zoneId);
       return !r || r.allowedKeys.has(comboKey(c.tableIds));
     });
@@ -397,7 +433,9 @@ function bringToMergeCandidates(reservation, floor, others, donorOk) {
   const preferred = reservation.preferredZoneId;
   if (!preferred) return [];
   const busy = busyTableIds(reservation, floor, others);
-  const free = floor.tables.filter((t) => t.status === "available" && !busy.has(t.id));
+  const free = floor.tables.filter(
+    (t) => t.status === "available" && !t.mergedGroupId && !busy.has(t.id)
+  );
   const inZone = free.filter((t) => t.zoneId === preferred);
   const otherZone = free.filter((t) => t.zoneId !== preferred && donorOk(t.zoneId));
   if (inZone.length === 0 || otherZone.length === 0) return [];
