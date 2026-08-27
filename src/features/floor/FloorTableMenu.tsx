@@ -27,6 +27,13 @@ interface FloorTableMenuProps {
   onClear: () => void
   onStore: () => void
   onClose: () => void
+  /**
+   * Plan mode: the floor is a planning canvas, not live service. Live actions
+   * (clear/block/clean/store) are hidden; the only action is unplanning the
+   * booking currently assigned here (`onUnassign`, shown when one exists).
+   */
+  planMode?: boolean
+  onUnassign?: () => void
 }
 
 const action =
@@ -50,6 +57,8 @@ export function FloorTableMenu({
   onClear,
   onStore,
   onClose,
+  planMode,
+  onUnassign,
 }: FloorTableMenuProps) {
   const { status } = table
   // Header: the party's name when occupied, else the table(s) it names.
@@ -102,31 +111,41 @@ export function FloorTableMenu({
           </div>
         )}
 
-        {status === 'occupied' && (
-          <button className={action} onClick={onClear}>
-            Clear table
-          </button>
-        )}
-        {status === 'cleaning' && (
-          <button className={action} onClick={onFinishCleaning}>
-            Finish cleaning
-          </button>
-        )}
-        {status === 'blocked' ? (
-          <button className={action} onClick={onUnblock}>
-            Unblock
-          </button>
-        ) : (
-          status !== 'occupied' && (
-            <button className={action} onClick={onBlock}>
-              Block
+        {planMode ? (
+          onUnassign && (
+            <button className={action} onClick={onUnassign}>
+              Unplan this booking
             </button>
           )
-        )}
-        {canStore && (
-          <button className={`${action} text-muted`} onClick={onStore}>
-            Move to storage
-          </button>
+        ) : (
+          <>
+            {status === 'occupied' && (
+              <button className={action} onClick={onClear}>
+                Clear table
+              </button>
+            )}
+            {status === 'cleaning' && (
+              <button className={action} onClick={onFinishCleaning}>
+                Finish cleaning
+              </button>
+            )}
+            {status === 'blocked' ? (
+              <button className={action} onClick={onUnblock}>
+                Unblock
+              </button>
+            ) : (
+              status !== 'occupied' && (
+                <button className={action} onClick={onBlock}>
+                  Block
+                </button>
+              )
+            )}
+            {canStore && (
+              <button className={`${action} text-muted`} onClick={onStore}>
+                Move to storage
+              </button>
+            )}
+          </>
         )}
         <button className={`${action} text-muted`} onClick={onClose}>
           Close

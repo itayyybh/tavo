@@ -84,3 +84,42 @@ describe('floorStore history', () => {
     expect(get().future).toHaveLength(0)
   })
 })
+
+/**
+ * Plan → live handoff (`adoptPlan`): a planned day's arrangement is layered onto
+ * the live shift, additively and without disturbing tables already in play.
+ */
+describe('floorStore adoptPlan', () => {
+  beforeEach(() => get().resetService())
+
+  it('adds plan merges + positions onto a clean shift', () => {
+    get().adoptPlan({
+      positionOverrides: { t1: { x: 4, y: 5 } },
+      rotationOverrides: { t1: 90 },
+      merges: [{ tableIds: ['t2', 't3'], needsArrange: false }],
+    })
+    expect(get().positionOverrides.t1).toEqual({ x: 4, y: 5 })
+    expect(get().rotationOverrides.t1).toBe(90)
+    expect(get().runtimeMerges).toHaveLength(1)
+    expect(get().runtimeMerges[0].tableIds).toEqual(['t2', 't3'])
+    expect(get().runtimeMerges[0].seatingId).toBeUndefined()
+  })
+
+  it('never disturbs a table already seated or merged live', () => {
+    get().replaceAll({
+      seatings: [{ id: 's1', reservationId: 'r1', tableIds: ['t1'], seatedAt: '' }],
+      runtimeMerges: [{ id: 'm1', tableIds: ['t2', 't3'], seatingId: 's1' }],
+      statusOverrides: {},
+      cleaningSince: {},
+      positionOverrides: {},
+      rotationOverrides: {},
+    })
+    get().adoptPlan({
+      positionOverrides: { t1: { x: 9, y: 9 } }, // t1 is seated — must be ignored
+      rotationOverrides: {},
+      merges: [{ tableIds: ['t2', 't3'] }], // already a live merge — no duplicate
+    })
+    expect(get().positionOverrides.t1).toBeUndefined()
+    expect(get().runtimeMerges).toHaveLength(1)
+  })
+})

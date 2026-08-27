@@ -9,7 +9,7 @@
  * answered here.
  */
 import type { FloorSnapshot, FloorTableStatus, ID, Reservation, Table } from '@/types'
-import { findAssignmentConflicts } from '@/utils'
+import { findAssignmentConflicts, isActiveStatus, isOnDay } from '@/utils'
 import type { EffectiveFloor, EffectiveTable, FloorPreview, TableUrgency } from './types'
 
 /** Reservation statuses that reserve (but haven't yet occupied) their tables. */
@@ -49,6 +49,16 @@ export interface DeriveFloorInput {
   previews?: FloorPreview[]
   /** Injectable for tests; defaults to the real clock. */
   now?: number
+  /**
+   * When set (`YYYY-MM-DD`), derive a PLANNING view of that day instead of the
+   * live floor: the base layout only — no live seatings, host overrides
+   * (blocked/cleaning), runtime merges or physical rearrangement — with every
+   * active booking assigned on that day shown as `reserved` (ungated by the
+   * lookahead window; the whole day is "the plan"). Lets the host see and
+   * pre-assign tables for another day without seating anyone. Undefined in
+   * normal live operation.
+   */
+  planDate?: string
 }
 
 /**
@@ -64,7 +74,13 @@ export function deriveFloorState({
   turnoverBufferMin,
   previews = [],
   now = Date.now(),
+  planDate,
 }: DeriveFloorInput): EffectiveFloor {
+  const planning = planDate != null
+
+  // Plan mode reasons over a plan-scoped snapshot the caller assembles (the plan
+  // day's own arrangement — moves, rotations, merges — never the live shift). The
+  // only derivation difference is how bookings become `reserved` (below).
   const {
     seatings,
     runtimeMerges,
@@ -115,6 +131,16 @@ export function deriveFloorState({
   )
   for (const r of sorted) {
     resById.set(r.id, r)
+    if (planning) {
+      // Planning a specific day: every still-active booking ON that day with
+      // assigned tables is a plan placement → `reserved`, regardless of how far
+      // off its time is. Terminal bookings (cancelled/no-show/completed) drop.
+      if (!isActiveStatus(r.status) || !isOnDay(r.dateTime, planDate)) continue
+      for (const tableId of r.assignedTableIds ?? []) {
+        if (!reservedByTable.has(tableId)) reservedByTable.set(tableId, r.id)
+      }
+      continue
+    }
     if (!RESERVING_STATUSES.includes(r.status)) continue
     const dueSoon = r.status === 'arrived' || Date.parse(r.dateTime) - now <= lookaheadMs
     const target = dueSoon ? reservedByTable : upcomingByTable

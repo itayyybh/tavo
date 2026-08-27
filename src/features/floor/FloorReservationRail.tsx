@@ -2,10 +2,12 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   useFloorStore,
+  useFloorPlanStore,
   useLayoutStore,
   useReservationStore,
   useSettingsStore,
   useUIStore,
+  isPlanning,
 } from '@/stores'
 import { useSeatingFloor } from '@/hooks/useSeatingFloor'
 import { explainNoFit, suggestSeating, type Suggestion } from '@/services/seating'
@@ -40,6 +42,8 @@ const clearBtn =
 export function FloorReservationRail() {
   const { t } = useTranslation('reservations')
   const reservations = useReservationStore((s) => s.reservations)
+  const assignTable = useReservationStore((s) => s.assignTable)
+  const clearAssignment = useReservationStore((s) => s.clearAssignment)
   const tables = useLayoutStore((s) => s.tables)
   const zones = useLayoutStore((s) => s.zones)
   const seatings = useFloorStore((s) => s.seatings)
@@ -50,6 +54,10 @@ export function FloorReservationRail() {
   const waitlistEnabled = useSettingsStore((s) => s.waitlistEnabled)
   const seatingFloor = useSeatingFloor()
   const now = useNow()
+  // Plan mode: the rail follows the floor's viewed day and plans (assigns) rather
+  // than seats. Live-only sections (Seated, Waitlist) are hidden while planning.
+  const viewDate = useFloorPlanStore((s) => s.viewDate)
+  const planning = useFloorPlanStore(isPlanning)
 
   const zoneById = useMemo(() => new Map(zones.map((z) => [z.id, z])), [zones])
   const tableZone = useMemo(() => new Map(tables.map((t) => [t.id, t.zoneId])), [tables])
@@ -63,7 +71,7 @@ export function FloorReservationRail() {
     [reservations],
   )
 
-  const day = todayKey()
+  const day = planning ? viewDate : todayKey()
   const seatedIds = useMemo(
     () => new Set(seatings.map((s) => s.reservationId)),
     [seatings],
@@ -92,6 +100,19 @@ export function FloorReservationRail() {
         .sort((a, b) => a.dateTime.localeCompare(b.dateTime)),
     [reservations, seatedIds, day, focusedZoneId],
   )
+
+  // Plan mode: the engine's best-fit table(s) for each still-unplanned booking, so
+  // a one-click "Plan" can assign it (mirrors the waitlist's suggestion flow).
+  const planSuggestion = useMemo(() => {
+    const map = new Map<string, Suggestion | undefined>()
+    if (!planning) return map
+    for (const r of upcoming) {
+      if ((r.assignedTableIds ?? []).length > 0) continue
+      const others = reservations.filter((o) => o.id !== r.id)
+      map.set(r.id, suggestSeating(r, seatingFloor, others)[0])
+    }
+    return map
+  }, [planning, upcoming, reservations, seatingFloor])
 
   const seated = useMemo(
     () =>
@@ -185,26 +206,55 @@ export function FloorReservationRail() {
                   )}
                 </span>
               </div>
-              <div className="mt-2 flex justify-end">
-                <button
-                  className={seatBtn}
-                  disabled={!canSeat}
-                  title={
-                    canSeat
-                      ? undefined
-                      : 'Drag onto a table (or a selection) on the floor'
-                  }
-                  onClick={() => seat(r.id, assigned)}
-                >
-                  Seat
-                </button>
+              <div className="mt-2 flex justify-end gap-2">
+                {planning ? (
+                  canSeat ? (
+                    <button className={clearBtn} onClick={() => clearAssignment(r.id)}>
+                      Unplan
+                    </button>
+                  ) : (
+                    (() => {
+                      const suggestion = planSuggestion.get(r.id)
+                      return (
+                        <button
+                          className={seatBtn}
+                          disabled={!suggestion}
+                          title={
+                            suggestion
+                              ? `Plan onto ${labelOf(suggestion.candidate.tableIds)}`
+                              : 'No table fits — drag onto the floor to plan'
+                          }
+                          onClick={() =>
+                            suggestion &&
+                            assignTable(r.id, suggestion.candidate.tableIds, 'manual')
+                          }
+                        >
+                          Plan
+                        </button>
+                      )
+                    })()
+                  )
+                ) : (
+                  <button
+                    className={seatBtn}
+                    disabled={!canSeat}
+                    title={
+                      canSeat
+                        ? undefined
+                        : 'Drag onto a table (or a selection) on the floor'
+                    }
+                    onClick={() => seat(r.id, assigned)}
+                  >
+                    Seat
+                  </button>
+                )}
               </div>
             </li>
           )
         })}
       </Section>
 
-      {waitlistEnabled && (
+      {!planning && waitlistEnabled && (
         <Section title="Waitlist" count={waitlist.length}>
           {waitlist.length === 0 && <Empty>Nobody waiting.</Empty>}
           {waitlist.map((r) => {
@@ -269,6 +319,7 @@ export function FloorReservationRail() {
         </Section>
       )}
 
+      {!planning && (
       <Section title="Seated" count={seated.length} accentVar="--color-status-occupied">
         {seated.length === 0 && <Empty>Nobody seated yet.</Empty>}
         {seated.map((s) => {
@@ -349,6 +400,7 @@ export function FloorReservationRail() {
           )
         })}
       </Section>
+      )}
 
       <FloorStorageBar />
     </aside>

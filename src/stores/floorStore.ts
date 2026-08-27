@@ -78,6 +78,17 @@ interface FloorState extends FloorSnapshot {
   resetService: () => void
   /** Replace the whole runtime layer — used to hydrate from storage. */
   replaceAll: (snapshot: FloorSnapshot) => void
+  /**
+   * Adopt a plan day's arrangement into the live shift when that day becomes
+   * today — the room opens pre-set the way it was planned. Additive and safe:
+   * a table already seated or in a live merge is left exactly as it is, so this
+   * never disturbs service in progress. Runs once per day (guarded by the caller).
+   */
+  adoptPlan: (arrangement: {
+    positionOverrides: Record<ID, Vec2>
+    rotationOverrides: Record<ID, number>
+    merges: { tableIds: ID[]; needsArrange?: boolean }[]
+  }) => void
 
   // Undo/redo of manual floor edits (move, rotate, merge, split, status). Seat/
   // clear and hydration reset the stacks — they cross into the reservation engine,
@@ -127,7 +138,7 @@ function omit<V>(record: Record<ID, V>, key: ID): Record<ID, V> {
  * `placeMergedBlock`), just not guaranteed overlap-free. Empty overrides only
  * for < 2 members (nothing to arrange).
  */
-function clusterOverrides(
+export function clusterOverrides(
   tableIds: ID[],
   positionOverrides: Record<ID, Vec2>,
   rotationOverrides: Record<ID, number>,
@@ -197,6 +208,42 @@ function clusterOverrides(
     rotations[id] = p.rotation
   }
   return { positions, rotations, clear: arranged.clear }
+}
+
+/**
+ * Rotate a group of tables by `deg` about their shared center — the geometry
+ * behind `rotateGroup`, extracted so the plan-arrangement store reuses it
+ * identically. Reads base position/rotation from the layout store, layering the
+ * given overrides on top. Returns the updated override maps.
+ */
+export function rotateGroupOverrides(
+  tableIds: ID[],
+  deg: number,
+  positionOverrides: Record<ID, Vec2>,
+  rotationOverrides: Record<ID, number>,
+): { positionOverrides: Record<ID, Vec2>; rotationOverrides: Record<ID, number> } {
+  const { tables } = useLayoutStore.getState()
+  const baseById = new Map(tables.map((t) => [t.id, t]))
+  const posOf = (id: ID) => positionOverrides[id] ?? baseById.get(id)?.position
+  const rotOf = (id: ID) => rotationOverrides[id] ?? baseById.get(id)?.rotation ?? 0
+  const centers = tableIds.map(posOf).filter((p): p is Vec2 => !!p)
+  const nextPos = { ...positionOverrides }
+  const nextRot = { ...rotationOverrides }
+  if (centers.length === 0) return { positionOverrides: nextPos, rotationOverrides: nextRot }
+  const cx = centers.reduce((s, p) => s + p.x, 0) / centers.length
+  const cy = centers.reduce((s, p) => s + p.y, 0) / centers.length
+  const rad = (deg * Math.PI) / 180
+  const cos = Math.cos(rad)
+  const sin = Math.sin(rad)
+  for (const id of tableIds) {
+    const p = posOf(id)
+    if (!p) continue
+    const dx = p.x - cx
+    const dy = p.y - cy
+    nextPos[id] = { x: cx + dx * cos - dy * sin, y: cy + dx * sin + dy * cos }
+    nextRot[id] = (rotOf(id) + deg) % 360
+  }
+  return { positionOverrides: nextPos, rotationOverrides: nextRot }
 }
 
 export const useFloorStore = create<FloorState>((set, get) => {
@@ -515,6 +562,38 @@ export const useFloorStore = create<FloorState>((set, get) => {
       cleaningSince: {},
       positionOverrides: {},
       rotationOverrides: {},
+    })
+    resetHistory()
+  },
+
+  adoptPlan: (arrangement) => {
+    set((state) => {
+      // Tables already in play this shift — a seated party or an existing runtime
+      // merge — are untouchable: keep the live floor authoritative over the plan.
+      const inPlay = new Set<ID>([
+        ...state.seatings.flatMap((s) => s.tableIds),
+        ...state.runtimeMerges.flatMap((m) => m.tableIds),
+      ])
+      const positionOverrides = { ...state.positionOverrides }
+      const rotationOverrides = { ...state.rotationOverrides }
+      for (const [id, p] of Object.entries(arrangement.positionOverrides)) {
+        if (!inPlay.has(id)) positionOverrides[id] = p
+      }
+      for (const [id, r] of Object.entries(arrangement.rotationOverrides)) {
+        if (!inPlay.has(id)) rotationOverrides[id] = r
+      }
+      const runtimeMerges = [...state.runtimeMerges]
+      for (const m of arrangement.merges) {
+        if (m.tableIds.some((id) => inPlay.has(id))) continue
+        runtimeMerges.push({
+          id: createId(),
+          tableIds: [...m.tableIds].sort(),
+          seatingId: undefined,
+          needsArrange: m.needsArrange,
+        })
+        m.tableIds.forEach((id) => inPlay.add(id))
+      }
+      return { positionOverrides, rotationOverrides, runtimeMerges }
     })
     resetHistory()
   },
