@@ -53,27 +53,41 @@ export function reservationEnd(r: Reservation): number {
 }
 
 /**
- * Ids to sweep into History at end-of-day, or `[]` if the day isn't over yet.
+ * Ids to sweep into History at end-of-day, or `[]` if nothing is sweepable yet.
  *
- * The service is "done" only when, among the non-archived bookings for today or
- * any earlier day, EVERY one is terminal (completed/cancelled/no_show) AND the
- * latest booked window has already passed. This deliberately never fires
- * mid-service (a still-pending or still-seated booking blocks it) and never
- * touches future days. Pure — the caller archives the returned ids.
+ * Two independent rules, so a leftover party can never pin a table past midnight:
+ *
+ *  - **Past service days** (`serviceDayOf < today`) are ALWAYS swept — the clock
+ *    rolled past midnight, that day is over regardless of status. This is what
+ *    resets a table a host forgot to clear: a booking left `seated`/`arrived`
+ *    overnight would otherwise keep its table occupied forever.
+ *  - **Today** is swept only once EVERY one of today's bookings is terminal
+ *    (completed/cancelled/no_show) AND the latest window has passed — so the
+ *    conservative rule still never fires mid-service.
+ *
+ * Future days are never touched. Pure — the caller archives the returned ids.
  */
 export function endOfDayArchivableIds(
   reservations: Reservation[],
   now: number = Date.now(),
 ): ID[] {
   const today = toDateKey(new Date(now))
-  const candidates = reservations.filter(
-    (r) => !r.archived && serviceDayOf(r) <= today,
-  )
-  if (candidates.length === 0) return []
-  if (candidates.some((r) => isActiveStatus(r.status))) return []
-  const lastEnd = Math.max(...candidates.map(reservationEnd))
-  if (now <= lastEnd) return []
-  return candidates.map((r) => r.id)
+  const active = reservations.filter((r) => !r.archived)
+
+  // Any earlier service day is over the moment midnight passed — sweep it whole,
+  // active statuses and all (that's the point: reset tables at day rollover).
+  const past = active.filter((r) => serviceDayOf(r) < today)
+
+  // Today only ends conservatively: all terminal and past the last window.
+  const todays = active.filter((r) => serviceDayOf(r) === today)
+  const todayOver =
+    todays.length > 0 &&
+    !todays.some((r) => isActiveStatus(r.status)) &&
+    now > Math.max(...todays.map(reservationEnd))
+
+  const ids = past.map((r) => r.id)
+  if (todayOver) ids.push(...todays.map((r) => r.id))
+  return ids
 }
 
 export function canTransition(from: ReservationStatus, to: ReservationStatus): boolean {

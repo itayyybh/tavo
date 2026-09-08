@@ -7,10 +7,11 @@ import { endOfDayArchivableIds } from '@/utils'
 const CHECK_MS = 60_000
 
 /**
- * Automatic end-of-day reset. Once every booking for today (or any earlier day)
- * is terminal AND the last booked window has passed, the day's reservations are
- * swept into History and the Live Floor is reset to its base layout — a clean
- * slate for the next service, with zero host effort.
+ * Automatic end-of-day reset. A past service day is swept the moment the clock
+ * rolls past midnight (regardless of any party left seated overnight); today is
+ * swept only once every booking is terminal AND the last window has passed. The
+ * day's reservations move to History and ONLY their tables are freed on the Live
+ * Floor — today's live seatings are spared — with zero host effort.
  *
  * The trigger is time-based, so it's re-checked both on every reservation change
  * and on a slow interval (a service can end simply because the clock moved past
@@ -29,7 +30,9 @@ export function useEndOfDayReset() {
       const ids = endOfDayArchivableIds(active)
       if (ids.length === 0) return
       useReservationStore.getState().archiveMany(ids, 'end_of_day')
-      useFloorStore.getState().resetService()
+      // Free only the swept parties' tables — today's live seatings survive a
+      // past-day rollover (a party seated just after midnight is not wiped).
+      useFloorStore.getState().sweepSeatings(ids)
       useToastStore.getState().notify(t('endOfDay.swept', { count: ids.length }))
     }
     check()

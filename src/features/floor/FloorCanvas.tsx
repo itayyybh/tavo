@@ -38,6 +38,7 @@ import { MergedHulls } from '@/features/editor/MergedHulls'
 import { useSeatingFloor } from '@/hooks/useSeatingFloor'
 import { summarizeFloor, type EffectiveTable } from '@/services/floor'
 import { FloorTableNode } from './FloorTableNode'
+import { RESERVED_RAMP, rampColor, dominantUrgency } from './urgencyRamp'
 import { FloorControls } from './FloorControls'
 import { FloorTableMenu } from './FloorTableMenu'
 import { RESERVATION_DRAG_MIME } from './FloorReservationRail'
@@ -306,6 +307,25 @@ export function FloorCanvas() {
     if (et.status !== 'occupied' && et.status !== 'reserved') continue
     const r = reservationsById.get(et.reservationId)
     if (r) memberLabels[et.base.id] = r.guestName
+  }
+
+  // Per-group urgency escalation for the merged hulls: a reserved group walks up
+  // its own violet scale as the nearest bound booking approaches (mirrors a single
+  // reserved table). Occupied dominates reserved, so a group with anyone seated
+  // gets no urgency wash. The color is resolved here (the shared MergedHulls never
+  // sees the floor's urgency tokens).
+  const hullRamp: Record<string, { statusColor: string; tint: number; border: number }> = {}
+  for (const g of hullGroups) {
+    const members = g.tableIds
+      .map((id) => effective.byId[id])
+      .filter((m): m is EffectiveTable => !!m)
+    if (members.length < 2) continue
+    if (members.some((m) => m.status === 'occupied')) continue
+    const reserved = members.filter((m) => m.status === 'reserved')
+    if (reserved.length === 0) continue
+    const step = dominantUrgency(reserved.map((m) => m.urgency))
+    const { tint, border } = RESERVED_RAMP[step]
+    hullRamp[g.id] = { statusColor: rampColor(step, colors), tint, border }
   }
 
   const summary = useMemo(
@@ -1008,6 +1028,7 @@ export function FloorCanvas() {
               registerNode={registerHull}
               tintByStatus
               memberLabels={memberLabels}
+              hullRamp={hullRamp}
             />
             {marquee && (
               <Rect

@@ -407,12 +407,16 @@ export function FloorReservationRail() {
   )
 }
 
-/** Color per urgency bucket — calm blue → amber → red as the arrival nears. */
+/**
+ * Color per urgency bucket — calm blue → violet as the arrival nears. Its own
+ * scale (see `--color-urgency-*`), never the status hues, so a nearing booking
+ * never reads as occupied (red) or cleaning (amber). Matches the floor ramp.
+ */
 const URGENCY_COLOR: Record<TableUrgency, string> = {
-  soon: 'var(--color-status-reserved)',
-  due: 'var(--color-status-cleaning)',
-  imminent: 'var(--color-status-cleaning)',
-  overdue: 'var(--color-status-occupied)',
+  soon: 'var(--color-urgency-soon)',
+  due: 'var(--color-urgency-due)',
+  imminent: 'var(--color-urgency-imminent)',
+  overdue: 'var(--color-urgency-overdue)',
 }
 
 /**

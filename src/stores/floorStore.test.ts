@@ -86,6 +86,64 @@ describe('floorStore history', () => {
 })
 
 /**
+ * Targeted end-of-day sweep (`sweepSeatings`): drop ONLY the swept reservations'
+ * seatings + their merges + their tables' overrides, sparing every other live
+ * seating (today's service survives a past-day rollover).
+ */
+describe('floorStore sweepSeatings', () => {
+  beforeEach(() => get().resetService())
+
+  it('clears only the swept parties, sparing other live seatings', () => {
+    get().replaceAll({
+      seatings: [
+        { id: 's1', reservationId: 'r1', tableIds: ['t1a', 't1b'], seatedAt: '' }, // sweep
+        { id: 's2', reservationId: 'r2', tableIds: ['t2', 't3'], seatedAt: '' }, // keep
+      ],
+      runtimeMerges: [
+        { id: 'm1', tableIds: ['t1a', 't1b'], seatingId: 's1' }, // tied to swept → drop
+        { id: 'm2', tableIds: ['t2', 't3'], seatingId: 's2' }, // today's → keep
+        { id: 'm0', tableIds: ['t5', 't6'] }, // unowned host merge → keep
+      ],
+      statusOverrides: { t9: 'blocked' }, // unrelated host mark → keep
+      cleaningSince: {},
+      positionOverrides: { t1a: { x: 1, y: 1 }, t2: { x: 2, y: 2 } },
+      rotationOverrides: { t1a: 90 },
+    })
+
+    get().sweepSeatings(['r1'])
+
+    // Swept party gone; today's kept.
+    expect(get().seatings.map((s) => s.id)).toEqual(['s2'])
+    // Swept merge dropped; today's + unowned kept.
+    expect(get().runtimeMerges.map((m) => m.id).sort()).toEqual(['m0', 'm2'])
+    // Swept tables freed (snap back to base); spared tables untouched.
+    expect(get().positionOverrides.t1a).toBeUndefined()
+    expect(get().rotationOverrides.t1a).toBeUndefined()
+    expect(get().positionOverrides.t2).toEqual({ x: 2, y: 2 })
+    // Unrelated host state left alone.
+    expect(get().statusOverrides.t9).toBe('blocked')
+  })
+
+  it('is a no-op when no seating matches the swept ids', () => {
+    get().replaceAll({
+      seatings: [{ id: 's1', reservationId: 'r1', tableIds: ['t1'], seatedAt: '' }],
+      runtimeMerges: [],
+      statusOverrides: {},
+      cleaningSince: {},
+      positionOverrides: {},
+      rotationOverrides: {},
+    })
+    get().moveTable('t7', { x: 7, y: 7 }) // build a little history
+    const before = get().past.length
+
+    get().sweepSeatings(['does-not-exist'])
+
+    expect(get().seatings).toHaveLength(1)
+    expect(get().past).toHaveLength(before) // history untouched on a no-op
+  })
+})
+
+/**
  * Plan → live handoff (`adoptPlan`): a planned day's arrangement is layered onto
  * the live shift, additively and without disturbing tables already in play.
  */

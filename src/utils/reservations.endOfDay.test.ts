@@ -71,4 +71,19 @@ describe('endOfDayArchivableIds', () => {
     ]
     expect(endOfDayArchivableIds(list, NOW)).toEqual(['b'])
   })
+
+  it('sweeps a past day even when a party was left seated overnight', () => {
+    // Yesterday's booking, never cleared — still `seated` past midnight. The day
+    // is over, so it must be swept (this is what resets the pinned table).
+    const list = [res('yesterday', -24 * 60, 'seated')]
+    expect(endOfDayArchivableIds(list, NOW)).toEqual(['yesterday'])
+  })
+
+  it('sweeps past days while today is still mid-service', () => {
+    const list = [
+      res('yesterday', -24 * 60, 'seated'), // rolled over → swept
+      res('now', -60, 'seated'), // today, still active → kept
+    ]
+    expect(endOfDayArchivableIds(list, NOW)).toEqual(['yesterday'])
+  })
 })
