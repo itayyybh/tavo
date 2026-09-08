@@ -506,6 +506,13 @@ export interface RestaurantSettingsConfig {
   defaultStayMinutes: number
   maxStayMinutes: number
   reservedLookaheadMin: number
+  /**
+   * Live Floor urgency ramp thresholds (minutes-until-arrival) that grade a
+   * reserved table's color as its booking nears: `soon` ≥ `due` ≥ `imminent`.
+   * A booking further out than `soon` shows no ramp; one whose time has passed
+   * unseated reads `overdue`. Display-only — never gates seating.
+   */
+  urgencyThresholds: UrgencyThresholds
   waitlistEnabled: boolean
   seating: SeatingConfig
   /** Weekly opening hours (Phase 11 — Settings shell). */
@@ -514,6 +521,18 @@ export interface RestaurantSettingsConfig {
   reservationRules: ReservationRulesConfig
   /** Booking restrictions — blackout dates + temporary closure (Phase 11). */
   bookingRestrictions: BookingRestrictions
+}
+
+/**
+ * Reservation-urgency ramp thresholds, in minutes-until-arrival. A reserved
+ * table escalates its color when its booking is due within each: `soon` (first
+ * tint) → `due` → `imminent` (most pressing before arrival). Must be strictly
+ * descending. Past arrival (unseated) is always `overdue`, independent of these.
+ */
+export interface UrgencyThresholds {
+  soon: number
+  due: number
+  imminent: number
 }
 
 /** One ranked option recorded in a seating decision. */

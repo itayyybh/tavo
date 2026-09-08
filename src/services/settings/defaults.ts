@@ -3,6 +3,7 @@ import type {
   DayHours,
   OpeningHours,
   ReservationRulesConfig,
+  UrgencyThresholds,
 } from '@/types'
 
 /**
@@ -40,6 +41,16 @@ export const DEFAULT_RESERVATION_RULES: ReservationRulesConfig = {
   maxPartySize: 20,
   allowSplitParty: false,
   allowAltZoneSuggestions: true,
+}
+
+/**
+ * Default urgency ramp thresholds (minutes) — matches the values the ramp shipped
+ * with: first tint at 30m out, escalating at 15m and 5m. A host can retune these.
+ */
+export const DEFAULT_URGENCY_THRESHOLDS: UrgencyThresholds = {
+  soon: 30,
+  due: 15,
+  imminent: 5,
 }
 
 /** Default booking restrictions — nothing blocked, not closed. */

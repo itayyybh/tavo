@@ -425,7 +425,8 @@ const URGENCY_COLOR: Record<TableUrgency, string> = {
  * glance which parties need attention. `overdue` means the slot passed unseated.
  */
 function UrgencyChip({ minutes }: { minutes: number }) {
-  const urgency = urgencyOf(minutes)
+  const urgencyThresholds = useSettingsStore((s) => s.urgencyThresholds)
+  const urgency = urgencyOf(minutes, urgencyThresholds)
   if (!urgency) return null
   const color = URGENCY_COLOR[urgency]
   const label =

@@ -13,12 +13,14 @@ import type {
   SeatingConfig,
   SeatingDecision,
   SeatingDecisionEntry,
+  UrgencyThresholds,
 } from '@/types'
 import { DEFAULT_SEATING_CONFIG } from '@/services/seating/defaultConfig'
 import {
   DEFAULT_BOOKING_RESTRICTIONS,
   DEFAULT_OPENING_HOURS,
   DEFAULT_RESERVATION_RULES,
+  DEFAULT_URGENCY_THRESHOLDS,
 } from '@/services/settings/defaults'
 
 /**
@@ -173,6 +175,7 @@ export interface RestaurantSettingsRow {
   default_stay_minutes: number
   max_stay_minutes: number
   reserved_lookahead_min: number
+  urgency_thresholds: Partial<UrgencyThresholds> | null
   waitlist_enabled: boolean
   opening_hours: OpeningHours | null
   reservation_rules: Partial<ReservationRulesConfig> | null
@@ -194,6 +197,13 @@ function reservationRulesWithDefaults(
   raw: Partial<ReservationRulesConfig> | null,
 ): ReservationRulesConfig {
   return { ...DEFAULT_RESERVATION_RULES, ...(raw ?? {}) }
+}
+
+/** Fill any missing urgency-threshold keys from defaults (partial/null rows). */
+function urgencyThresholdsWithDefaults(
+  raw: Partial<UrgencyThresholds> | null,
+): UrgencyThresholds {
+  return { ...DEFAULT_URGENCY_THRESHOLDS, ...(raw ?? {}) }
 }
 
 /** Fill missing booking-restriction keys from defaults (partial/null rows). */
@@ -233,6 +243,7 @@ export function settingsFromRow(row: RestaurantSettingsRow): RestaurantSettingsC
     defaultStayMinutes: row.default_stay_minutes,
     maxStayMinutes: row.max_stay_minutes,
     reservedLookaheadMin: row.reserved_lookahead_min,
+    urgencyThresholds: urgencyThresholdsWithDefaults(row.urgency_thresholds),
     waitlistEnabled: row.waitlist_enabled,
     seating: seatingWithDefaults(row.seating),
     openingHours: openingHoursWithDefaults(row.opening_hours),
@@ -256,6 +267,7 @@ export function settingsToRow(
     default_stay_minutes: config.defaultStayMinutes,
     max_stay_minutes: config.maxStayMinutes,
     reserved_lookahead_min: config.reservedLookaheadMin,
+    urgency_thresholds: config.urgencyThresholds,
     waitlist_enabled: config.waitlistEnabled,
     opening_hours: config.openingHours,
     reservation_rules: config.reservationRules,

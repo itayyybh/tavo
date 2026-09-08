@@ -8,19 +8,34 @@
  * only raw overrides; every "what does this table look like now" question is
  * answered here.
  */
-import type { FloorSnapshot, FloorTableStatus, ID, Reservation, Table } from '@/types'
+import type {
+  FloorSnapshot,
+  FloorTableStatus,
+  ID,
+  Reservation,
+  Table,
+  UrgencyThresholds,
+} from '@/types'
 import { findAssignmentConflicts, isActiveStatus, isOnDay } from '@/utils'
+import { DEFAULT_URGENCY_THRESHOLDS } from '@/services/settings/defaults'
 import type { EffectiveFloor, EffectiveTable, FloorPreview, TableUrgency } from './types'
 
 /** Reservation statuses that reserve (but haven't yet occupied) their tables. */
 const RESERVING_STATUSES: Reservation['status'][] = ['confirmed', 'arrived']
 
-/** Bucket minutes-until-arrival into a graded urgency (undefined = >30m away). */
-export function urgencyOf(minutesUntil: number): TableUrgency | undefined {
+/**
+ * Bucket minutes-until-arrival into a graded urgency, using the restaurant's
+ * configured thresholds (default 30/15/5). Undefined once further out than
+ * `soon`; negative (time passed unseated) is always `overdue`.
+ */
+export function urgencyOf(
+  minutesUntil: number,
+  thresholds: UrgencyThresholds = DEFAULT_URGENCY_THRESHOLDS,
+): TableUrgency | undefined {
   if (minutesUntil < 0) return 'overdue'
-  if (minutesUntil <= 5) return 'imminent'
-  if (minutesUntil <= 15) return 'due'
-  if (minutesUntil <= 30) return 'soon'
+  if (minutesUntil <= thresholds.imminent) return 'imminent'
+  if (minutesUntil <= thresholds.due) return 'due'
+  if (minutesUntil <= thresholds.soon) return 'soon'
   return undefined
 }
 
@@ -39,6 +54,12 @@ export interface DeriveFloorInput {
    * `settingsStore.reservedLookaheadMin`.
    */
   reservedLookaheadMin: number
+  /**
+   * Urgency ramp thresholds (minutes) grading a reserved table's color as its
+   * booking nears. From `settingsStore.urgencyThresholds`; defaults to
+   * `DEFAULT_URGENCY_THRESHOLDS` when omitted (tests / legacy callers).
+   */
+  urgencyThresholds?: UrgencyThresholds
   /** Turnover buffer (minutes) — pads windows when detecting double-books. */
   turnoverBufferMin: number
   /**
@@ -71,6 +92,7 @@ export function deriveFloorState({
   reservations,
   snapshot,
   reservedLookaheadMin,
+  urgencyThresholds = DEFAULT_URGENCY_THRESHOLDS,
   turnoverBufferMin,
   previews = [],
   now = Date.now(),
@@ -208,7 +230,7 @@ export function deriveFloorState({
           ? 'overdue'
           : minutesUntil == null
             ? undefined
-            : urgencyOf(minutesUntil)
+            : urgencyOf(minutesUntil, urgencyThresholds)
 
     return {
       base,

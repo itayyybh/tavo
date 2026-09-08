@@ -148,6 +148,18 @@
       "label": "Reserved look-ahead",
       "help": "A table reads reserved only once a booking is due within this window."
     },
+    "urgencySoon": {
+      "label": "Urgency — soon",
+      "help": "Minutes before arrival a reserved table starts its color ramp."
+    },
+    "urgencyDue": {
+      "label": "Urgency — due",
+      "help": "Minutes before arrival the ramp deepens to the mid step."
+    },
+    "urgencyImminent": {
+      "label": "Urgency — imminent",
+      "help": "Minutes before arrival the ramp reaches its most pressing step."
+    },
     "waitlist": {
       "label": "Waiting list",
       "help": "Show the waiting-list rail on the Live Floor."

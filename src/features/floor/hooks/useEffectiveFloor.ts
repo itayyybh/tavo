@@ -53,6 +53,7 @@ export function useEffectiveFloor(): EffectiveFloor {
   const positionOverrides = useFloorStore((s) => s.positionOverrides)
   const rotationOverrides = useFloorStore((s) => s.rotationOverrides)
   const reservedLookaheadMin = useSettingsStore((s) => s.reservedLookaheadMin)
+  const urgencyThresholds = useSettingsStore((s) => s.urgencyThresholds)
   const turnoverBufferMin = useSettingsStore((s) => s.seating.turnoverBufferMin)
   const previews = usePreviewStore((s) => s.previews)
   // Plan mode: derive the chosen day's plan instead of the live floor.
@@ -77,6 +78,7 @@ export function useEffectiveFloor(): EffectiveFloor {
       reservations,
       snapshot,
       reservedLookaheadMin,
+      urgencyThresholds,
       turnoverBufferMin,
       previews,
       planDate,
@@ -91,6 +93,7 @@ export function useEffectiveFloor(): EffectiveFloor {
     positionOverrides,
     rotationOverrides,
     reservedLookaheadMin,
+    urgencyThresholds,
     turnoverBufferMin,
     previews,
     planDate,
