@@ -76,6 +76,15 @@ interface FloorState extends FloorSnapshot {
    * service, run once the day's bookings are all done.
    */
   resetService: () => void
+  /**
+   * Targeted end-of-day sweep: drop the seatings of the given (archived)
+   * reservations, split their runtime merges, and free ONLY their tables
+   * (position/rotation/status/cleaning overrides), snapping them back to base.
+   * Every other live seating, its merge, and unrelated host state (blocked
+   * marks, furniture) is left untouched — so a past-day rollover never wipes
+   * today's service. No-op when none of the ids has a seating.
+   */
+  sweepSeatings: (reservationIds: ID[]) => void
   /** Replace the whole runtime layer — used to hydrate from storage. */
   replaceAll: (snapshot: FloorSnapshot) => void
   /**
@@ -564,6 +573,40 @@ export const useFloorStore = create<FloorState>((set, get) => {
       rotationOverrides: {},
     })
     resetHistory()
+  },
+
+  sweepSeatings: (reservationIds) => {
+    const ids = new Set(reservationIds)
+    const removed = get().seatings.filter((s) => ids.has(s.reservationId))
+    if (removed.length === 0) return // nothing seated for these — leave the floor as-is
+    resetHistory()
+    const removedSeatingIds = new Set(removed.map((s) => s.id))
+    const freed = new Set(removed.flatMap((s) => s.tableIds))
+    set((state) => {
+      // Free ONLY the swept parties' tables — snap them back to base and drop any
+      // turnover/status override. Spared tables keep every override.
+      const statusOverrides = { ...state.statusOverrides }
+      const cleaningSince = { ...state.cleaningSince }
+      const positionOverrides = { ...state.positionOverrides }
+      const rotationOverrides = { ...state.rotationOverrides }
+      for (const id of freed) {
+        delete statusOverrides[id]
+        delete cleaningSince[id]
+        delete positionOverrides[id]
+        delete rotationOverrides[id]
+      }
+      return {
+        seatings: state.seatings.filter((s) => !ids.has(s.reservationId)),
+        // Drop merges owned by a swept seating; keep today's and unowned host merges.
+        runtimeMerges: state.runtimeMerges.filter(
+          (m) => !(m.seatingId && removedSeatingIds.has(m.seatingId)),
+        ),
+        statusOverrides,
+        cleaningSince,
+        positionOverrides,
+        rotationOverrides,
+      }
+    })
   },
 
   adoptPlan: (arrangement) => {

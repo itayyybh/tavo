@@ -42,8 +42,26 @@ FAIL > endOfDayArchivableIds > sweeps past days while today is still mid-service
 | 4 | Today does not fire before the last window passed | existing case | unit | PASS |
 | 5 | Future days are never swept | existing case | unit | PASS |
 
+## Follow-up — spare today's live seatings
+
+The blunt `resetService()` (wipes the whole floor on any sweep) was replaced with a
+targeted `sweepSeatings(reservationIds)` on `floorStore`. It drops only the swept
+parties' seatings + their runtime merges, and frees ONLY their tables
+(position/rotation/status/cleaning), snapping them to base. Today's live seatings,
+their merges, and unrelated host state (blocked marks, furniture) survive. The hook
+now calls `sweepSeatings(ids)` with the archived ids. `src/stores/floorStore.ts`.
+
+| Stage | Command | Result |
+|---|---|---|
+| RED | `npx vitest run src/stores/floorStore.test.ts` (before impl) | `2 failed \| 7 passed` — `sweepSeatings is not a function` |
+| GREEN | after impl | `9 passed` |
+
+| # | What is guaranteed | Test | Type | Result |
+|---|---|---|---|---|
+| 6 | Sweeping past parties spares other live seatings, their merges & unrelated host state | `floorStore.test.ts:clears only the swept parties, sparing other live seatings` | unit | PASS |
+| 7 | Sweep is a no-op (incl. history) when no seating matches | `floorStore.test.ts:is a no-op when no seating matches the swept ids` | unit | PASS |
+
 ## Coverage / known gaps
 
-- `endOfDayArchivableIds` fully branch-covered by the 8 cases.
-- Untested (unchanged) wiring: `useEndOfDayReset` interval hook + `resetService` (both pre-existing, covered by `floorStore.test.ts` for reset).
-- **Known limitation**: `resetService()` is all-or-nothing — clears the entire floor on any sweep. A brand-new booking seated in the first minute after midnight while a past day still has leftovers would be wiped too. Matches the "reset all tables at 00:00" intent; flagged for follow-up if today's live seatings should be spared.
+- `endOfDayArchivableIds` fully branch-covered by the 8 cases; `sweepSeatings` covered by 2 cases.
+- Untested (unchanged) wiring: `useEndOfDayReset` interval hook (thin glue; pure predicate + store action both covered).
