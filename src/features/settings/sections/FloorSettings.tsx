@@ -27,6 +27,8 @@ export function FloorSettings() {
   const updateSeatingConfig = useSettingsStore((s) => s.updateSeatingConfig)
   const reservedLookaheadMin = useSettingsStore((s) => s.reservedLookaheadMin)
   const setReservedLookaheadMin = useSettingsStore((s) => s.setReservedLookaheadMin)
+  const urgencyThresholds = useSettingsStore((s) => s.urgencyThresholds)
+  const setUrgencyThresholds = useSettingsStore((s) => s.setUrgencyThresholds)
   const waitlistEnabled = useSettingsStore((s) => s.waitlistEnabled)
   const setWaitlistEnabled = useSettingsStore((s) => s.setWaitlistEnabled)
   const showBookedMark = useSettingsStore((s) => s.showBookedMark)
@@ -77,6 +79,39 @@ export function FloorSettings() {
             onCommit={setReservedLookaheadMin}
             min={0}
             max={480}
+            suffix={t('minutes')}
+          />
+        </SettingRow>
+        <SettingsDivider />
+        <SettingRow label={t('seating.urgencySoon.label')} help={t('seating.urgencySoon.help')} htmlFor="set-urg-soon">
+          <NumberField
+            id="set-urg-soon"
+            value={urgencyThresholds.soon}
+            onCommit={(n) => setUrgencyThresholds({ soon: n })}
+            min={urgencyThresholds.due}
+            max={480}
+            suffix={t('minutes')}
+          />
+        </SettingRow>
+        <SettingsDivider />
+        <SettingRow label={t('seating.urgencyDue.label')} help={t('seating.urgencyDue.help')} htmlFor="set-urg-due">
+          <NumberField
+            id="set-urg-due"
+            value={urgencyThresholds.due}
+            onCommit={(n) => setUrgencyThresholds({ due: n })}
+            min={urgencyThresholds.imminent}
+            max={urgencyThresholds.soon}
+            suffix={t('minutes')}
+          />
+        </SettingRow>
+        <SettingsDivider />
+        <SettingRow label={t('seating.urgencyImminent.label')} help={t('seating.urgencyImminent.help')} htmlFor="set-urg-imm">
+          <NumberField
+            id="set-urg-imm"
+            value={urgencyThresholds.imminent}
+            onCommit={(n) => setUrgencyThresholds({ imminent: n })}
+            min={0}
+            max={urgencyThresholds.due}
             suffix={t('minutes')}
           />
         </SettingRow>

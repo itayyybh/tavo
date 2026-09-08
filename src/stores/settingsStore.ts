@@ -10,6 +10,7 @@ import type {
   RestaurantSettingsConfig,
   SeatingConfig,
   TemporaryClosure,
+  UrgencyThresholds,
   Weekday,
 } from '@/types'
 import { DEFAULT_SEATING_CONFIG } from '@/services/seating/defaultConfig'
@@ -17,6 +18,7 @@ import {
   DEFAULT_BOOKING_RESTRICTIONS,
   DEFAULT_OPENING_HOURS,
   DEFAULT_RESERVATION_RULES,
+  DEFAULT_URGENCY_THRESHOLDS,
 } from '@/services/settings/defaults'
 import { DEFAULT_LOCALE, isLocale, type Locale } from '@/i18n/config'
 
@@ -68,6 +70,11 @@ interface SettingsState {
    */
   reservedLookaheadMin: number
   /**
+   * Live Floor urgency ramp thresholds (minutes) — grade a reserved table's color
+   * as its booking nears (`soon` ≥ `due` ≥ `imminent`). Display-only.
+   */
+  urgencyThresholds: UrgencyThresholds
+  /**
    * Not every restaurant runs a waitlist. Off by default is wrong for most —
    * defaults true — but this flag lets one turn the Live Floor waitlist rail
    * off entirely. No settings UI yet (Phase 10; see per-restaurant rules
@@ -108,6 +115,8 @@ interface SettingsState {
   setAutoTurnover: (on: boolean) => void
   setStayMinutes: (rule: { default?: number; max?: number }) => void
   setReservedLookaheadMin: (minutes: number) => void
+  /** Patch the urgency ramp thresholds (one bucket or many). */
+  setUrgencyThresholds: (patch: Partial<UrgencyThresholds>) => void
   setWaitlistEnabled: (on: boolean) => void
   /** Patch one weekday's opening hours (one field or many). */
   setDayHours: (day: Weekday, patch: Partial<DayHours>) => void
@@ -138,6 +147,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   defaultStayMinutes: 120,
   maxStayMinutes: 120,
   reservedLookaheadMin: 60,
+  urgencyThresholds: DEFAULT_URGENCY_THRESHOLDS,
   waitlistEnabled: true,
   openingHours: DEFAULT_OPENING_HOURS,
   reservationRules: DEFAULT_RESERVATION_RULES,
@@ -155,6 +165,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       defaultStayMinutes: config.defaultStayMinutes,
       maxStayMinutes: config.maxStayMinutes,
       reservedLookaheadMin: config.reservedLookaheadMin,
+      urgencyThresholds: config.urgencyThresholds,
       waitlistEnabled: config.waitlistEnabled,
       seating: config.seating,
       openingHours: config.openingHours,
@@ -181,6 +192,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       maxStayMinutes: max ?? s.maxStayMinutes,
     })),
   setReservedLookaheadMin: (reservedLookaheadMin) => set({ reservedLookaheadMin }),
+  setUrgencyThresholds: (patch) =>
+    set((s) => ({ urgencyThresholds: { ...s.urgencyThresholds, ...patch } })),
   setWaitlistEnabled: (waitlistEnabled) => set({ waitlistEnabled }),
   setDayHours: (day, patch) =>
     set((s) => {
@@ -246,6 +259,7 @@ export const persistableConfig = (s: SettingsState): RestaurantSettingsConfig =>
   defaultStayMinutes: s.defaultStayMinutes,
   maxStayMinutes: s.maxStayMinutes,
   reservedLookaheadMin: s.reservedLookaheadMin,
+  urgencyThresholds: s.urgencyThresholds,
   waitlistEnabled: s.waitlistEnabled,
   seating: s.seating,
   openingHours: s.openingHours,
