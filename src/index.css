@@ -40,6 +40,17 @@
   /* Double-book alarm — a distinct hue (not any real status) so a clash screams. */
   --color-status-conflict: #db2777;
 
+  /*
+   * Reservation-urgency ramp — its OWN language, deliberately NOT the status
+   * hues: a nearing booking escalates blue → indigo → violet → purple, never
+   * borrowing occupied-red or cleaning-amber (which would read as those states).
+   * `soon` stays reserved blue; the rest walk up the violet scale.
+   */
+  --color-urgency-soon: #2563eb;
+  --color-urgency-due: #4f46e5;
+  --color-urgency-imminent: #7c3aed;
+  --color-urgency-overdue: #6d28d9;
+
   /* Reservation lifecycle colors — restrained, one hue per state. */
   --color-reservation-pending: #d97706;
   --color-reservation-confirmed: #2563eb;
@@ -92,6 +103,12 @@
   --color-status-cleaning: #f5b544;
   --color-status-blocked: #6b7280;
   --color-status-conflict: #ef559b;
+
+  /* Urgency ramp — violet scale, lifted for dark surfaces (luminous, not neon). */
+  --color-urgency-soon: #5b93f6;
+  --color-urgency-due: #6366f1;
+  --color-urgency-imminent: #8b5cf6;
+  --color-urgency-overdue: #7c3aed;
 
   /* Reservation lifecycle — mirror the status palette, brightened for dark. */
   --color-reservation-pending: #f5b544;

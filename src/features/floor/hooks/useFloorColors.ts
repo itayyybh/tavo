@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useUIStore } from '@/stores'
 import type { FloorTableStatus } from '@/types'
+import type { TableUrgency } from '@/services/floor'
 import {
   useCanvasColors,
   type CanvasColors,
@@ -15,6 +16,12 @@ export interface FloorCanvasColors extends Omit<CanvasColors, 'status'> {
   status: Record<FloorTableStatus, string>
   /** Alarm hue for a double-booked table (not a real status). */
   conflict: string
+  /**
+   * Reservation-urgency ramp — its own violet scale, deliberately NOT the status
+   * hues (see `--color-urgency-*`), so a nearing booking never reads as occupied
+   * or cleaning. Drives the reserved-table color escalation.
+   */
+  urgency: Record<TableUrgency, string>
 }
 
 function readVar(name: string): string {
@@ -32,6 +39,12 @@ export function useFloorColors(): FloorCanvasColors {
       status: { ...base.status, cleaning: readVar('--color-status-cleaning') },
       // Fallback keeps the alarm visible if the token hasn't loaded (stale CSS).
       conflict: readVar('--color-status-conflict') || '#db2777',
+      urgency: {
+        soon: readVar('--color-urgency-soon'),
+        due: readVar('--color-urgency-due'),
+        imminent: readVar('--color-urgency-imminent'),
+        overdue: readVar('--color-urgency-overdue'),
+      },
     }
   }, [base, theme])
 }

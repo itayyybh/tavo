@@ -2,11 +2,12 @@ import { useRef, type RefObject } from 'react'
 import { Circle, Group, Line, Rect, Text } from 'react-konva'
 import type Konva from 'konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
-import type { FloorTableStatus, TableType, Vec2 } from '@/types'
+import type { TableType, Vec2 } from '@/types'
 import { mixHex } from '@/utils'
 import { useSettingsStore } from '@/stores'
-import type { EffectiveTable, TableUrgency } from '@/services/floor'
+import type { EffectiveTable } from '@/services/floor'
 import type { FloorCanvasColors } from './hooks/useFloorColors'
+import { RESERVED_RAMP, rampColor } from './urgencyRamp'
 import { useNodeColorTween } from './hooks/useNodeColorTween'
 import { useNodePositionGlide } from './hooks/useNodePositionGlide'
 
@@ -16,25 +17,6 @@ export const FLOOR_TINT = 0.22
 /** Reserved-table mark: dash length, and how far above the label it sits (world px). */
 const RESERVED_MARK = 8
 const RESERVED_MARK_Y = 12
-
-/**
- * Reserved-table ramp: as a booking nears, escalate through DISCRETE, vivid
- * status hues — calm blue (reserved) → amber (approaching) → red (due/overdue) —
- * while deepening the body tint and thickening the border. Discrete on purpose:
- * blending blue↔amber in RGB passes through gray (they're near-complementary),
- * which read as a blocked table. `far` (>~30m out) stays plain reserved blue.
- * Static — no motion — so a busy floor stays legible.
- */
-const RESERVED_RAMP: Record<
-  'far' | TableUrgency,
-  { colorKey: FloorTableStatus; tint: number; border: number }
-> = {
-  far: { colorKey: 'reserved', tint: 0, border: 0 },
-  soon: { colorKey: 'reserved', tint: 0.03, border: 0 },
-  due: { colorKey: 'cleaning', tint: 0.07, border: 0.5 },
-  imminent: { colorKey: 'cleaning', tint: 0.13, border: 0.75 },
-  overdue: { colorKey: 'occupied', tint: 0.18, border: 1 },
-}
 
 interface FloorTableNodeProps {
   et: EffectiveTable
@@ -91,10 +73,12 @@ export function FloorTableNode({
   const isActive = status !== 'available'
   const conflict = !!et.conflict
 
-  // Reserved tables escalate blue → amber → red as their booking nears (see
-  // RESERVED_RAMP). A far-out reservation stays plain blue.
-  const ramp = status === 'reserved' ? RESERVED_RAMP[et.urgency ?? 'far'] : undefined
-  const statusColor = ramp ? colors.status[ramp.colorKey] : colors.status[status]
+  // Reserved tables escalate blue → violet as their booking nears (see
+  // RESERVED_RAMP + the dedicated urgency scale). A far-out reservation stays
+  // plain reserved blue.
+  const rampStep = status === 'reserved' ? (et.urgency ?? 'far') : undefined
+  const ramp = rampStep ? RESERVED_RAMP[rampStep] : undefined
+  const statusColor = rampStep ? rampColor(rampStep, colors) : colors.status[status]
   const tint = FLOOR_TINT + (ramp?.tint ?? 0)
 
   // A hypothetical assignment the host is comparing (Phase 12): a dashed accent

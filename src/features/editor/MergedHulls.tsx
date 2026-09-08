@@ -26,6 +26,14 @@ interface MergedHullsProps {
    * table it occupies, keyed by table id. Falls back to the table's own label.
    */
   memberLabels?: Record<string, string>
+  /**
+   * Reserved-urgency override (Live Floor), keyed by group id: a nearing booking
+   * escalates the hull up its own violet scale — resolved hex + tint/border, so
+   * this shared component never has to know the floor's urgency tokens. Present
+   * only for reserved groups with a bound arrival; absent falls back to the plain
+   * dominant-status color.
+   */
+  hullRamp?: Record<string, { statusColor: string; tint: number; border: number }>
 }
 
 const STATUS_ORDER: TableStatus[] = ['occupied', 'reserved', 'blocked', 'available']
@@ -64,6 +72,7 @@ export function MergedHulls({
   registerNode,
   tintByStatus = false,
   memberLabels,
+  hullRamp,
 }: MergedHullsProps) {
   const selected = new Set(selectedIds)
   const shapeOf = (t: Table) =>
@@ -80,14 +89,18 @@ export function MergedHulls({
         // available) borders + tints in that color.
         const dominant = dominantStatus(members)
         const active = tintByStatus && dominant !== 'available'
-        const statusColor = colors.status[dominant]
+        // A reserved group escalates up its urgency scale (resolved by the caller);
+        // otherwise the plain dominant-status color drives the body.
+        const ramp = active ? hullRamp?.[group.id] : undefined
+        const statusColor = ramp ? ramp.statusColor : colors.status[dominant]
         // Solid, flat body tint (no alpha) so merge passes never stack darker.
         const bodyFill = active
-          ? mixHex(colors.surface, statusColor, FLOOR_TINT)
+          ? mixHex(colors.surface, statusColor, FLOOR_TINT + (ramp?.tint ?? 0))
           : colors.surface
         // Neutral hairline (editor) or the status color (floor, when active); soft
-        // blue when selected. Grow-pass thickness = visible ring width.
-        const border = isSelected || active ? 2 : 1.5
+        // blue when selected. Grow-pass thickness = visible ring width; urgency
+        // thickens it further as the booking nears.
+        const border = isSelected ? 2 : active ? 2 + (ramp?.border ?? 0) : 1.5
         const borderColor = isSelected
           ? colors.accent
           : active
@@ -271,9 +284,10 @@ export function MergedHulls({
               />
             </Label>
             {(() => {
-              // One status dot for the whole body (available = green token), pinned
-              // to the top-right corner of the largest member table.
-              const dot = colors.status[dominantStatus(members)]
+              // One status dot for the whole body (available = green token, or the
+              // escalated urgency color), pinned to the top-right corner of the
+              // largest member table.
+              const dot = statusColor
               const largest = members.reduce((a, b) =>
                 b.size.x * b.size.y > a.size.x * a.size.y ? b : a,
               )
