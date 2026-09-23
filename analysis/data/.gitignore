@@ -1,0 +1,4 @@
+# Real venue data — never commit.
+*.csv
+*.json
+!.gitignore
