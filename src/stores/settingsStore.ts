@@ -57,6 +57,12 @@ interface SettingsState {
    */
   autoTurnover: boolean
   /**
+   * When true, `clear` returns a party's tables straight to available and the
+   * `cleaning` state is never entered. Separate from `turnoverBufferMin`, which
+   * also spaces bookings inside the Seating Engine.
+   */
+  skipCleaning: boolean
+  /**
    * Restaurant rules (Phase 8; per-restaurant in Phase 10). Table stay time in
    * minutes: the default a new booking gets, and the hard maximum.
    */
@@ -113,6 +119,7 @@ interface SettingsState {
   setSnapToGrid: (snap: boolean) => void
   setPathWidth: (width: number) => void
   setAutoTurnover: (on: boolean) => void
+  setSkipCleaning: (on: boolean) => void
   setStayMinutes: (rule: { default?: number; max?: number }) => void
   setReservedLookaheadMin: (minutes: number) => void
   /** Patch the urgency ramp thresholds (one bucket or many). */
@@ -144,6 +151,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   pathWidth: 40,
   seating: DEFAULT_SEATING,
   autoTurnover: true,
+  skipCleaning: false,
   defaultStayMinutes: 120,
   maxStayMinutes: 120,
   reservedLookaheadMin: 60,
@@ -162,6 +170,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       snapToGrid: config.snapToGrid,
       pathWidth: config.pathWidth,
       autoTurnover: config.autoTurnover,
+      skipCleaning: config.skipCleaning,
       defaultStayMinutes: config.defaultStayMinutes,
       maxStayMinutes: config.maxStayMinutes,
       reservedLookaheadMin: config.reservedLookaheadMin,
@@ -186,6 +195,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setSnapToGrid: (snapToGrid) => set({ snapToGrid }),
   setPathWidth: (pathWidth) => set({ pathWidth }),
   setAutoTurnover: (autoTurnover) => set({ autoTurnover }),
+  setSkipCleaning: (skipCleaning) => set({ skipCleaning }),
   setStayMinutes: ({ default: def, max }) =>
     set((s) => ({
       defaultStayMinutes: def ?? s.defaultStayMinutes,
@@ -256,6 +266,7 @@ export const persistableConfig = (s: SettingsState): RestaurantSettingsConfig =>
   snapToGrid: s.snapToGrid,
   pathWidth: s.pathWidth,
   autoTurnover: s.autoTurnover,
+  skipCleaning: s.skipCleaning,
   defaultStayMinutes: s.defaultStayMinutes,
   maxStayMinutes: s.maxStayMinutes,
   reservedLookaheadMin: s.reservedLookaheadMin,

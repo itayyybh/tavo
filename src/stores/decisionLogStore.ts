@@ -4,6 +4,7 @@ import type { Suggestion } from '@/services/seating/types'
 import { toDecisionEntries } from '@/services/seating/decisionLog'
 import {
   insertSeatingDecision,
+  upsertSeatingDecision,
   recordDecisionOutcome,
 } from '@/services/supabase/seatingDecisionsRepo'
 import { createId } from '@/utils'
@@ -16,10 +17,11 @@ import { useSessionStore } from './sessionStore'
  * seating auditable; persisted, it becomes durable decision history / training
  * data for a future model-based scorer.
  *
- * A decision is written to the database once, on `recordAccept` — the moment the
- * host commits to a table and `chosen` + the override signal are both known. Its
- * outcome (`actualMinutes`) is stamped later, on `recordOutcome`, when the party
- * is cleared from the floor.
+ * A decision is written to the database as soon as the engine produces it, in
+ * `logSuggestion`, and updated in place if the host accepts one. Writing only on
+ * acceptance left abandoned runs unrecorded — the very cases where the engine
+ * offered nothing useful — so `chosen is null` now carries that meaning. Its
+ * outcome is stamped later, on `recordOutcome`, when the party is cleared.
  */
 interface DecisionLogState {
   /** Most recent first. */
@@ -52,11 +54,15 @@ interface DecisionLogState {
     chosenIds: ID[],
   ) => void
   /**
-   * Grade a completed seating: stamp the real seated duration onto the
-   * reservation's accepted decision (P3 — outcome recording). No-ops when the
-   * seating never ran the engine.
+   * Grade a completed seating: stamp when the party was seated and when its
+   * tables were cleared onto the reservation's accepted decision. No-ops when
+   * the seating never ran the engine.
+   *
+   * Takes timestamps rather than a duration deliberately — a clear often lands
+   * long after the party left, and only the raw times let that be spotted
+   * later. The usable duration is derived in `seating_decision_outcomes`.
    */
-  recordOutcome: (reservationId: ID, actualMinutes: number) => void
+  recordOutcome: (reservationId: ID, seatedAt: string, clearedAt: string) => void
   clear: () => void
 }
 
@@ -87,6 +93,8 @@ export const useDecisionLogStore = create<DecisionLogState>((set, get) => ({
       ranked: toDecisionEntries(suggestions),
     }
     set((s) => ({ decisions: [decision, ...s.decisions] }))
+    const rid = activeRestaurant()
+    if (rid) persist(insertSeatingDecision(rid, decision))
     return id
   },
   recordAccept: (decisionId, chosenIds) => {
@@ -101,7 +109,7 @@ export const useDecisionLogStore = create<DecisionLogState>((set, get) => ({
       decisions: s.decisions.map((d) => (d.id === decisionId ? accepted : d)),
     }))
     const rid = activeRestaurant()
-    if (rid) persist(insertSeatingDecision(rid, accepted))
+    if (rid) persist(upsertSeatingDecision(rid, accepted))
   },
   logRepack: (reservationId, partySize, predictedMinutes, chosenIds) => {
     const decision: SeatingDecision = {
@@ -118,16 +126,16 @@ export const useDecisionLogStore = create<DecisionLogState>((set, get) => ({
     const rid = activeRestaurant()
     if (rid) persist(insertSeatingDecision(rid, decision))
   },
-  recordOutcome: (reservationId, actualMinutes) => {
+  recordOutcome: (reservationId, seatedAt, clearedAt) => {
     set((s) => ({
       decisions: s.decisions.map((d) =>
-        d.reservationId === reservationId && d.chosen && d.actualMinutes === undefined
-          ? { ...d, actualMinutes }
+        d.reservationId === reservationId && d.chosen && d.clearedAt === undefined
+          ? { ...d, seatedAt, clearedAt }
           : d,
       ),
     }))
     const rid = activeRestaurant()
-    if (rid) persist(recordDecisionOutcome(rid, reservationId, actualMinutes))
+    if (rid) persist(recordDecisionOutcome(rid, reservationId, seatedAt, clearedAt))
   },
   clear: () => set({ decisions: [] }),
 }))

@@ -5,6 +5,7 @@ import { placeMergedBlock, zoneArrangeDir } from '@/services/floor'
 import { useDecisionLogStore } from './decisionLogStore'
 import { useLayoutStore } from './layoutStore'
 import { useReservationStore } from './reservationStore'
+import { useSettingsStore } from './settingsStore'
 
 /**
  * Floor Store (Phase 8) — the runtime override layer for the CURRENT shift.
@@ -365,9 +366,19 @@ export const useFloorStore = create<FloorState>((set, get) => {
       const positionOverrides = { ...state.positionOverrides }
       const rotationOverrides = { ...state.rotationOverrides }
       const ts = now()
+      // `skipCleaning` sends the tables straight back to available: dropping the
+      // override restores each table's design-time status. Note this is NOT the
+      // same as a zero turnover buffer — that value also spaces bookings inside
+      // the Seating Engine.
+      const skipCleaning = useSettingsStore.getState().skipCleaning
       for (const id of seating.tableIds) {
-        statusOverrides[id] = 'cleaning'
-        cleaningSince[id] = ts
+        if (skipCleaning) {
+          delete statusOverrides[id]
+          delete cleaningSince[id]
+        } else {
+          statusOverrides[id] = 'cleaning'
+          cleaningSince[id] = ts
+        }
         delete positionOverrides[id]
         delete rotationOverrides[id]
       }
@@ -383,13 +394,14 @@ export const useFloorStore = create<FloorState>((set, get) => {
     })
     useReservationStore.getState().setStatus(seating.reservationId, 'completed')
 
-    // Grade the engine's prediction: stamp the real seated duration onto this
-    // reservation's decision (P3 — outcome recording). No-ops if the seating
-    // never ran the engine.
-    const seatedMs = Date.parse(seating.seatedAt)
-    if (!Number.isNaN(seatedMs)) {
-      const actualMinutes = Math.max(0, Math.round((Date.now() - seatedMs) / 60000))
-      useDecisionLogStore.getState().recordOutcome(seating.reservationId, actualMinutes)
+    // Record when the party sat and when the host cleared it. These are facts;
+    // whether the gap between them is a real seated duration is decided by
+    // `seating_decision_outcomes`, not here. No-ops if the seating never ran
+    // the engine.
+    if (!Number.isNaN(Date.parse(seating.seatedAt))) {
+      useDecisionLogStore
+        .getState()
+        .recordOutcome(seating.reservationId, seating.seatedAt, new Date().toISOString())
     }
   },
 

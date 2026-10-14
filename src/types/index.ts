@@ -503,6 +503,11 @@ export interface RestaurantSettingsConfig {
   snapToGrid: boolean
   pathWidth: number
   autoTurnover: boolean
+  /**
+   * When true, clearing a party sends its tables straight to `available`,
+   * skipping the `cleaning` turnover state entirely.
+   */
+  skipCleaning: boolean
   defaultStayMinutes: number
   maxStayMinutes: number
   reservedLookaheadMin: number
@@ -569,8 +574,17 @@ export interface SeatingDecision {
    */
   predictedMinutes?: number
   /**
-   * The real seated duration in minutes, stamped when the party is cleared from
-   * the floor. Undefined until the party completes.
+   * When the party was seated, and when the host cleared its tables. Stored as
+   * facts rather than as a duration: a clear can land long after the party
+   * actually left (hosts clear at the next shift), and only the raw timestamps
+   * let that be detected afterwards. See `seating_decision_outcomes`.
+   */
+  seatedAt?: string
+  clearedAt?: string
+  /**
+   * @deprecated Derived duration written by clients before 2026-09. Unreliable
+   * — most values measured time-until-cleared-in-UI, not seated duration. Read
+   * only; new decisions leave it undefined.
    */
   actualMinutes?: number
 }

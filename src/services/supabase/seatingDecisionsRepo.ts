@@ -10,12 +10,19 @@ import {
  * Seating decisions repository (Phase 11 — AI preparation).
  *
  * Persists the engine's decision log so it survives reloads and becomes durable
- * decision history. Append-only: a decision is written once, when the host
- * accepts a suggestion. RLS is the real tenant guard; scoping by `restaurantId`
+ * decision history. RLS is the real tenant guard; scoping by `restaurantId`
  * keeps queries explicit and payloads small.
+ *
+ * A row is written when the engine PRODUCES suggestions, not when the host
+ * accepts one, and updated in place if an acceptance follows. Writing only on
+ * acceptance made abandoned suggestion runs invisible: a run the host ignored —
+ * precisely the case where the engine offered nothing usable — left no trace,
+ * so the log could never show where the engine failed to help.
+ *
+ * A row with `chosen is null` therefore means "suggested, nothing taken".
  */
 
-/** Insert one accepted seating decision. The row carries a client-minted id. */
+/** Insert a decision as soon as the engine produces it. Client-minted id. */
 export async function insertSeatingDecision(
   restaurantId: ID,
   decision: SeatingDecision,
@@ -27,10 +34,31 @@ export async function insertSeatingDecision(
 }
 
 /**
- * Stamp the real seated duration onto a reservation's accepted decision (P3 —
- * outcome recording). Targets the latest *accepted* decision (`chosen not null`)
- * for the reservation; a manual seat that never ran the engine has no such row
- * and this no-ops.
+ * Write the host's acceptance onto a decision.
+ *
+ * An upsert rather than an update: `logSuggestion` fires its insert and forgets
+ * it, so that write may have failed or still be in flight. Upserting the whole
+ * decision makes acceptance correct either way, and idempotent if retried.
+ */
+export async function upsertSeatingDecision(
+  restaurantId: ID,
+  decision: SeatingDecision,
+): Promise<void> {
+  const { error } = await supabase
+    .from('seating_decisions')
+    .upsert(seatingDecisionToRow(restaurantId, decision), { onConflict: 'id' })
+  if (error) throw error
+}
+
+/**
+ * Stamp the seating's start and clear times onto a reservation's accepted
+ * decision. Targets the latest *accepted* decision (`chosen not null`) for the
+ * reservation; a manual seat that never ran the engine has no such row and this
+ * no-ops.
+ *
+ * Writes timestamps, never a duration: whether the gap between them is a real
+ * seated duration is a judgement that belongs in `seating_decision_outcomes`,
+ * where it can be revised without re-collecting the data.
  *
  * PostgREST can't order+limit an UPDATE inline, so we resolve the target id
  * first, then patch by id — two round-trips, fire-and-forget from the store.
@@ -38,7 +66,8 @@ export async function insertSeatingDecision(
 export async function recordDecisionOutcome(
   restaurantId: ID,
   reservationId: ID,
-  actualMinutes: number,
+  seatedAt: string,
+  clearedAt: string,
 ): Promise<void> {
   const { data, error } = await supabase
     .from('seating_decisions')
@@ -53,7 +82,7 @@ export async function recordDecisionOutcome(
   if (!data) return
   const { error: updateError } = await supabase
     .from('seating_decisions')
-    .update({ actual_minutes: actualMinutes })
+    .update({ seated_at: seatedAt, cleared_at: clearedAt })
     .eq('id', (data as { id: string }).id)
   if (updateError) throw updateError
 }

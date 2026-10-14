@@ -23,6 +23,8 @@ export function FloorSettings() {
 
   const autoTurnover = useSettingsStore((s) => s.autoTurnover)
   const setAutoTurnover = useSettingsStore((s) => s.setAutoTurnover)
+  const skipCleaning = useSettingsStore((s) => s.skipCleaning)
+  const setSkipCleaning = useSettingsStore((s) => s.setSkipCleaning)
   const turnoverBufferMin = useSettingsStore((s) => s.seating.turnoverBufferMin)
   const updateSeatingConfig = useSettingsStore((s) => s.updateSeatingConfig)
   const reservedLookaheadMin = useSettingsStore((s) => s.reservedLookaheadMin)
@@ -57,8 +59,12 @@ export function FloorSettings() {
       </SettingsSection>
 
       <SettingsSection title={t('seating.title')} description={t('seating.description')}>
+        <SettingRow label={t('seating.skipCleaning.label')} help={t('seating.skipCleaning.help')} htmlFor="set-skip-clean">
+          <Toggle id="set-skip-clean" checked={skipCleaning} onChange={setSkipCleaning} aria-label={t('seating.skipCleaning.label')} />
+        </SettingRow>
+        <SettingsDivider />
         <SettingRow label={t('seating.autoTurnover.label')} help={t('seating.autoTurnover.help')} htmlFor="set-auto">
-          <Toggle id="set-auto" checked={autoTurnover} onChange={setAutoTurnover} aria-label={t('seating.autoTurnover.label')} />
+          <Toggle id="set-auto" checked={autoTurnover} onChange={setAutoTurnover} disabled={skipCleaning} aria-label={t('seating.autoTurnover.label')} />
         </SettingRow>
         <SettingsDivider />
         <SettingRow label={t('seating.turnoverBuffer.label')} help={t('seating.turnoverBuffer.help')} htmlFor="set-buffer">

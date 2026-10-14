@@ -26,7 +26,7 @@ describe('decisionLogStore.logRepack', () => {
     // Carries an id + timestamp, and no outcome yet.
     expect(decision.id).toBeTruthy()
     expect(decision.ts).toBeTruthy()
-    expect(decision.actualMinutes).toBeUndefined()
+    expect(decision.clearedAt).toBeUndefined()
   })
 
   it('prepends newest-first and is graded by recordOutcome later', () => {
@@ -36,11 +36,16 @@ describe('decisionLogStore.logRepack', () => {
 
     expect(useDecisionLogStore.getState().decisions[0].reservationId).toBe('res-2')
 
-    // A repack decision has `chosen`, so outcome recording stamps its duration.
-    store.recordOutcome('res-1', 105)
+    // A repack decision has `chosen`, so outcome recording stamps its times.
+    const seatedAt = '2026-09-20T18:00:00.000Z'
+    const clearedAt = '2026-09-20T19:45:00.000Z'
+    store.recordOutcome('res-1', seatedAt, clearedAt)
     const graded = useDecisionLogStore
       .getState()
       .decisions.find((d) => d.reservationId === 'res-1')
-    expect(graded?.actualMinutes).toBe(105)
+    expect(graded?.seatedAt).toBe(seatedAt)
+    expect(graded?.clearedAt).toBe(clearedAt)
+    // The duration itself is derived downstream, never stored by the client.
+    expect(graded?.actualMinutes).toBeUndefined()
   })
 })

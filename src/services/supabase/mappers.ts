@@ -127,6 +127,8 @@ export interface SeatingDecisionRow {
   chosen: string[] | null
   overridden: boolean
   predicted_minutes: number | null
+  seated_at: string | null
+  cleared_at: string | null
   actual_minutes: number | null
   created_at: string
 }
@@ -141,6 +143,8 @@ export function seatingDecisionFromRow(row: SeatingDecisionRow): SeatingDecision
     chosen: row.chosen ?? undefined,
     overridden: row.overridden,
     predictedMinutes: row.predicted_minutes ?? undefined,
+    seatedAt: row.seated_at ?? undefined,
+    clearedAt: row.cleared_at ?? undefined,
     actualMinutes: row.actual_minutes ?? undefined,
   }
 }
@@ -160,6 +164,8 @@ export function seatingDecisionToRow(
     chosen: d.chosen ?? null,
     overridden: d.overridden ?? false,
     predicted_minutes: d.predictedMinutes ?? null,
+    seated_at: d.seatedAt ?? null,
+    cleared_at: d.clearedAt ?? null,
     actual_minutes: d.actualMinutes ?? null,
   }
 }
@@ -172,6 +178,7 @@ export interface RestaurantSettingsRow {
   snap_to_grid: boolean
   path_width: number
   auto_turnover: boolean
+  skip_cleaning: boolean
   default_stay_minutes: number
   max_stay_minutes: number
   reserved_lookahead_min: number
@@ -240,6 +247,7 @@ export function settingsFromRow(row: RestaurantSettingsRow): RestaurantSettingsC
     snapToGrid: row.snap_to_grid,
     pathWidth: row.path_width,
     autoTurnover: row.auto_turnover,
+    skipCleaning: row.skip_cleaning ?? false,
     defaultStayMinutes: row.default_stay_minutes,
     maxStayMinutes: row.max_stay_minutes,
     reservedLookaheadMin: row.reserved_lookahead_min,
@@ -264,6 +272,7 @@ export function settingsToRow(
     snap_to_grid: config.snapToGrid,
     path_width: config.pathWidth,
     auto_turnover: config.autoTurnover,
+    skip_cleaning: config.skipCleaning,
     default_stay_minutes: config.defaultStayMinutes,
     max_stay_minutes: config.maxStayMinutes,
     reserved_lookahead_min: config.reservedLookaheadMin,
