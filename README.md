@@ -4,7 +4,7 @@
 
 Tavo helps a host run the floor: seat guests faster, keep occupancy high, and manage tables, zones, and reservations with minimal effort. It grew out of a real problem at a real restaurant — phone-only reservations with no seating logic behind them — and is now piloted in production on live Friday-night service.
 
-**Live demo:** [restaurant-floor-manager.vercel.app](https://restaurant-floor-manager.vercel.app)
+**Live demo:** [restaurant-floor-manager.vercel.app](https://restaurant-floor-manager.vercel.app) use desktop or ipad to see desktop version
 
 ---
 
