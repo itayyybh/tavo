@@ -82,6 +82,7 @@ const CONFIG: SeatingConfig = {
     capacityFit: 10,
     zoneMatch: 6,
     preferredTable: 8,
+    requestedShape: 0,
     singleTable: 3,
     preferredCombo: 12,
   },

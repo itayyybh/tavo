@@ -1,5 +1,6 @@
 export { AuthGate } from './AuthGate'
 export { AccountMenu } from './AccountMenu'
+export { DemoBanner } from './DemoBanner'
 export { can, useCan } from './permissions'
 export type { PermissionAction } from './permissions'
 export { RequirePermission } from './RequirePermission'
