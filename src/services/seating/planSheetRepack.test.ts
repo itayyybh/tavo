@@ -69,7 +69,7 @@ const CONFIG: SeatingConfig = {
   },
   turnoverBufferMin: 15,
   maxUnderfill: 2,
-  weights: { capacityFit: 10, zoneMatch: 6, preferredTable: 8, singleTable: 3, preferredCombo: 12 },
+  weights: { capacityFit: 10, zoneMatch: 6, preferredTable: 8, requestedShape: 0, singleTable: 3, preferredCombo: 12 },
 }
 
 const floorOf = (tables: Table[]): SeatingFloor => ({
