@@ -22,7 +22,7 @@ sessions).
 
 ## One-time setup
 
-1. **Apply the migration** `supabase/migrations/0025_demo_mode.sql`
+1. **Apply the migrations** `supabase/migrations/0025_demo_mode.sql` and `0026_demo_mode_fixes.sql`
    (`supabase db push`, or paste it into the SQL editor).
    If `create extension pg_cron` fails, enable **pg_cron** under
    *Database → Extensions* and run the last two statements again.
@@ -45,7 +45,9 @@ sessions).
          template_day = excluded.template_day;
    ```
 
-5. Open the app signed out and click **Try the live demo**.
+5. **Set the template's timezone** (copies use it to decide what "today" is):
+   `update restaurants set timezone = 'Asia/Jerusalem' where name = 'Demo Bistro';`
+6. Open the app signed out and click **Try the live demo**.
 
 Editing the template later (with its own account) changes what new guests get;
 existing copies are unaffected.
