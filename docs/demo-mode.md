@@ -29,10 +29,12 @@ sessions).
 2. **Turn on anonymous sign-ins:** *Authentication → Sign In / Providers →
    Allow anonymous sign-ins*. Optionally enable CAPTCHA there too.
 3. **Build the template venue** with a normal account (not the Cafe Jolie one):
-   sign up, create a restaurant such as "Demo Bistro", draw the floor in the
-   editor, and add a day of **made-up** reservations (fake names and phone
-   numbers only).
-4. **Register it as the template** in the SQL editor:
+   sign up, create a restaurant called "Demo Bistro", and draw the floor in the
+   editor (zones named e.g. Inside / Terrace / Bar, 10–15 tables).
+4. **Add fake reservations and register the template in one go:** run
+   `supabase/seed/demo_template_reservations.sql` in the SQL editor (edit the
+   restaurant name and evening at its top). It adds 17 invented reservations
+   and writes `demo_config`. Or register by hand:
 
    ```sql
    insert into demo_config (template_restaurant_id, template_day)
