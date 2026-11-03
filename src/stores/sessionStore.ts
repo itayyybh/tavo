@@ -4,9 +4,11 @@ import type { ID } from '@/types'
 import {
   getMembership,
   getSession,
+  isGuest,
   onAuthChange,
   redeemInvite,
   signOut as authSignOut,
+  startDemo,
   type Membership,
   type MembershipRole,
 } from '@/services/supabase/auth'
@@ -42,6 +44,8 @@ interface SessionState {
   restaurantName: string | null
   restaurantLogoUrl: string | null
   role: MembershipRole | null
+  /** Why the last demo start failed, shown on the sign-in screen. */
+  demoError: string | null
   /** Boot the store: resolve the persisted session and subscribe to changes. */
   init: () => void
   /** Re-read membership (e.g. after bootstrapping a restaurant). */
@@ -51,15 +55,35 @@ interface SessionState {
 
 let unsubscribe: (() => void) | null = null
 
+/** Thrown when a guest session can't get its demo restaurant. */
+class DemoUnavailableError extends Error {
+  constructor() {
+    super("The demo isn't available right now. Please try again later.")
+  }
+}
+
 /**
  * The caller's membership, redeeming a pending invite first if they have none.
  * Centralizing redemption here (rather than in the signup screen) removes the
  * race where the auth listener resolves "no restaurant" before the invite is
  * redeemed — which dropped invited users onto the create-a-restaurant path.
+ * Demo guests get their private demo restaurant here for the same reason.
  */
-async function resolveMembershipWithInvite(): Promise<Membership | null> {
+async function resolveMembershipWithInvite(user: User | null): Promise<Membership | null> {
   let membership = await getMembership()
   if (membership) return membership
+
+  if (isGuest(user)) {
+    try {
+      await startDemo()
+      return await getMembership()
+    } catch {
+      // Demo not configured / failed: drop the guest session rather than leave
+      // an anonymous user on the create-a-restaurant screen.
+      await authSignOut().catch(() => {})
+      throw new DemoUnavailableError()
+    }
+  }
 
   const pending = getPendingInvite()
   if (!pending) return null
@@ -82,11 +106,20 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   restaurantName: null,
   restaurantLogoUrl: null,
   role: null,
+  demoError: null,
 
   init: () => {
+    const onResolveError = (err: unknown) =>
+      set({
+        status: 'signed_out',
+        user: null,
+        userName: null,
+        demoError: err instanceof DemoUnavailableError ? err.message : null,
+      })
+
     // Resolve the current session once, then react to every future change.
-    const resolve = async (userPresent: boolean) => {
-      if (!userPresent) {
+    const resolve = async (user: User | null) => {
+      if (!user) {
         set({
           status: 'signed_out',
           user: null,
@@ -98,10 +131,11 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         })
         return
       }
-      const membership = await resolveMembershipWithInvite()
+      const membership = await resolveMembershipWithInvite(user)
       if (membership) {
         set({
           status: 'ready',
+          demoError: null,
           restaurantId: membership.restaurantId,
           restaurantName: membership.restaurantName,
           restaurantLogoUrl: membership.restaurantLogoUrl,
@@ -120,7 +154,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
     getSession().then((session) => {
       set({ user: session?.user ?? null, userName: nameFromUser(session?.user ?? null) })
-      resolve(!!session).catch(() => set({ status: 'signed_out' }))
+      resolve(session?.user ?? null).catch(onResolveError)
     })
 
     unsubscribe?.()
@@ -131,13 +165,14 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         set({ status: 'recovery' })
         return
       }
-      resolve(!!session).catch(() => set({ status: 'signed_out' }))
+      resolve(session?.user ?? null).catch(onResolveError)
     })
   },
 
   refreshMembership: async () => {
-    if (!get().user) return
-    const membership = await resolveMembershipWithInvite()
+    const user = get().user
+    if (!user) return
+    const membership = await resolveMembershipWithInvite(user)
     if (membership) {
       set({
         status: 'ready',

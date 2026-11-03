@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Button, Heading, Input, Text } from '@/components/ui'
-import { getSession, sendPasswordReset, signIn, signUp } from '@/services/supabase/auth'
+import { getSession, sendPasswordReset, signIn, signInAsGuest, signUp } from '@/services/supabase/auth'
+import { useSessionStore } from '@/stores'
 import { useInviteCode } from './useInviteCode'
 import { getPendingInvite } from './pendingInvite'
 
@@ -22,6 +23,12 @@ export function AuthScreen() {
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+
+  const demoError = useSessionStore((s) => s.demoError)
+  const [demoBusy, setDemoBusy] = useState(false)
+  // If the demo fails after sign-in, the store signs the guest out and sets
+  // demoError while this screen stays mounted: treat that as "not busy".
+  const demoOpening = demoBusy && !demoError
 
   const isSignup = mode === 'signup'
   const isReset = mode === 'reset'
@@ -69,6 +76,21 @@ export function AuthScreen() {
       setError(err instanceof Error ? err.message : 'Something went wrong.')
     } finally {
       setBusy(false)
+    }
+  }
+
+  // Guest demo: sign in anonymously; the session store then creates the
+  // guest's private demo restaurant and opens the app.
+  const tryDemo = async () => {
+    setError(null)
+    setNotice(null)
+    useSessionStore.setState({ demoError: null })
+    setDemoBusy(true)
+    try {
+      await signInAsGuest()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'The demo is not available right now.')
+      setDemoBusy(false)
     }
   }
 
@@ -149,7 +171,9 @@ export function AuthScreen() {
             </button>
           )}
 
-          {error && <Text className="text-sm text-status-occupied">{error}</Text>}
+          {(error ?? demoError) && (
+            <Text className="text-sm text-status-occupied">{error ?? demoError}</Text>
+          )}
           {notice && <Text className="text-sm text-muted">{notice}</Text>}
 
           <Button type="submit" disabled={busy}>
@@ -164,6 +188,23 @@ export function AuthScreen() {
                   : 'Sign in'}
           </Button>
         </form>
+
+        {!invite && !isReset && (
+          <div className="mt-6 border-t border-line pt-6">
+            <Button
+              type="button"
+              variant="secondary"
+              className="w-full"
+              disabled={busy || demoOpening}
+              onClick={tryDemo}
+            >
+              {demoOpening ? 'Opening the demo…' : 'Try the live demo'}
+            </Button>
+            <Text className="mt-2 text-center text-xs text-muted">
+              No sign-up. You get a private sample restaurant, deleted after 24 hours.
+            </Text>
+          </div>
+        )}
 
         {isReset ? (
           <button

@@ -49,6 +49,28 @@ export async function signIn(email: string, password: string): Promise<Session> 
   return data.session
 }
 
+/**
+ * Demo mode: sign in as an anonymous guest (no email, no password). The session
+ * store then gives the guest their own copy of the demo restaurant via
+ * `startDemo`. Requires "Allow anonymous sign-ins" in Supabase Auth settings.
+ */
+export async function signInAsGuest(): Promise<void> {
+  const { error } = await supabase.auth.signInAnonymously()
+  if (error) throw error
+}
+
+/** Create (or return) the calling guest's private demo restaurant. Returns its id. */
+export async function startDemo(): Promise<ID> {
+  const { data, error } = await supabase.rpc('start_demo')
+  if (error) throw error
+  return data as ID
+}
+
+/** True for anonymous demo sessions. */
+export function isGuest(user: User | null): boolean {
+  return user?.is_anonymous === true
+}
+
 export async function signOut(): Promise<void> {
   const { error } = await supabase.auth.signOut()
   if (error) throw error
